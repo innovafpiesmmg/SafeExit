@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { playSuccessSound, playErrorSound } from "@/lib/sounds";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import {
   Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle,
   RotateCcw, Send, LogOut, Wifi, WifiOff, Settings, ArrowLeft,
@@ -371,6 +372,8 @@ export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
           </Button>
         </div>
       </header>
+
+      <PwaInstallBanner />
 
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-xl mx-auto w-full">
         <div className="w-full space-y-5">

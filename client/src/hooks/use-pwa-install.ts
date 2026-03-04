@@ -25,23 +25,37 @@ if (typeof window !== "undefined") {
   });
 }
 
+function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isInStandaloneMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as any).standalone === true;
+}
+
 export function usePwaInstall() {
-  const [canInstall, setCanInstall] = useState(!!deferredPrompt);
-  const [isInstalled, setIsInstalled] = useState(
-    typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches
-  );
+  const [canInstallNative, setCanInstallNative] = useState(!!deferredPrompt);
+  const [isInstalled, setIsInstalled] = useState(isInStandaloneMode());
+  const [showIosPrompt, setShowIosPrompt] = useState(false);
 
   useEffect(() => {
     const update = () => {
-      setCanInstall(!!deferredPrompt);
-      if (!deferredPrompt && !isInstalled) {
-        setIsInstalled(window.matchMedia("(display-mode: standalone)").matches);
-      }
+      setCanInstallNative(!!deferredPrompt);
+      setIsInstalled(isInStandaloneMode());
     };
     listeners.add(update);
     update();
+
+    if (isIos() && !isInStandaloneMode()) {
+      setShowIosPrompt(true);
+    }
+
     return () => { listeners.delete(update); };
-  }, [isInstalled]);
+  }, []);
 
   const install = async () => {
     if (!deferredPrompt) return false;
@@ -49,18 +63,27 @@ export function usePwaInstall() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === "accepted") {
       deferredPrompt = null;
-      setCanInstall(false);
+      setCanInstallNative(false);
       setIsInstalled(true);
     }
     return outcome === "accepted";
   };
 
-  const dismissed = () => {
+  const dismiss = () => {
     sessionStorage.setItem("safeexit_pwa_dismissed", "1");
-    setCanInstall(false);
+    setCanInstallNative(false);
+    setShowIosPrompt(false);
   };
 
   const wasDismissed = typeof window !== "undefined" && sessionStorage.getItem("safeexit_pwa_dismissed") === "1";
 
-  return { canInstall: canInstall && !wasDismissed && !isInstalled, isInstalled, install, dismissed };
+  const canInstall = !isInstalled && !wasDismissed && (canInstallNative || showIosPrompt);
+
+  return {
+    canInstall,
+    isInstalled,
+    isIos: isIos(),
+    install,
+    dismiss,
+  };
 }
