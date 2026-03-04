@@ -220,14 +220,25 @@ export default function GuardView() {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-white">
-          <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full flex items-center justify-center mb-6 ${
-            isAuthorized ? "bg-white/20" : "bg-white/20"
-          }`}>
-            {isAuthorized
-              ? <ShieldCheck className="w-20 h-20 sm:w-24 sm:h-24" />
-              : <ShieldX className="w-20 h-20 sm:w-24 sm:h-24" />
-            }
-          </div>
+          {scanResult.student?.photoUrl ? (
+            <div className={`w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden mb-5 border-4 ${
+              isAuthorized ? "border-white/40" : "border-white/40"
+            } shadow-2xl`}>
+              <img
+                src={scanResult.student.photoUrl}
+                alt={`${scanResult.student.firstName} ${scanResult.student.lastName}`}
+                className="w-full h-full object-cover"
+                data-testid="img-guard-student-photo"
+              />
+            </div>
+          ) : (
+            <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full flex items-center justify-center mb-5 bg-white/20`}>
+              {isAuthorized
+                ? <ShieldCheck className="w-20 h-20 sm:w-24 sm:h-24" />
+                : <ShieldX className="w-20 h-20 sm:w-24 sm:h-24" />
+              }
+            </div>
+          )}
 
           <h1
             className="text-6xl sm:text-8xl md:text-9xl font-black tracking-tight text-center leading-none"
@@ -241,19 +252,13 @@ export default function GuardView() {
           </p>
 
           {scanResult.student && (
-            <div className="flex items-center gap-5 mt-8 p-5 rounded-2xl bg-white/15 backdrop-blur-sm max-w-lg w-full">
-              <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-3 border-white/30">
-                <AvatarImage src={scanResult.student.photoUrl || undefined} />
-                <AvatarFallback className="text-2xl sm:text-3xl font-bold bg-white/20 text-white">
-                  {scanResult.student.firstName[0]}{scanResult.student.lastName[0]}
-                </AvatarFallback>
-              </Avatar>
-              <div>
+            <div className="flex items-center gap-5 mt-6 p-5 rounded-2xl bg-white/15 backdrop-blur-sm max-w-lg w-full">
+              <div className="flex-1 text-center">
                 <p className="font-bold text-2xl sm:text-3xl leading-tight" data-testid="text-guard-student-name">
                   {scanResult.student.firstName} {scanResult.student.lastName}
                 </p>
                 <p className="text-lg text-white/70 mt-1">{scanResult.student.course}</p>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center justify-center gap-2 mt-2">
                   <Badge className="bg-white/20 text-white border-white/30 text-sm">
                     {scanResult.student.age} años
                   </Badge>

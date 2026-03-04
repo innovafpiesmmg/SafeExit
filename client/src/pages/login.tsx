@@ -99,12 +99,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 p-3 rounded-md bg-muted text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">Cuentas de demostración:</p>
-              <p>Admin: <span className="font-mono">admin / admin123</span></p>
-              <p>Profesor: <span className="font-mono">profesor1 / guard123</span></p>
-            </div>
           </CardContent>
         </Card>
         <Footer />

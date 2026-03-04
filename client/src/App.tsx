@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import StudentsPage from "@/pages/students";
 import GroupsPage from "@/pages/groups";
@@ -37,6 +38,7 @@ function AdminRouter() {
 
 function AppLayout() {
   const { user, loading } = useAuth();
+  const [location] = useLocation();
 
   if (loading) {
     return (
@@ -49,7 +51,10 @@ function AppLayout() {
     );
   }
 
-  if (!user) return <LoginPage />;
+  if (!user) {
+    if (location === "/login") return <LoginPage />;
+    return <LandingPage />;
+  }
 
   if (user.role === "guard") {
     return <GuardView />;
