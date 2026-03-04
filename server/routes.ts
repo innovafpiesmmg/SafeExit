@@ -11,7 +11,9 @@ import path from "path";
 import fs from "fs";
 import * as XLSX from "xlsx";
 
-const uploadsDir = path.resolve("client/public/uploads");
+const uploadsDir = process.env.NODE_ENV === "production"
+  ? path.resolve("uploads")
+  : path.resolve("client/public/uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -71,7 +73,11 @@ export async function registerRoutes(
       resave: false,
       saveUninitialized: false,
       store: new MemoryStore({ checkPeriod: 86400000 }),
-      cookie: { maxAge: 24 * 60 * 60 * 1000 },
+      cookie: {
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: process.env.SECURE_COOKIES === "true",
+        sameSite: "lax",
+      },
     })
   );
 

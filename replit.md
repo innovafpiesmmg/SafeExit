@@ -44,22 +44,34 @@ A PWA web application for managing student departures from a school using QR cod
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan)
 - **guard**: Dedicated full-screen view (guard-view.tsx) — no sidebar, tablet-optimized with large touch targets (h-14, h-16 buttons), live clock, WiFi status, and daily stats
 
-## Demo Credentials
-- Admin: `admin` / `admin123`
-- Teacher: `profesor1` / `guard123`
+## Default Credentials (dev only)
+- Admin: `admin` / `admin123` (env ADMIN_USER/ADMIN_PASS override in production)
+
+## Deployment
+- `install.sh` - Automated installer for Ubuntu servers (PostgreSQL, Node.js, Nginx, systemd)
+- Seed creates admin from ADMIN_USER/ADMIN_PASS/ADMIN_NAME env vars
+- SECURE_COOKIES env var controls cookie security (false for HTTP, true for HTTPS/Cloudflare)
+- Config stored at /etc/safeexit/env (outside repo, survives git pull)
+- Uploads in production stored at ./uploads/ (served by static.ts)
+- Optional Cloudflare Tunnel support
 
 ## File Structure
 - `shared/schema.ts` - Database models and types
 - `server/routes.ts` - API endpoints
 - `server/storage.ts` - Database CRUD operations
-- `server/seed.ts` - Initial seed data
+- `server/seed.ts` - Initial seed data (admin from env vars)
+- `server/static.ts` - Production static file serving (includes uploads)
 - `server/db.ts` - Database connection
+- `client/src/pages/landing.tsx` - Public landing page with stock images
 - `client/src/pages/guard-view.tsx` - Dedicated guard/tablet view (full-screen, no sidebar)
 - `client/src/pages/guards.tsx` - Guard/teacher management with Excel import and academic year reset
 - `client/src/pages/` - Page components (login, dashboard, students, groups, calendar, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
+- `client/src/components/footer.tsx` - Footer with ASD logo
 - `client/src/lib/auth.tsx` - Authentication context
 - `client/src/lib/sounds.ts` - Audio feedback for scans
 - `client/public/manifest.json` - PWA manifest
 - `client/public/sw.js` - Service worker for offline caching
 - `client/public/icons/` - PWA icons (SVG)
+- `install.sh` - Automated Ubuntu server installer
+- `README.md` - Full documentation with install/update instructions
