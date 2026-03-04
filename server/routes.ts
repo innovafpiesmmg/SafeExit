@@ -6,6 +6,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
 import { TIME_SLOTS } from "@shared/schema";
+import { sendLateArrivalEmail, testSmtpConnection } from "./email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -301,6 +302,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/groups/:id/students", requireAuth, async (req, res) => {
+    try {
+      const groupStudents = await storage.getStudentsByGroup(parseInt(req.params.id));
+      res.json(groupStudents);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.patch("/api/groups/:id", requireAuth, requireAdmin, async (req, res) => {
     const group = await storage.updateGroup(parseInt(req.params.id), req.body);
     if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
@@ -320,14 +330,14 @@ export async function registerRoutes(
   app.get("/api/students/template", requireAuth, requireAdmin, (_req, res) => {
     const wb = XLSX.utils.book_new();
     const headers = [
-      ["Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua"],
-      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO"],
-      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI"],
+      ["Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua", "Email"],
+      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO", "familia.garcia@ejemplo.com"],
+      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     ws["!cols"] = [
       { wch: 15 }, { wch: 25 }, { wch: 18 },
-      { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 },
+      { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 30 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Alumnos");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
@@ -369,6 +379,7 @@ export async function registerRoutes(
         const groupName = String(row["Grupo"] || "").trim();
         const parentalAuth = String(row["Autorizacion_Paterna"] || "").trim().toUpperCase();
         const busAuth = String(row["Autorizacion_Guagua"] || "").trim().toUpperCase();
+        const email = String(row["Email"] || "").trim() || null;
 
         if (!firstName || !lastName) {
           errors.push(`Fila ${rowNum}: Nombre o Apellidos vacíos`);
@@ -403,6 +414,7 @@ export async function registerRoutes(
             photoUrl: null,
             parentalAuthorization: parentalAuth === "SI" || parentalAuth === "SÍ" || parentalAuth === "TRUE" || parentalAuth === "1",
             busAuthorization: busAuth === "SI" || busAuth === "SÍ" || busAuth === "TRUE" || busAuth === "1",
+            email,
           });
           created.push(student);
         } catch (err: any) {
@@ -756,6 +768,88 @@ export async function registerRoutes(
       res.json({ message: "Curso académico reiniciado correctamente. Todos los datos han sido eliminados." });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/late-arrivals", requireAuth, async (req, res) => {
+    try {
+      const { qrCode, studentId, notes } = req.body;
+      if (!qrCode && !studentId) {
+        return res.status(400).json({ message: "Debes escanear un QR o seleccionar un alumno" });
+      }
+      if (notes && typeof notes !== "string") {
+        return res.status(400).json({ message: "Las notas deben ser texto" });
+      }
+      const userId = (req.session as any).userId;
+      let student;
+
+      if (qrCode) {
+        if (typeof qrCode !== "string") return res.status(400).json({ message: "Código QR inválido" });
+        student = await storage.getStudentByQr(qrCode);
+        if (!student) return res.status(404).json({ message: "QR no reconocido" });
+      } else {
+        const id = parseInt(studentId);
+        if (isNaN(id)) return res.status(400).json({ message: "ID de alumno inválido" });
+        student = await storage.getStudent(id);
+        if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
+      }
+
+      let emailSent = false;
+      if (student.email) {
+        emailSent = await sendLateArrivalEmail(student, new Date());
+      }
+
+      const arrival = await storage.createLateArrival({
+        studentId: student.id,
+        registeredBy: userId,
+        emailSent,
+        notes: notes || null,
+      });
+
+      const group = await storage.getGroup(student.groupId);
+      res.json({
+        ...arrival,
+        studentName: `${student.firstName} ${student.lastName}`,
+        studentPhoto: student.photoUrl,
+        groupName: group?.name || "Sin grupo",
+        course: student.course,
+        emailSent,
+        studentEmail: student.email,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/late-arrivals", requireAuth, async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo;
+      if (req.query.groupId) filters.groupId = parseInt(req.query.groupId as string);
+      if (req.query.studentName) filters.studentName = req.query.studentName;
+      const arrivals = await storage.getLateArrivals(filters);
+      res.json(arrivals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/late-arrivals/today", requireAuth, async (_req, res) => {
+    try {
+      const arrivals = await storage.getTodayLateArrivals();
+      res.json(arrivals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/settings/test-smtp", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      const result = await testSmtpConnection();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 

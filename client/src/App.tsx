@@ -19,6 +19,8 @@ import PrintPage from "@/pages/print";
 import GuardView from "@/pages/guard-view";
 import GuardsPage from "@/pages/guards";
 import TutorView from "@/pages/tutor-view";
+import LateArrivalsPage from "@/pages/late-arrivals";
+import SettingsPage from "@/pages/settings";
 import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
@@ -31,8 +33,10 @@ function AdminRouter() {
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/scan" component={ScannerPage} />
       <Route path="/guards" component={GuardsPage} />
+      <Route path="/late-arrivals" component={LateArrivalsPage} />
       <Route path="/history" component={HistoryPage} />
       <Route path="/print" component={PrintPage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );

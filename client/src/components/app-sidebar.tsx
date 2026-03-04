@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, ShieldCheck, UserCheck,
+  History, Printer, LogOut, ShieldCheck, UserCheck, Clock, Settings,
 } from "lucide-react";
 
 const adminItems = [
@@ -26,8 +26,10 @@ const adminItems = [
   { title: "Grupos", url: "/groups", icon: GraduationCap },
   { title: "Profesores", url: "/guards", icon: UserCheck },
   { title: "Calendario", url: "/calendar", icon: CalendarDays },
+  { title: "Entradas Tardías", url: "/late-arrivals", icon: Clock },
   { title: "Historial", url: "/history", icon: History },
   { title: "Imprimir Carnets", url: "/print", icon: Printer },
+  { title: "Ajustes", url: "/settings", icon: Settings },
 ];
 
 const guardItems = [

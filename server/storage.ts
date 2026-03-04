@@ -1,13 +1,14 @@
 import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, students, groups, groupSchedules, exitLogs, incidents, appSettings,
+  users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
   type GroupSchedule, type InsertGroupSchedule,
   type ExitLog, type InsertExitLog,
   type Incident, type InsertIncident,
+  type LateArrival, type InsertLateArrival,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -55,6 +56,10 @@ export interface IStorage {
   deleteUser(id: number): Promise<void>;
   updateAllGuardPasswords(hashedPassword: string): Promise<void>;
   resetAcademicYear(adminUserId: number): Promise<void>;
+
+  createLateArrival(data: InsertLateArrival): Promise<LateArrival>;
+  getLateArrivals(filters?: { dateFrom?: string; dateTo?: string; groupId?: number; studentName?: string }): Promise<any[]>;
+  getTodayLateArrivals(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -293,11 +298,64 @@ export class DatabaseStorage implements IStorage {
   async resetAcademicYear(adminUserId: number): Promise<void> {
     await db.delete(incidents);
     await db.delete(exitLogs);
+    await db.delete(lateArrivals);
     await db.delete(groupSchedules);
     await db.delete(students);
     await db.delete(groups);
     await db.delete(users).where(ne(users.id, adminUserId));
     await db.delete(appSettings);
+  }
+
+  async createLateArrival(data: InsertLateArrival): Promise<LateArrival> {
+    const [created] = await db.insert(lateArrivals).values(data).returning();
+    return created;
+  }
+
+  async getLateArrivals(filters?: { dateFrom?: string; dateTo?: string; groupId?: number; studentName?: string }): Promise<any[]> {
+    const allArrivals = await db.select().from(lateArrivals).orderBy(desc(lateArrivals.timestamp));
+    const allStudents = await db.select().from(students);
+    const allGroups = await db.select().from(groups);
+    const allUsers = await db.select().from(users);
+
+    let result = allArrivals.map(arrival => {
+      const student = allStudents.find(s => s.id === arrival.studentId);
+      const group = student ? allGroups.find(g => g.id === student.groupId) : undefined;
+      const registrar = arrival.registeredBy ? allUsers.find(u => u.id === arrival.registeredBy) : undefined;
+      return {
+        ...arrival,
+        studentName: student ? `${student.firstName} ${student.lastName}` : "Desconocido",
+        studentPhoto: student?.photoUrl,
+        groupName: group?.name || "Sin grupo",
+        course: student?.course || "",
+        registrarName: registrar?.fullName || "Sistema",
+        studentEmail: student?.email || null,
+      };
+    });
+
+    if (filters?.dateFrom) {
+      const from = new Date(filters.dateFrom);
+      result = result.filter(r => new Date(r.timestamp) >= from);
+    }
+    if (filters?.dateTo) {
+      const to = new Date(filters.dateTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter(r => new Date(r.timestamp) <= to);
+    }
+    if (filters?.groupId) {
+      const studentsInGroup = allStudents.filter(s => s.groupId === filters.groupId).map(s => s.id);
+      result = result.filter(r => studentsInGroup.includes(r.studentId));
+    }
+    if (filters?.studentName) {
+      const search = filters.studentName.toLowerCase();
+      result = result.filter(r => r.studentName.toLowerCase().includes(search));
+    }
+
+    return result;
+  }
+
+  async getTodayLateArrivals(): Promise<any[]> {
+    const today = new Date();
+    return this.getLateArrivals({ dateFrom: today.toISOString().split("T")[0], dateTo: today.toISOString().split("T")[0] });
   }
 }
 

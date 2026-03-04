@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, Share2, Copy, Check, QrCode } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, Share2, Copy, Check, QrCode, Mail } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
@@ -33,7 +33,7 @@ export default function StudentsPage() {
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0,
-    parentalAuthorization: false, busAuthorization: false, photoUrl: "",
+    parentalAuthorization: false, busAuthorization: false, photoUrl: "", email: "",
   });
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
@@ -68,7 +68,7 @@ export default function StudentsPage() {
   });
 
   const resetForm = () => {
-    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, busAuthorization: false, photoUrl: "" });
+    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, busAuthorization: false, photoUrl: "", email: "" });
     setEditing(null);
     setDialogOpen(false);
   };
@@ -78,7 +78,7 @@ export default function StudentsPage() {
     setForm({
       firstName: s.firstName, lastName: s.lastName, dateOfBirth: s.dateOfBirth,
       course: s.course, groupId: s.groupId, parentalAuthorization: s.parentalAuthorization,
-      busAuthorization: s.busAuthorization, photoUrl: s.photoUrl || "",
+      busAuthorization: s.busAuthorization, photoUrl: s.photoUrl || "", email: s.email || "",
     });
     setDialogOpen(true);
   };
@@ -204,6 +204,10 @@ export default function StudentsPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
+                <Label>Email (para notificaciones)</Label>
+                <Input data-testid="input-email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="familia@ejemplo.com" />
+              </div>
+              <div className="space-y-1.5">
                 <Label>Foto</Label>
                 <Input data-testid="input-photo" type="file" accept="image/*" onChange={handlePhotoUpload} />
                 {form.photoUrl && <img src={form.photoUrl} alt="Preview" className="w-16 h-16 rounded-md object-cover mt-2" />}
@@ -291,6 +295,9 @@ export default function StudentsPage() {
                         </Badge>
                         {student.busAuthorization && (
                           <Badge variant="secondary" className="text-xs">Guagua</Badge>
+                        )}
+                        {student.email && (
+                          <Badge variant="outline" className="text-xs"><Mail className="w-3 h-3 mr-1" />Email</Badge>
                         )}
                         <span className="text-xs text-muted-foreground">{age} años</span>
                       </div>

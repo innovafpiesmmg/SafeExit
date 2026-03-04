@@ -38,6 +38,7 @@ export const students = pgTable("students", {
   busAuthorization: boolean("bus_authorization").notNull().default(false),
   qrCode: text("qr_code").notNull().unique(),
   carnetToken: text("carnet_token").unique(),
+  email: text("email"),
 });
 
 export const insertStudentSchema = createInsertSchema(students).omit({ id: true, qrCode: true, carnetToken: true });
@@ -95,6 +96,19 @@ export const TIME_SLOTS = [
   { id: 11, label: "16:45 - 17:40", period: "afternoon" },
   { id: 12, label: "17:40 - 18:35", period: "afternoon" },
 ] as const;
+
+export const lateArrivals = pgTable("late_arrivals", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  registeredBy: integer("registered_by"),
+  emailSent: boolean("email_sent").notNull().default(false),
+  notes: text("notes"),
+});
+
+export const insertLateArrivalSchema = createInsertSchema(lateArrivals).omit({ id: true, timestamp: true });
+export type InsertLateArrival = z.infer<typeof insertLateArrivalSchema>;
+export type LateArrival = typeof lateArrivals.$inferSelect;
 
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
