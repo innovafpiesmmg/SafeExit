@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import type { Student, Group } from "@shared/schema";
 
@@ -22,6 +22,10 @@ export default function StudentsPage() {
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0,
@@ -98,6 +102,29 @@ export default function StudentsPage() {
     }
   };
 
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/students/import", { method: "POST", body: fd, credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setImportResult({ imported: data.imported, errors: data.errors || [] });
+      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+      toast({ title: data.message });
+    } catch (err: any) {
+      toast({ title: "Error en la importación", description: err.message, variant: "destructive" });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const filtered = students?.filter(s => {
     const matchSearch = `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
     const matchGroup = groupFilter === "all" || s.groupId === parseInt(groupFilter);
@@ -111,13 +138,18 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-students-title">Alumnos</h1>
           <p className="text-muted-foreground text-sm mt-1">{students?.length || 0} alumnos registrados</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-student">
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Alumno
-            </Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setImportDialogOpen(true)} data-testid="button-import-excel">
+            <Upload className="w-4 h-4 mr-2" />
+            Importar Excel
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-student">
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Alumno
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Alumno" : "Nuevo Alumno"}</DialogTitle>
@@ -174,6 +206,7 @@ export default function StudentsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -258,6 +291,70 @@ export default function StudentsPage() {
           })}
         </div>
       )}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportResult(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5" />
+              Importar Alumnos desde Excel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Descarga la plantilla, rellénala con los datos de los alumnos y súbela aquí. Los grupos se crean automáticamente si no existen.
+              </p>
+              <Button variant="outline" className="w-full" data-testid="button-download-template" asChild>
+                <a href="/api/students/template" download>
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar Plantilla Excel
+                </a>
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Subir archivo Excel (.xlsx)</Label>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                data-testid="input-import-file"
+                onChange={handleImportFile}
+                disabled={importing}
+              />
+            </div>
+
+            {importing && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Procesando archivo...
+              </div>
+            )}
+
+            {importResult && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {importResult.imported} alumno(s) importado(s) correctamente
+                </div>
+                {importResult.errors.length > 0 && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                    <div className="flex items-center gap-1 text-sm font-medium text-destructive">
+                      <AlertCircle className="w-4 h-4" />
+                      {importResult.errors.length} error(es):
+                    </div>
+                    <ul className="text-xs text-destructive/80 space-y-0.5 max-h-32 overflow-y-auto">
+                      {importResult.errors.map((err, i) => (
+                        <li key={i}>• {err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

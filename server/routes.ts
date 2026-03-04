@@ -9,6 +9,7 @@ import { TIME_SLOTS } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import * as XLSX from "xlsx";
 
 const uploadsDir = path.resolve("client/public/uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -148,6 +149,113 @@ export async function registerRoutes(
   app.get("/api/students", requireAuth, async (_req, res) => {
     const allStudents = await storage.getAllStudents();
     res.json(allStudents);
+  });
+
+  app.get("/api/students/template", requireAuth, requireAdmin, (_req, res) => {
+    const wb = XLSX.utils.book_new();
+    const headers = [
+      ["Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua"],
+      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO"],
+      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    ws["!cols"] = [
+      { wch: 15 }, { wch: 25 }, { wch: 18 },
+      { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, "Alumnos");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=plantilla_alumnos.xlsx");
+    res.send(Buffer.from(buf));
+  });
+
+  app.post("/api/students/import", requireAuth, requireAdmin, upload.single("file"), async (req, res) => {
+    const filePath = req.file?.path;
+    try {
+      if (!req.file || !filePath) return res.status(400).json({ message: "No se subió archivo" });
+
+      const wb = XLSX.readFile(filePath);
+      const sheetName = wb.SheetNames[0];
+      const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+
+      if (!rows.length) return res.status(400).json({ message: "El archivo está vacío" });
+
+      const requiredCols = ["Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo"];
+      const headers = Object.keys(rows[0]);
+      const missing = requiredCols.filter(c => !headers.includes(c));
+      if (missing.length) {
+        return res.status(400).json({ message: `Columnas requeridas no encontradas: ${missing.join(", ")}. Descarga la plantilla para ver el formato correcto.` });
+      }
+
+      const allGroups = await storage.getAllGroups();
+      const created: any[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+
+        const firstName = String(row["Nombre"] || "").trim();
+        const lastName = String(row["Apellidos"] || "").trim();
+        const dob = String(row["Fecha_Nacimiento"] || "").trim();
+        const course = String(row["Curso"] || "").trim();
+        const groupName = String(row["Grupo"] || "").trim();
+        const parentalAuth = String(row["Autorizacion_Paterna"] || "").trim().toUpperCase();
+        const busAuth = String(row["Autorizacion_Guagua"] || "").trim().toUpperCase();
+
+        if (!firstName || !lastName) {
+          errors.push(`Fila ${rowNum}: Nombre o Apellidos vacíos`);
+          continue;
+        }
+        if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+          errors.push(`Fila ${rowNum}: Fecha inválida (usar YYYY-MM-DD). Valor: "${dob}"`);
+          continue;
+        }
+        if (!course) {
+          errors.push(`Fila ${rowNum}: Curso vacío`);
+          continue;
+        }
+
+        let group = allGroups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+        if (!group && groupName) {
+          group = await storage.createGroup({ name: groupName, course });
+          allGroups.push(group);
+        }
+        if (!group) {
+          errors.push(`Fila ${rowNum}: Grupo vacío`);
+          continue;
+        }
+
+        try {
+          const student = await storage.createStudent({
+            firstName,
+            lastName,
+            dateOfBirth: dob,
+            course,
+            groupId: group.id,
+            photoUrl: null,
+            parentalAuthorization: parentalAuth === "SI" || parentalAuth === "SÍ" || parentalAuth === "TRUE" || parentalAuth === "1",
+            busAuthorization: busAuth === "SI" || busAuth === "SÍ" || busAuth === "TRUE" || busAuth === "1",
+          });
+          created.push(student);
+        } catch (err: any) {
+          errors.push(`Fila ${rowNum}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: `${created.length} alumno(s) importado(s) correctamente`,
+        imported: created.length,
+        errors,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: `Error procesando archivo: ${error.message}` });
+    } finally {
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
   });
 
   app.get("/api/students/:id", requireAuth, async (req, res) => {

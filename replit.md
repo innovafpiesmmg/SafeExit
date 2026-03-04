@@ -7,7 +7,7 @@ A web application for managing student departures from a school using QR code-ba
 - **Frontend**: React + Tailwind CSS + shadcn/ui components
 - **Backend**: Express.js with session-based auth
 - **Database**: PostgreSQL with Drizzle ORM
-- **Key Libraries**: qrcode (QR generation), html5-qrcode (scanning), jsPDF (PDF carnet printing), date-fns, bcrypt
+- **Key Libraries**: qrcode (QR generation), html5-qrcode (scanning), jsPDF (PDF carnet printing), date-fns, bcrypt, xlsx (Excel import/export)
 
 ## Data Models
 - `users` - Admin and guard/teacher accounts with roles
@@ -18,7 +18,8 @@ A web application for managing student departures from a school using QR code-ba
 - `incidents` - Incident reports tied to exit logs
 
 ## Key Features
-- **Student Management**: CRUD with photo upload, parental authorization toggle
+- **Student Management**: CRUD with photo upload, parental/bus authorization toggles
+- **Excel Import**: Download template, bulk import students from .xlsx with auto group creation
 - **Group Management**: Create/edit groups with course assignment
 - **Calendar System**: Interactive 12-slot x 5-day grid for configuring exit permissions per group
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
