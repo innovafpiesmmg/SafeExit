@@ -25,7 +25,7 @@ export default function StudentsPage() {
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0,
-    parentalAuthorization: false, photoUrl: "",
+    parentalAuthorization: false, busAuthorization: false, photoUrl: "",
   });
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
@@ -60,7 +60,7 @@ export default function StudentsPage() {
   });
 
   const resetForm = () => {
-    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, photoUrl: "" });
+    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, busAuthorization: false, photoUrl: "" });
     setEditing(null);
     setDialogOpen(false);
   };
@@ -70,7 +70,7 @@ export default function StudentsPage() {
     setForm({
       firstName: s.firstName, lastName: s.lastName, dateOfBirth: s.dateOfBirth,
       course: s.course, groupId: s.groupId, parentalAuthorization: s.parentalAuthorization,
-      photoUrl: s.photoUrl || "",
+      busAuthorization: s.busAuthorization, photoUrl: s.photoUrl || "",
     });
     setDialogOpen(true);
   };
@@ -161,6 +161,10 @@ export default function StudentsPage() {
                 <Switch data-testid="switch-parental-auth" checked={form.parentalAuthorization} onCheckedChange={v => setForm(f => ({ ...f, parentalAuthorization: v }))} />
                 <Label>Autorización paterna</Label>
               </div>
+              <div className="flex items-center gap-3">
+                <Switch data-testid="switch-bus-auth" checked={form.busAuthorization} onCheckedChange={v => setForm(f => ({ ...f, busAuthorization: v }))} />
+                <Label>Autorización salida por guagua (6a hora)</Label>
+              </div>
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="secondary" onClick={resetForm} className="flex-1">Cancelar</Button>
                 <Button type="submit" data-testid="button-save-student" className="flex-1" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -229,10 +233,13 @@ export default function StudentsPage() {
                         </Badge>
                         <span className="text-xs text-muted-foreground">{student.course}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         <Badge variant={student.parentalAuthorization ? "default" : "destructive"} className="text-xs">
                           {student.parentalAuthorization ? "Autorizado" : "No autorizado"}
                         </Badge>
+                        {student.busAuthorization && (
+                          <Badge variant="secondary" className="text-xs">Guagua</Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">{age} años</span>
                       </div>
                     </div>

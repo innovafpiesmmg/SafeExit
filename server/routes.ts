@@ -283,6 +283,23 @@ export async function registerRoutes(
         });
       }
 
+      const BUS_SLOTS = [6, 12];
+      if (BUS_SLOTS.includes(timeSlot) && student.busAuthorization) {
+        const slotLabel = timeSlot === 6 ? "6a hora mañana" : "6a hora tarde";
+        const log = await storage.createExitLog({
+          studentId: student.id,
+          result: "AUTORIZADO",
+          reason: `Salida por guagua - ${slotLabel}`,
+          verifiedBy: userId,
+        });
+        return res.json({
+          result: "AUTORIZADO",
+          reason: `Salida por guagua - ${slotLabel}`,
+          student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
+          logId: log.id,
+        });
+      }
+
       const schedules = await storage.getGroupSchedules(student.groupId);
       const currentSchedule = schedules.find(
         (s) => s.dayOfWeek === dayOfWeek && s.timeSlot === timeSlot

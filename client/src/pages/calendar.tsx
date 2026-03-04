@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,9 +114,9 @@ export default function CalendarPage() {
               </thead>
               <tbody>
                 {TIME_SLOTS.map((slot, idx) => (
-                  <>
+                  <Fragment key={slot.id}>
                     {idx === 6 && (
-                      <tr key="divider">
+                      <tr>
                         <td colSpan={6} className="py-2">
                           <div className="border-t-2 border-dashed border-muted-foreground/20" />
                           <p className="text-center text-xs text-muted-foreground mt-1 mb-1">Tarde</p>
@@ -124,13 +124,13 @@ export default function CalendarPage() {
                       </tr>
                     )}
                     {idx === 0 && (
-                      <tr key="morning-label">
+                      <tr>
                         <td colSpan={6}>
                           <p className="text-center text-xs text-muted-foreground mb-1">Mañana</p>
                         </td>
                       </tr>
                     )}
-                    <tr key={slot.id}>
+                    <tr>
                       <td className="p-1">
                         <div className="text-xs font-mono text-muted-foreground px-2 py-1.5">{slot.label}</div>
                       </td>
@@ -154,7 +154,7 @@ export default function CalendarPage() {
                         );
                       })}
                     </tr>
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
