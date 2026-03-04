@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,9 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
+  QrCode, Tablet, Smartphone,
 } from "lucide-react";
+import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
 
 type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null };
@@ -38,11 +40,22 @@ export default function GuardsPage() {
 
   const [form, setForm] = useState({ firstName: "", lastName: "", isTutor: false, groupId: "" });
 
+  const [guardQrUrl, setGuardQrUrl] = useState("");
+  const [tutorQrUrl, setTutorQrUrl] = useState("");
+
   const { data: guards, isLoading } = useQuery<Guard[]>({ queryKey: ["/api/guards"] });
   const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
 
   const hasPassword = !!settings?.guardPassword;
+
+  useEffect(() => {
+    const origin = window.location.origin;
+    QRCodeLib.toDataURL(`${origin}/login?mode=guard`, { width: 280, margin: 2, color: { dark: "#1e3a5f" } })
+      .then(url => setGuardQrUrl(url));
+    QRCodeLib.toDataURL(`${origin}/login?mode=tutor`, { width: 280, margin: 2, color: { dark: "#166534" } })
+      .then(url => setTutorQrUrl(url));
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/guards", {
@@ -304,6 +317,52 @@ export default function GuardsPage() {
           ))}
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <QrCode className="w-5 h-5" />
+            QR de Acceso a la Aplicación
+          </CardTitle>
+          <CardDescription>
+            Los profesores pueden escanear estos códigos QR con su dispositivo para acceder directamente a la aplicación
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-2">
+                <Tablet className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                <span className="font-semibold text-blue-800 dark:text-blue-300">Profesores de Guardia</span>
+              </div>
+              <p className="text-xs text-center text-blue-600 dark:text-blue-400">Escáner de salidas en tablet</p>
+              {guardQrUrl && (
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <img src={guardQrUrl} alt="QR acceso guardia" className="w-44 h-44" data-testid="img-guard-qr" />
+                </div>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                <ShieldCheck className="w-3 h-3 mr-1" /> Vista de guardia
+              </Badge>
+            </div>
+            <div className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                <span className="font-semibold text-emerald-800 dark:text-emerald-300">Tutores</span>
+              </div>
+              <p className="text-xs text-center text-emerald-600 dark:text-emerald-400">Gestión de grupo en móvil</p>
+              {tutorQrUrl && (
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <img src={tutorQrUrl} alt="QR acceso tutor" className="w-44 h-44" data-testid="img-tutor-qr" />
+                </div>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                <GraduationCap className="w-3 h-3 mr-1" /> Vista de tutor
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent className="max-w-sm">
