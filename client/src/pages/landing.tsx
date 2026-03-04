@@ -76,7 +76,7 @@ export default function LandingPage() {
               La seguridad de tus alumnos, <span className="text-primary">bajo control</span>
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              SafeExit digitaliza el control de salidas de tu centro educativo con carnets QR, verificaci\u00f3n instant\u00e1nea y trazabilidad completa.
+              SafeExit digitaliza el control de salidas de tu instituto o centro de FP con carnets QR, verificaci\u00f3n instant\u00e1nea y trazabilidad completa.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button size="lg" onClick={() => navigate("/login")} data-testid="button-hero-login">
@@ -156,12 +156,12 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="rounded-xl overflow-hidden shadow-lg">
-              <img src={parentsImg} alt="Padres recogiendo alumnos" className="w-full h-64 md:h-80 object-cover" />
+              <img src={parentsImg} alt="Alumnos de bachillerato y FP" className="w-full h-64 md:h-80 object-cover" />
             </div>
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold tracking-tight">Tranquilidad para las familias</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Trazabilidad y cumplimiento</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Ning\u00fan alumno menor sale sin autorizaci\u00f3n. El sistema verifica edad, permiso parental y horario antes de aprobar cualquier salida.
+                Registro completo de cada salida. El sistema verifica edad, permiso parental y horario antes de aprobar cualquier salida. Los mayores de edad salen libremente.
               </p>
               <ul className="space-y-2">
                 {["Verificaci\u00f3n de autorizaci\u00f3n parental", "Control por tramos horarios", "Registro auditable de cada salida"].map(t => (
