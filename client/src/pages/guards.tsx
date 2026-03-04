@@ -51,9 +51,9 @@ export default function GuardsPage() {
 
   useEffect(() => {
     const origin = window.location.origin;
-    QRCodeLib.toDataURL(`${origin}/login?mode=guard`, { width: 280, margin: 2, color: { dark: "#1e3a5f" } })
+    QRCodeLib.toDataURL(`${origin}/login?mode=guard&role=profesorguardia`, { width: 280, margin: 2, color: { dark: "#1e3a5f" }, errorCorrectionLevel: "H" })
       .then(url => setGuardQrUrl(url));
-    QRCodeLib.toDataURL(`${origin}/login?mode=tutor`, { width: 280, margin: 2, color: { dark: "#166534" } })
+    QRCodeLib.toDataURL(`${origin}/login?mode=tutor&role=tutorgrupo`, { width: 280, margin: 2, color: { dark: "#166534" }, errorCorrectionLevel: "H" })
       .then(url => setTutorQrUrl(url));
   }, []);
 
@@ -339,6 +339,7 @@ export default function GuardsPage() {
               {guardQrUrl && (
                 <div className="bg-white p-3 rounded-lg shadow-sm">
                   <img src={guardQrUrl} alt="QR acceso guardia" className="w-44 h-44" data-testid="img-guard-qr" />
+                  <p className="text-center text-[10px] font-bold text-blue-800 mt-1 tracking-wider">GUARDIA</p>
                 </div>
               )}
               <Badge variant="secondary" className="text-xs">
@@ -354,6 +355,7 @@ export default function GuardsPage() {
               {tutorQrUrl && (
                 <div className="bg-white p-3 rounded-lg shadow-sm">
                   <img src={tutorQrUrl} alt="QR acceso tutor" className="w-44 h-44" data-testid="img-tutor-qr" />
+                  <p className="text-center text-[10px] font-bold text-emerald-800 mt-1 tracking-wider">TUTOR</p>
                 </div>
               )}
               <Badge variant="secondary" className="text-xs">
