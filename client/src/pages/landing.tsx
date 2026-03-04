@@ -14,12 +14,12 @@ export default function LandingPage() {
   const features = [
     {
       icon: QrCode,
-      title: "Verificaci\u00f3n por QR",
-      description: "Escaneo r\u00e1pido de carnets con c\u00e1mara o pistola de c\u00f3digos de barras para control instant\u00e1neo.",
+      title: "Verificación por QR",
+      description: "Escaneo rápido de carnets con cámara o pistola de códigos de barras para control instantáneo.",
     },
     {
       icon: Users,
-      title: "Gesti\u00f3n de Alumnos",
+      title: "Gestión de Alumnos",
       description: "Alta masiva por Excel, fotos, autorizaciones parentales y de guagua en un solo lugar.",
     },
     {
@@ -29,8 +29,8 @@ export default function LandingPage() {
     },
     {
       icon: ClipboardList,
-      title: "Historial y Auditor\u00eda",
-      description: "Registro completo de cada salida con exportaci\u00f3n a CSV e informes de incidencias.",
+      title: "Historial y Auditoría",
+      description: "Registro completo de cada salida con exportación a CSV e informes de incidencias.",
     },
     {
       icon: Smartphone,
@@ -40,7 +40,7 @@ export default function LandingPage() {
     {
       icon: ShieldCheck,
       title: "Seguridad Inteligente",
-      description: "Verificaci\u00f3n autom\u00e1tica por edad, autorizaci\u00f3n y horario. Sin margen de error.",
+      description: "Verificación automática por edad, autorización y horario. Sin margen de error.",
     },
   ];
 
@@ -76,11 +76,11 @@ export default function LandingPage() {
               La seguridad de tus alumnos, <span className="text-primary">bajo control</span>
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              SafeExit digitaliza el control de salidas de tu instituto o centro de FP con carnets QR, verificaci\u00f3n instant\u00e1nea y trazabilidad completa.
+              SafeExit digitaliza el control de salidas de tu instituto o centro de FP con carnets QR, verificación instantánea y trazabilidad completa.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button size="lg" onClick={() => navigate("/login")} data-testid="button-hero-login">
-                Iniciar Sesi\u00f3n
+                Iniciar Sesión
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -93,7 +93,7 @@ export default function LandingPage() {
           <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="text-3xl font-bold tracking-tight">Todo lo que necesitas</h2>
             <p className="text-muted-foreground mt-3">
-              Una soluci\u00f3n completa para gestionar las salidas de tu centro de forma segura y eficiente.
+              Una solución completa para gestionar las salidas de tu centro de forma segura y eficiente.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -116,15 +116,15 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 space-y-16">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="rounded-xl overflow-hidden shadow-lg">
-              <img src={securityImg} alt="Control de acceso escolar" className="w-full h-64 md:h-80 object-cover" />
+              <img src={securityImg} alt="Control de acceso en el centro" className="w-full h-64 md:h-80 object-cover" />
             </div>
             <div className="space-y-4">
               <h2 className="text-2xl font-bold tracking-tight">Control total en la puerta</h2>
               <p className="text-muted-foreground leading-relaxed">
-                El profesor de guardia escanea el carnet QR del alumno y en menos de un segundo obtiene la respuesta: autorizado o denegado, con se\u00f1al sonora y visual a pantalla completa.
+                El profesor de guardia escanea el carnet QR del alumno y en menos de un segundo obtiene la respuesta: autorizado o denegado, con señal sonora y visual a pantalla completa.
               </p>
               <ul className="space-y-2">
-                {["Respuesta instant\u00e1nea", "Audio de confirmaci\u00f3n", "Pantalla completa en tablet"].map(t => (
+                {["Respuesta instantánea", "Audio de confirmación", "Pantalla completa en tablet"].map(t => (
                   <li key={t} className="flex items-center gap-2 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
                     {t}
@@ -136,12 +136,12 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="space-y-4 md:order-1 order-2">
-              <h2 className="text-2xl font-bold tracking-tight">Tecnolog\u00eda QR moderna</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Tecnología QR moderna</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Cada alumno recibe un carnet con c\u00f3digo QR \u00fanico. Compatible con c\u00e1maras de tablet, m\u00f3viles y pistolas lectoras de c\u00f3digos de barras.
+                Cada alumno recibe un carnet con código QR único. Compatible con cámaras de tablet, móviles y pistolas lectoras de códigos de barras.
               </p>
               <ul className="space-y-2">
-                {["Carnets imprimibles en PDF", "QR \u00fanico por alumno", "Compatible con lector de c\u00f3digos"].map(t => (
+                {["Carnets imprimibles en PDF", "QR único por alumno", "Compatible con lector de códigos"].map(t => (
                   <li key={t} className="flex items-center gap-2 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
                     {t}
@@ -164,7 +164,7 @@ export default function LandingPage() {
                 Registro completo de cada salida. El sistema verifica edad, permiso parental y horario antes de aprobar cualquier salida. Los mayores de edad salen libremente.
               </p>
               <ul className="space-y-2">
-                {["Verificaci\u00f3n de autorizaci\u00f3n parental", "Control por tramos horarios", "Registro auditable de cada salida"].map(t => (
+                {["Verificación de autorización parental", "Control por tramos horarios", "Registro auditable de cada salida"].map(t => (
                   <li key={t} className="flex items-center gap-2 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
                     {t}
@@ -180,7 +180,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-3xl font-bold tracking-tight">Digitaliza el control de salidas de tu centro</h2>
           <p className="text-primary-foreground/80 text-lg">
-            Empieza hoy a gestionar las salidas de forma segura, r\u00e1pida y sin papeleo.
+            Empieza hoy a gestionar las salidas de forma segura, rápida y sin papeleo.
           </p>
           <Button size="lg" variant="secondary" onClick={() => navigate("/login")} data-testid="button-cta-login">
             Acceder a SafeExit
