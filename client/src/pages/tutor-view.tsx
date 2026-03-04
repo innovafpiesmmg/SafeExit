@@ -10,14 +10,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import {
-  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus,
+  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus, ShieldCheck,
 } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
 
 export default function TutorView() {
+  const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -114,9 +116,14 @@ export default function TutorView() {
               <span className="text-xs text-muted-foreground ml-2">{user?.fullName}</span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/guard")} data-testid="button-tutor-guard-mode">
+              <ShieldCheck className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </header>
 

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { playSuccessSound, playErrorSound } from "@/lib/sounds";
 import {
   Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle,
-  RotateCcw, Send, LogOut, Wifi, WifiOff, Settings,
+  RotateCcw, Send, LogOut, Wifi, WifiOff, Settings, ArrowLeft,
 } from "lucide-react";
 
 function useCurrentTime() {
@@ -37,7 +38,8 @@ function useOnlineStatus() {
   return online;
 }
 
-export default function GuardView() {
+export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
+  const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const now = useCurrentTime();
@@ -358,6 +360,11 @@ export default function GuardView() {
             <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex" data-testid="badge-auto-return-status">
               Auto {autoReturnSeconds}s
             </Badge>
+          )}
+          {tutorMode && (
+            <Button size="icon" variant="ghost" onClick={() => setLocation("/")} data-testid="button-back-tutor" className="min-h-[44px] min-w-[44px]">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
           )}
           <Button size="icon" variant="ghost" onClick={logout} data-testid="button-guard-logout" className="min-h-[44px] min-w-[44px]">
             <LogOut className="w-5 h-5" />

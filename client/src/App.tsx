@@ -76,6 +76,9 @@ function AppLayout() {
   }
 
   if (user.role === "tutor") {
+    if (location === "/guard") {
+      return <GuardView tutorMode />;
+    }
     return <TutorView />;
   }
 
