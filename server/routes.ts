@@ -735,6 +735,7 @@ export async function registerRoutes(
       if (!student) return res.status(404).json({ message: "Carnet no encontrado" });
       const group = await storage.getGroup(student.groupId);
       const schoolName = await storage.getSetting("schoolName");
+      const academicYear = await storage.getSetting("academicYear");
       res.json({
         firstName: student.firstName,
         lastName: student.lastName,
@@ -744,6 +745,7 @@ export async function registerRoutes(
         qrCode: student.qrCode,
         dateOfBirth: student.dateOfBirth,
         schoolName: schoolName || "",
+        academicYear: academicYear || "",
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

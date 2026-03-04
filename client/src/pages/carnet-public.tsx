@@ -17,6 +17,7 @@ interface CarnetData {
   qrCode: string;
   dateOfBirth: string;
   schoolName: string;
+  academicYear: string;
 }
 
 export default function CarnetPublicPage() {
@@ -93,7 +94,9 @@ export default function CarnetPublicPage() {
               <Shield className="w-5 h-5" />
               <span className="font-bold text-lg tracking-wide">SafeExit</span>
             </div>
-            <p className="text-xs opacity-80">Carnet Digital de Alumno</p>
+            <p className="text-xs opacity-80">
+              Carnet Digital de Alumno{data.academicYear ? ` — Curso ${data.academicYear}` : ""}
+            </p>
           </div>
 
           <div className="p-6 space-y-5">

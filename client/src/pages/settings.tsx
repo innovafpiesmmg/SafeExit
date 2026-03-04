@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2 } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -27,6 +27,11 @@ export default function SettingsPage() {
     secure: false,
   });
   const [schoolName, setSchoolName] = useState("");
+  const [academicYear, setAcademicYear] = useState(() => {
+    const now = new Date();
+    const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${y}-${y + 1}`;
+  });
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
 
@@ -41,6 +46,9 @@ export default function SettingsPage() {
         secure: settings.smtpSecure === "true",
       });
       setSchoolName(settings.schoolName || "");
+      if (settings.academicYear) {
+        setAcademicYear(settings.academicYear);
+      }
     }
   }, [settings]);
 
@@ -54,6 +62,7 @@ export default function SettingsPage() {
         smtpFrom: smtp.from,
         smtpSecure: smtp.secure ? "true" : "false",
         schoolName,
+        academicYear,
       };
       for (const [key, value] of Object.entries(entries)) {
         await apiRequest("PUT", "/api/settings", { key, value });
@@ -120,6 +129,24 @@ export default function SettingsPage() {
             onChange={e => setSchoolName(e.target.value)}
             placeholder="IES Ejemplo"
             data-testid="input-school-name"
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CalendarDays className="w-5 h-5" />
+            Curso Académico
+          </CardTitle>
+          <CardDescription>Se muestra en los carnets de alumno para indicar su validez</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Input
+            value={academicYear}
+            onChange={e => setAcademicYear(e.target.value)}
+            placeholder="2025-2026"
+            data-testid="input-academic-year"
           />
         </CardContent>
       </Card>

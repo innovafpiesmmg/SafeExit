@@ -12,7 +12,7 @@ import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
 
-function StudentCard({ student, group, qrDataUrl, schoolName }: { student: Student; group?: Group; qrDataUrl: string; schoolName: string }) {
+function StudentCard({ student, group, qrDataUrl, schoolName, academicYear }: { student: Student; group?: Group; qrDataUrl: string; schoolName: string; academicYear: string }) {
   const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
   const isAdult = age >= 18;
 
@@ -32,7 +32,9 @@ function StudentCard({ student, group, qrDataUrl, schoolName }: { student: Stude
               <ShieldCheck className="w-3 h-3" />
               <span className="text-[8px] font-bold tracking-wide">SafeExit</span>
             </div>
-            <span className="text-[6px] opacity-80">Carnet de Alumno</span>
+            <span className="text-[6px] opacity-80">
+              {academicYear ? `Curso ${academicYear}` : "Carnet de Alumno"}
+            </span>
           </div>
         </div>
 
@@ -89,6 +91,7 @@ export default function PrintPage() {
   const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
 
   const schoolName = settings?.schoolName || "";
+  const academicYear = settings?.academicYear || "";
 
   const filtered = selectedGroup === "all"
     ? students || []
@@ -174,7 +177,8 @@ export default function PrintPage() {
       doc.setFontSize(5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(255, 255, 255);
-      doc.text("Carnet de Alumno", x + cardWidth - 4, headerTextY + 2.5, { align: "right" });
+      const headerRightText = academicYear ? `Curso ${academicYear}` : "Carnet de Alumno";
+      doc.text(headerRightText, x + cardWidth - 4, headerTextY + 2.5, { align: "right" });
 
       const photoSectionW = cardWidth * 0.32;
       const contentY = y + actualHeaderH + 2;
@@ -325,7 +329,8 @@ export default function PrintPage() {
       doc.setFontSize(7);
       doc.setTextColor(100);
       doc.setFont("helvetica", "normal");
-      doc.text(`${student.course} — ${group?.name || ""}`, x + cellW / 2, digitalY + 8, { align: "center" });
+      const courseGroup = `${student.course} — ${group?.name || ""}`;
+      doc.text(academicYear ? `${courseGroup} — Curso ${academicYear}` : courseGroup, x + cellW / 2, digitalY + 8, { align: "center" });
 
       const carnetUrl = `${baseUrl}/carnet/${student.carnetToken}`;
       const qrData = await QRCode.toDataURL(carnetUrl, { width: 200, margin: 1 });
@@ -404,7 +409,7 @@ export default function PrintPage() {
                   className="mt-5"
                   data-testid={`checkbox-student-${student.id}`}
                 />
-                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} schoolName={schoolName} />
+                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} schoolName={schoolName} academicYear={academicYear} />
               </div>
             );
           })}
