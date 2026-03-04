@@ -364,7 +364,24 @@ export async function registerRoutes(
 
         const firstName = String(row["Nombre"] || "").trim();
         const lastName = String(row["Apellidos"] || "").trim();
-        const dob = String(row["Fecha_Nacimiento"] || "").trim();
+        const rawDob = row["Fecha_Nacimiento"];
+        let dob = "";
+        if (typeof rawDob === "number") {
+          const excelEpoch = new Date(1899, 11, 30);
+          const date = new Date(excelEpoch.getTime() + rawDob * 86400000);
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, "0");
+          const d = String(date.getDate()).padStart(2, "0");
+          dob = `${y}-${m}-${d}`;
+        } else if (rawDob instanceof Date) {
+          dob = rawDob.toISOString().split("T")[0];
+        } else {
+          dob = String(rawDob || "").trim();
+          if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(dob)) {
+            const parts = dob.split(/[\/\-]/);
+            dob = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+          }
+        }
         const course = String(row["Curso"] || "").trim();
         const groupName = String(row["Grupo"] || "").trim();
         const parentalAuth = String(row["Autorizacion_Paterna"] || "").trim().toUpperCase();
@@ -376,7 +393,7 @@ export async function registerRoutes(
           continue;
         }
         if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-          errors.push(`Fila ${rowNum}: Fecha inválida (usar YYYY-MM-DD). Valor: "${dob}"`);
+          errors.push(`Fila ${rowNum}: Fecha inválida (usar YYYY-MM-DD). Valor: "${rawDob}"`);
           continue;
         }
         if (!course) {
