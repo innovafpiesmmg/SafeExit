@@ -2,7 +2,8 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Footer } from "@/components/footer";
-import { ShieldCheck, QrCode, Users, CalendarDays, ClipboardList, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
+import { QrCode, Users, CalendarDays, ClipboardList, Smartphone, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
+import logoPath from "@assets/escudo_1772663810749.png";
 import heroImg from "@assets/stock_images/school_hero.jpg";
 import securityImg from "@assets/stock_images/school_security.jpg";
 import qrImg from "@assets/stock_images/qr_tablet.jpg";
@@ -49,8 +50,8 @@ export default function LandingPage() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <ShieldCheck className="w-4.5 h-4.5 text-primary-foreground" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden">
+              <img src={logoPath} alt="SafeExit" className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-lg">SafeExit</span>
           </div>

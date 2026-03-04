@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, LogIn, Eye, EyeOff, Tablet, GraduationCap } from "lucide-react";
+import { LogIn, Eye, EyeOff, Tablet, GraduationCap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/footer";
 import { useLocation } from "wouter";
+import logoPath from "@assets/escudo_1772663810749.png";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -44,8 +45,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-3">
-          <div className="mx-auto w-20 h-20 rounded-2xl bg-primary flex items-center justify-center">
-            <ShieldCheck className="w-10 h-10 text-primary-foreground" />
+          <div className="mx-auto w-20 h-20 rounded-2xl overflow-hidden shadow-lg">
+            <img src={logoPath} alt="SafeExit" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">SafeExit</h1>
           <p className="text-muted-foreground text-sm">

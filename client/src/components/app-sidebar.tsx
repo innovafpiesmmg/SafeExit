@@ -17,8 +17,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, ShieldCheck, UserCheck, Clock, Settings, ClipboardList,
+  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList,
 } from "lucide-react";
+import logoPath from "@assets/escudo_1772663810749.png";
 
 const adminItems = [
   { title: "Panel de Control", url: "/", icon: LayoutDashboard },
@@ -47,8 +48,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <ShieldCheck className="w-5 h-5 text-primary-foreground" />
+          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+            <img src={logoPath} alt="SafeExit" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">SafeExit</p>
