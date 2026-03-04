@@ -98,7 +98,19 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 El instalador configura automáticamente todo lo necesario: actualiza el sistema operativo, instala Node.js 20.x, PostgreSQL, Nginx, crea la base de datos, compila la aplicación y configura los servicios del sistema.
 
-### Paso 1: Descargar e instalar
+### Paso 1: Preparar el servidor
+
+Antes de instalar SafeExit, actualiza el sistema operativo e instala las herramientas necesarias:
+
+```bash
+# Actualizar la lista de paquetes y el sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar git y curl (necesarios para la instalación)
+sudo apt install -y git curl
+```
+
+### Paso 2: Descargar e instalar
 
 ```bash
 # Clonar el repositorio
@@ -115,7 +127,7 @@ El instalador te pedirá:
 - **Nombre completo** (por defecto: Administrador)
 - **Token de Cloudflare Tunnel** (opcional, para acceso desde internet)
 
-### Paso 2: Acceder a la aplicación
+### Paso 3: Acceder a la aplicación
 
 Abre en el navegador:
 ```
