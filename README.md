@@ -29,12 +29,14 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Foto del alumno en pantalla de resultado
 - Señal sonora: tono agudo (autorizado) / alerta grave (denegado)
 
-### Profesores de guardia
+### Profesores de guardia y tutores
 - Gestión de profesores con nombre y apellidos
+- Dos roles: **Guardia** (verificación en puerta) y **Tutor** (gestión de grupo)
 - Contraseña común definida por el administrador
 - Importación masiva desde Excel
 - Usuarios autogenerados automáticamente
-- Vista dedicada para tablet: pantalla completa, sin sidebar
+- Vista de guardia dedicada para tablet: pantalla completa, sin sidebar
+- Vista de tutor para móvil: ver alumnos del grupo, subir fotos y compartir carnets digitales
 
 ### Historial y auditoría
 - Registro de cada verificación con fecha, hora, resultado y motivo
@@ -53,6 +55,18 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Auto-retorno configurable (3/5/7/10/15 segundos)
 - Estadísticas diarias: salidas permitidas y denegadas
 - Compatible con pistola lectora de códigos de barras (envía Enter)
+
+### Vista de tutor (móvil)
+- Vista optimizada para móvil con lista de alumnos del grupo asignado
+- Subida de fotos directa desde la cámara del dispositivo
+- Compartir carnet digital de cada alumno mediante QR o enlace
+- Búsqueda de alumnos dentro del grupo
+
+### Carnet digital
+- Página pública de carnet en `/carnet/:token` (sin login)
+- QR del carnet visible en el móvil del alumno
+- Compartir enlace/QR desde la gestión de alumnos o desde la vista de tutor
+- PDF con enlaces QR para distribución en clase
 
 ### Gestión de curso académico
 - Función "Nuevo Curso Académico" que elimina todos los datos
