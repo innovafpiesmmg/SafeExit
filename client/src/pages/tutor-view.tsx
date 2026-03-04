@@ -252,6 +252,28 @@ export default function TutorView() {
         )}
       </main>
 
+      <Dialog open={photoDialogOpen} onOpenChange={(open) => { if (!open) { setPhotoDialogOpen(false); setPhotoTargetId(null); } }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="w-5 h-5" />
+              Subir Foto
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Elige cómo quieres añadir la foto del alumno:</p>
+            <Button className="w-full h-12" onClick={chooseCamera} data-testid="button-choose-camera">
+              <Camera className="w-5 h-5 mr-2" />
+              Sacar Foto con Cámara
+            </Button>
+            <Button className="w-full h-12" variant="outline" onClick={chooseGallery} data-testid="button-choose-gallery">
+              <ImagePlus className="w-5 h-5 mr-2" />
+              Elegir de la Galería
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!shareStudent} onOpenChange={(open) => { if (!open) setShareStudent(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
