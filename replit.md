@@ -44,6 +44,7 @@ A PWA web application for managing student departures from a school using QR cod
 ## Roles & Views
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan)
 - **guard**: Dedicated full-screen view (guard-view.tsx) — no sidebar, tablet-optimized with large touch targets (h-14, h-16 buttons), live clock, WiFi status, and daily stats
+- **tutor**: Mobile-optimized view (tutor-view.tsx) — assigned to a group, sees own students, can upload photos and share digital carnets via QR/link
 
 ## Default Credentials (dev only)
 - Admin: `admin` / `admin123` (env ADMIN_USER/ADMIN_PASS override in production)
@@ -65,7 +66,8 @@ A PWA web application for managing student departures from a school using QR cod
 - `server/db.ts` - Database connection
 - `client/src/pages/landing.tsx` - Public landing page with stock images
 - `client/src/pages/guard-view.tsx` - Dedicated guard/tablet view (full-screen, no sidebar)
-- `client/src/pages/guards.tsx` - Guard/teacher management with Excel import and academic year reset
+- `client/src/pages/tutor-view.tsx` - Dedicated tutor/mobile view (group students, photos, carnet sharing)
+- `client/src/pages/guards.tsx` - Guard/teacher/tutor management with role toggle, group assignment, Excel import, and academic year reset
 - `client/src/pages/` - Page components (login, dashboard, students, groups, calendar, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
 - `client/src/components/footer.tsx` - Footer with ASD logo

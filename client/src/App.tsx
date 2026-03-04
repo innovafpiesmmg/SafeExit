@@ -18,6 +18,7 @@ import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
 import GuardView from "@/pages/guard-view";
 import GuardsPage from "@/pages/guards";
+import TutorView from "@/pages/tutor-view";
 import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
@@ -63,6 +64,10 @@ function AppLayout() {
 
   if (user.role === "guard") {
     return <GuardView />;
+  }
+
+  if (user.role === "tutor") {
+    return <TutorView />;
   }
 
   const style = {

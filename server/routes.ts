@@ -106,7 +106,7 @@ export async function registerRoutes(
 
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -124,12 +124,12 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
   });
 
   app.get("/api/guards", requireAuth, requireAdmin, async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId })));
   });
 
   app.get("/api/guards/template", requireAuth, requireAdmin, (_req, res) => {
@@ -230,12 +230,19 @@ export async function registerRoutes(
 
   app.post("/api/guards", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { firstName, lastName } = req.body;
+      const { firstName, lastName, role, groupId } = req.body;
       if (!firstName || !lastName) return res.status(400).json({ message: "Nombre y apellidos requeridos" });
 
       const guardPassword = await storage.getSetting("guardPassword");
       if (!guardPassword) return res.status(400).json({ message: "Primero define la contraseña común de los profesores de guardia" });
 
+      const userRole = role === "tutor" ? "tutor" : "guard";
+      let assignedGroupId: number | null = null;
+      if (userRole === "tutor" && groupId) {
+        const group = await storage.getGroup(parseInt(groupId));
+        if (!group) return res.status(400).json({ message: "El grupo seleccionado no existe" });
+        assignedGroupId = group.id;
+      }
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
       const base = `${firstName.trim().toLowerCase().replace(/\s+/g, "")}${lastName.trim().toLowerCase().split(" ")[0].replace(/\s+/g, "")}`;
       let username = base;
@@ -246,8 +253,8 @@ export async function registerRoutes(
       }
 
       const hashedPassword = await bcrypt.hash(guardPassword, 10);
-      const user = await storage.createUser({ username, password: hashedPassword, fullName, role: "guard" });
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+      const user = await storage.createUser({ username, password: hashedPassword, fullName, role: userRole, groupId: assignedGroupId });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -256,12 +263,20 @@ export async function registerRoutes(
   app.patch("/api/guards/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { firstName, lastName } = req.body;
+      const { firstName, lastName, role, groupId } = req.body;
       if (!firstName || !lastName) return res.status(400).json({ message: "Nombre y apellidos requeridos" });
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
-      const user = await storage.updateUser(id, { fullName });
+      const userRole = role === "tutor" ? "tutor" : "guard";
+      let assignedGroupId: number | null = null;
+      if (userRole === "tutor" && groupId) {
+        const group = await storage.getGroup(parseInt(groupId));
+        if (!group) return res.status(400).json({ message: "El grupo seleccionado no existe" });
+        assignedGroupId = group.id;
+      }
+      const updateData: any = { fullName, role: userRole, groupId: assignedGroupId };
+      const user = await storage.updateUser(id, updateData);
       if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -438,6 +453,40 @@ export async function registerRoutes(
   app.post("/api/upload-photo", requireAuth, upload.single("photo"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No se subió imagen" });
     res.json({ url: `/uploads/${req.file.filename}` });
+  });
+
+  app.get("/api/tutor/students", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser((req.session as any).userId);
+      if (!user || user.role !== "tutor" || !user.groupId) {
+        return res.status(403).json({ message: "No tienes un grupo asignado" });
+      }
+      const groupStudents = await storage.getStudentsByGroup(user.groupId);
+      const group = await storage.getGroup(user.groupId);
+      res.json({ students: groupStudents, group });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/tutor/students/:id/photo", requireAuth, upload.single("photo"), async (req, res) => {
+    try {
+      const user = await storage.getUser((req.session as any).userId);
+      if (!user || user.role !== "tutor" || !user.groupId) {
+        return res.status(403).json({ message: "Acceso denegado" });
+      }
+      if (!req.file) return res.status(400).json({ message: "No se subió imagen" });
+      const studentId = parseInt(req.params.id);
+      const student = await storage.getStudent(studentId);
+      if (!student || student.groupId !== user.groupId) {
+        return res.status(403).json({ message: "Este alumno no pertenece a tu grupo" });
+      }
+      const photoUrl = `/uploads/${req.file.filename}`;
+      const updated = await storage.updateStudent(studentId, { photoUrl });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   app.get("/api/schedules/:groupId", requireAuth, async (req, res) => {

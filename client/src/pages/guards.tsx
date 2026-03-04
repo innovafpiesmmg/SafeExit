@@ -14,12 +14,15 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
-  AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle,
+  AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
 } from "lucide-react";
+import type { Group } from "@shared/schema";
 
-type Guard = { id: number; username: string; fullName: string; role: string };
+type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null };
 
 export default function GuardsPage() {
   const { toast } = useToast();
@@ -35,15 +38,20 @@ export default function GuardsPage() {
   const [resetConfirmation, setResetConfirmation] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ firstName: "", lastName: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", isTutor: false, groupId: "" });
 
   const { data: guards, isLoading } = useQuery<Guard[]>({ queryKey: ["/api/guards"] });
   const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+  const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
 
   const hasPassword = !!settings?.guardPassword;
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/guards", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/guards", {
+      ...data,
+      role: data.isTutor ? "tutor" : "guard",
+      groupId: data.isTutor ? (data.groupId ? parseInt(data.groupId) : null) : null,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
       toast({ title: "Profesor añadido correctamente" });
@@ -53,7 +61,11 @@ export default function GuardsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/guards/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/guards/${id}`, {
+      ...data,
+      role: data.isTutor ? "tutor" : "guard",
+      groupId: data.isTutor ? (data.groupId ? parseInt(data.groupId) : null) : null,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
       toast({ title: "Profesor actualizado" });
@@ -93,7 +105,7 @@ export default function GuardsPage() {
   });
 
   const resetForm = () => {
-    setForm({ firstName: "", lastName: "" });
+    setForm({ firstName: "", lastName: "", isTutor: false, groupId: "" });
     setEditing(null);
     setDialogOpen(false);
   };
@@ -102,13 +114,22 @@ export default function GuardsPage() {
     const parts = guard.fullName.split(" ");
     const firstName = parts[0] || "";
     const lastName = parts.slice(1).join(" ") || "";
-    setForm({ firstName, lastName });
+    setForm({
+      firstName,
+      lastName,
+      isTutor: guard.role === "tutor",
+      groupId: guard.groupId ? String(guard.groupId) : "",
+    });
     setEditing(guard);
     setDialogOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.isTutor && !form.groupId) {
+      toast({ title: "Selecciona un grupo", description: "Los tutores deben tener un grupo asignado", variant: "destructive" });
+      return;
+    }
     if (editing) {
       updateMutation.mutate({ id: editing.id, data: form });
     } else {
@@ -147,8 +168,8 @@ export default function GuardsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-guards-title">Profesores de Guardia</h1>
-          <p className="text-muted-foreground text-sm mt-1">{guards?.length || 0} profesores registrados</p>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-guards-title">Profesores</h1>
+          <p className="text-muted-foreground text-sm mt-1">{guards?.length || 0} profesores registrados (guardias y tutores)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-guard-password">
@@ -179,6 +200,32 @@ export default function GuardsPage() {
                   <Label>Apellidos</Label>
                   <Input data-testid="input-guard-last-name" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} required />
                 </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Tutor de grupo</Label>
+                    <p className="text-xs text-muted-foreground">Puede ver alumnos, sacar fotos y compartir carnets</p>
+                  </div>
+                  <Switch
+                    checked={form.isTutor}
+                    onCheckedChange={v => setForm(f => ({ ...f, isTutor: v, groupId: v ? f.groupId : "" }))}
+                    data-testid="switch-tutor"
+                  />
+                </div>
+                {form.isTutor && (
+                  <div className="space-y-1.5">
+                    <Label>Grupo asignado</Label>
+                    <Select value={form.groupId} onValueChange={v => setForm(f => ({ ...f, groupId: v }))}>
+                      <SelectTrigger data-testid="select-tutor-group">
+                        <SelectValue placeholder="Seleccionar grupo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups?.map(g => (
+                          <SelectItem key={g.id} value={String(g.id)}>{g.name} ({g.course})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-guard">
                   {createMutation.isPending || updateMutation.isPending ? "Guardando..." : editing ? "Actualizar" : "Crear Profesor"}
                 </Button>
@@ -243,8 +290,18 @@ export default function GuardsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate" data-testid={`text-guard-name-${guard.id}`}>{guard.fullName}</p>
                     <p className="text-xs text-muted-foreground truncate">@{guard.username}</p>
+                    {guard.role === "tutor" && guard.groupId && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <GraduationCap className="w-3 h-3 text-primary" />
+                        <span className="text-xs text-primary font-medium">
+                          {groups?.find(g => g.id === guard.groupId)?.name || ""}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <Badge variant="secondary" className="text-xs flex-shrink-0">Profesor</Badge>
+                  <Badge variant={guard.role === "tutor" ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                    {guard.role === "tutor" ? "Tutor" : "Guardia"}
+                  </Badge>
                 </div>
                 <div className="flex gap-1 mt-3 pt-3 border-t">
                   <Button size="sm" variant="secondary" data-testid={`button-edit-guard-${guard.id}`} onClick={() => handleEdit(guard)} className="flex-1">

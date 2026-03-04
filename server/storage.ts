@@ -274,7 +274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuards(): Promise<User[]> {
-    return db.select().from(users).where(eq(users.role, "guard"));
+    return db.select().from(users).where(or(eq(users.role, "guard"), eq(users.role, "tutor")));
   }
 
   async updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined> {
@@ -287,7 +287,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAllGuardPasswords(hashedPassword: string): Promise<void> {
-    await db.update(users).set({ password: hashedPassword }).where(eq(users.role, "guard"));
+    await db.update(users).set({ password: hashedPassword }).where(or(eq(users.role, "guard"), eq(users.role, "tutor")));
   }
 
   async resetAcademicYear(adminUserId: number): Promise<void> {

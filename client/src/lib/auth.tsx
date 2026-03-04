@@ -6,6 +6,7 @@ interface AuthUser {
   username: string;
   fullName: string;
   role: string;
+  groupId: number | null;
 }
 
 interface AuthContextType {
