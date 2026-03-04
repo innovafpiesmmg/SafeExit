@@ -10,9 +10,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useLocation } from "wouter";
 import {
-  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus, ShieldCheck,
+  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus, ShieldCheck, Download, X,
 } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
@@ -22,6 +23,7 @@ export default function TutorView() {
   const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const { canInstall, install, dismissed } = usePwaInstall();
   const [search, setSearch] = useState("");
   const [shareStudent, setShareStudent] = useState<Student | null>(null);
   const [shareQrUrl, setShareQrUrl] = useState("");
@@ -126,6 +128,25 @@ export default function TutorView() {
           </div>
         </div>
       </header>
+
+      {canInstall && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2.5">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Download className="w-4 h-4 text-primary flex-shrink-0" />
+              <p className="text-xs text-primary font-medium truncate">Instala SafeExit para acceso rápido</p>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Button size="sm" className="h-7 text-xs px-3" onClick={install} data-testid="button-pwa-install">
+                Instalar
+              </Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={dismissed} data-testid="button-pwa-dismiss">
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 space-y-4">
         <div className="flex items-center gap-3">

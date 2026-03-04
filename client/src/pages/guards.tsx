@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
-  QrCode, Tablet, Smartphone,
+  QrCode, Tablet, Smartphone, Copy, Check,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
@@ -42,6 +42,7 @@ export default function GuardsPage() {
 
   const [guardQrUrl, setGuardQrUrl] = useState("");
   const [tutorQrUrl, setTutorQrUrl] = useState("");
+  const [copiedQr, setCopiedQr] = useState<string | null>(null);
 
   const { data: guards, isLoading } = useQuery<Guard[]>({ queryKey: ["/api/guards"] });
   const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
@@ -56,6 +57,26 @@ export default function GuardsPage() {
     QRCodeLib.toDataURL(`${origin}/login?mode=tutor&role=tutorgrupo`, { width: 280, margin: 2, color: { dark: "#166534" }, errorCorrectionLevel: "H" })
       .then(url => setTutorQrUrl(url));
   }, []);
+
+  const copyQrImage = async (dataUrl: string, label: string) => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopiedQr(label);
+      toast({ title: `QR de ${label} copiado al portapapeles` });
+      setTimeout(() => setCopiedQr(null), 2000);
+    } catch {
+      toast({ title: "No se pudo copiar", description: "Tu navegador no soporta copiar imágenes", variant: "destructive" });
+    }
+  };
+
+  const downloadQrImage = (dataUrl: string, filename: string) => {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename;
+    link.click();
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/guards", {
@@ -342,9 +363,16 @@ export default function GuardsPage() {
                   <p className="text-center text-[10px] font-bold text-blue-800 mt-1 tracking-wider">GUARDIA</p>
                 </div>
               )}
-              <Badge variant="secondary" className="text-xs">
-                <ShieldCheck className="w-3 h-3 mr-1" /> Vista de guardia
-              </Badge>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => copyQrImage(guardQrUrl, "guardia")} disabled={!guardQrUrl} data-testid="button-copy-guard-qr">
+                  {copiedQr === "guardia" ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                  {copiedQr === "guardia" ? "Copiado" : "Copiar"}
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => downloadQrImage(guardQrUrl, "qr-guardia.png")} disabled={!guardQrUrl} data-testid="button-download-guard-qr">
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  Descargar
+                </Button>
+              </div>
             </div>
             <div className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
               <div className="flex items-center gap-2">
@@ -358,9 +386,16 @@ export default function GuardsPage() {
                   <p className="text-center text-[10px] font-bold text-emerald-800 mt-1 tracking-wider">TUTOR</p>
                 </div>
               )}
-              <Badge variant="secondary" className="text-xs">
-                <GraduationCap className="w-3 h-3 mr-1" /> Vista de tutor
-              </Badge>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => copyQrImage(tutorQrUrl, "tutor")} disabled={!tutorQrUrl} data-testid="button-copy-tutor-qr">
+                  {copiedQr === "tutor" ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                  {copiedQr === "tutor" ? "Copiado" : "Copiar"}
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => downloadQrImage(tutorQrUrl, "qr-tutor.png")} disabled={!tutorQrUrl} data-testid="button-download-tutor-qr">
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  Descargar
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
