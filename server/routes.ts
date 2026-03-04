@@ -853,6 +853,29 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/late-arrivals/export", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo;
+      if (req.query.groupId) filters.groupId = parseInt(req.query.groupId as string);
+      if (req.query.studentName) filters.studentName = req.query.studentName;
+      const arrivals = await storage.getLateArrivals(filters);
+
+      const csvHeader = "ID,Alumno,Grupo,Curso,Fecha,Hora,Registrado por,Email enviado,Notas\n";
+      const csvRows = arrivals.map((a: any) => {
+        const date = new Date(a.timestamp);
+        return `${a.id},"${a.studentName}","${a.groupName}","${a.course}","${date.toLocaleDateString("es-ES")}","${date.toLocaleTimeString("es-ES")}","${a.registrarName}","${a.emailSent ? "Sí" : "No"}","${(a.notes || "").replace(/"/g, '""')}"`;
+      }).join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="entradas_tardias_${new Date().toISOString().split("T")[0]}.csv"`);
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/settings/test-smtp", requireAuth, requireAdmin, async (_req, res) => {
     try {
       const result = await testSmtpConnection();
