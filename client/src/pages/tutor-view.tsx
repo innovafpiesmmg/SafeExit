@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle,
+  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus,
 } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
@@ -25,8 +25,10 @@ export default function TutorView() {
   const [shareQrUrl, setShareQrUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [photoTargetId, setPhotoTargetId] = useState<number | null>(null);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery<{ students: Student[]; group: Group }>({
     queryKey: ["/api/tutor/students"],
@@ -41,12 +43,21 @@ export default function TutorView() {
 
   const handlePhoto = (studentId: number) => {
     setPhotoTargetId(studentId);
-    fileInputRef.current?.click();
+    setPhotoDialogOpen(true);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !photoTargetId) return;
+  const chooseCamera = () => {
+    setPhotoDialogOpen(false);
+    setTimeout(() => cameraInputRef.current?.click(), 100);
+  };
+
+  const chooseGallery = () => {
+    setPhotoDialogOpen(false);
+    setTimeout(() => galleryInputRef.current?.click(), 100);
+  };
+
+  const uploadPhoto = useCallback(async (file: File) => {
+    if (!photoTargetId) return;
     setUploading(photoTargetId);
     const fd = new FormData();
     fd.append("photo", file);
@@ -67,8 +78,14 @@ export default function TutorView() {
     } finally {
       setUploading(null);
       setPhotoTargetId(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
     }
+  }, [photoTargetId, toast]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadPhoto(file);
   };
 
   const handleShare = async (student: Student) => {
@@ -126,12 +143,19 @@ export default function TutorView() {
         </div>
 
         <input
-          ref={fileInputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={handlePhotoUpload}
+          onChange={handleFileChange}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
         />
 
         {isLoading ? (
