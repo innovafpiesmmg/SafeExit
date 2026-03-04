@@ -40,7 +40,7 @@ function AdminRouter() {
 
 function AppLayout() {
   const { user, loading } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
 
   if (location.startsWith("/carnet/")) {
     return <CarnetPublicPage />;
@@ -60,6 +60,11 @@ function AppLayout() {
   if (!user) {
     if (location === "/login") return <LoginPage />;
     return <LandingPage />;
+  }
+
+  if (location === "/login") {
+    setLocation("/");
+    return null;
   }
 
   if (user.role === "guard") {
