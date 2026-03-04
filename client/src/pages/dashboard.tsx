@@ -1,10 +1,96 @@
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, ShieldCheck, ShieldX, CalendarDays, Clock, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Users, ShieldCheck, ShieldX, CalendarDays, Clock, TrendingUp, Tablet, Copy, Check, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import QRCodeLib from "qrcode";
+
+function GuardPwaCard() {
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const appUrl = window.location.origin;
+
+  useEffect(() => {
+    QRCodeLib.toDataURL(appUrl, {
+      width: 200,
+      margin: 2,
+      color: { dark: "#1a1a2e", light: "#ffffff" },
+    }).then(setQrDataUrl).catch(() => {});
+  }, [appUrl]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(appUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Tablet className="w-5 h-5 text-primary" />
+          Instalar App en Tablet (Profesor de Guardia)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          <div className="flex-shrink-0">
+            {qrDataUrl ? (
+              <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 p-3 bg-white">
+                <img
+                  src={qrDataUrl}
+                  alt="QR para instalar la app"
+                  className="w-[180px] h-[180px]"
+                  data-testid="img-pwa-qr"
+                />
+              </div>
+            ) : (
+              <div className="w-[204px] h-[204px] rounded-xl border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
+                <QrCode className="w-10 h-10 text-muted-foreground/30" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 space-y-3 text-center sm:text-left">
+            <p className="text-sm text-muted-foreground">
+              Escanea este código QR desde la tablet del profesor de guardia para abrir la aplicación. 
+              Luego pulsa <strong>"Añadir a pantalla de inicio"</strong> en el menú del navegador para instalar la PWA.
+            </p>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dirección de la aplicación</p>
+              <div className="flex gap-2">
+                <Input
+                  value={appUrl}
+                  readOnly
+                  className="font-mono text-sm bg-muted/50"
+                  data-testid="input-pwa-url"
+                />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={handleCopy}
+                  data-testid="button-copy-pwa-url"
+                  className="flex-shrink-0"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+              <p className="text-xs font-medium">Credenciales del profesor de guardia:</p>
+              <p className="text-xs text-muted-foreground font-mono">Usuario: <strong>profesor1</strong> — Contraseña: <strong>guard123</strong></p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery<{ total: number; authorized: number; denied: number; today: number }>({
@@ -50,6 +136,8 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <GuardPwaCard />
 
       <Card>
         <CardHeader className="pb-3">
