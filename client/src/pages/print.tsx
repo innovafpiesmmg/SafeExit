@@ -70,7 +70,7 @@ function StudentCard({ student, group, qrDataUrl, schoolName, academicYear }: { 
               <p className="text-[6px] text-muted-foreground">ID: {student.id}</p>
               {qrDataUrl && (
                 <div className="bg-white p-0.5 rounded border shadow-inner">
-                  <img src={qrDataUrl} alt="QR" className="w-[52px] h-[52px]" />
+                  <img src={qrDataUrl} alt="QR" className="w-[68px] h-[68px]" />
                 </div>
               )}
             </div>
@@ -269,7 +269,7 @@ export default function PrintPage() {
       doc.text(`ID: ${student.id}`, textX, y + cardHeight - 3);
 
       if (qrUrls[student.id]) {
-        const qrSize = 17;
+        const qrSize = 22;
         const qrX = x + cardWidth - qrSize - 3;
         const qrY = y + cardHeight - qrSize - 3;
         doc.setFillColor(255, 255, 255);
