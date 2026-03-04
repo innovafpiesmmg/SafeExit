@@ -16,6 +16,7 @@ import ScannerPage from "@/pages/scanner";
 import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
 import GuardView from "@/pages/guard-view";
+import GuardsPage from "@/pages/guards";
 
 function AdminRouter() {
   return (
@@ -25,6 +26,7 @@ function AdminRouter() {
       <Route path="/groups" component={GroupsPage} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/scan" component={ScannerPage} />
+      <Route path="/guards" component={GuardsPage} />
       <Route path="/history" component={HistoryPage} />
       <Route path="/print" component={PrintPage} />
       <Route component={NotFound} />

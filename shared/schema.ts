@@ -94,6 +94,13 @@ export const TIME_SLOTS = [
   { id: 12, label: "17:40 - 18:35", period: "afternoon" },
 ] as const;
 
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export type AppSetting = typeof appSettings.$inferSelect;
+
 export const DAYS_OF_WEEK = [
   { id: 1, label: "Lunes" },
   { id: 2, label: "Martes" },

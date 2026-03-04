@@ -17,13 +17,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, ShieldCheck,
+  History, Printer, LogOut, ShieldCheck, UserCheck,
 } from "lucide-react";
 
 const adminItems = [
   { title: "Panel de Control", url: "/", icon: LayoutDashboard },
   { title: "Alumnos", url: "/students", icon: Users },
   { title: "Grupos", url: "/groups", icon: GraduationCap },
+  { title: "Profesores", url: "/guards", icon: UserCheck },
   { title: "Calendario", url: "/calendar", icon: CalendarDays },
   { title: "Historial", url: "/history", icon: History },
   { title: "Imprimir Carnets", url: "/print", icon: Printer },

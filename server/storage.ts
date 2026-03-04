@@ -1,7 +1,7 @@
-import { eq, and, desc, gte, lte, ilike, or } from "drizzle-orm";
+import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, students, groups, groupSchedules, exitLogs, incidents,
+  users, students, groups, groupSchedules, exitLogs, incidents, appSettings,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -43,6 +43,16 @@ export interface IStorage {
 
   createIncident(incident: InsertIncident): Promise<Incident>;
   getIncidents(): Promise<Incident[]>;
+
+  getSetting(key: string): Promise<string | undefined>;
+  setSetting(key: string, value: string): Promise<void>;
+  getAllSettings(): Promise<Record<string, string>>;
+
+  getGuards(): Promise<User[]>;
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<void>;
+  updateAllGuardPasswords(hashedPassword: string): Promise<void>;
+  resetAcademicYear(adminUserId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -223,6 +233,50 @@ export class DatabaseStorage implements IStorage {
 
   async getIncidents(): Promise<Incident[]> {
     return db.select().from(incidents).orderBy(desc(incidents.createdAt));
+  }
+
+  async getSetting(key: string): Promise<string | undefined> {
+    const [row] = await db.select().from(appSettings).where(eq(appSettings.key, key));
+    return row?.value;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    await db.insert(appSettings).values({ key, value })
+      .onConflictDoUpdate({ target: appSettings.key, set: { value } });
+  }
+
+  async getAllSettings(): Promise<Record<string, string>> {
+    const rows = await db.select().from(appSettings);
+    const result: Record<string, string> = {};
+    for (const row of rows) result[row.key] = row.value;
+    return result;
+  }
+
+  async getGuards(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.role, "guard"));
+  }
+
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined> {
+    const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async updateAllGuardPasswords(hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.role, "guard"));
+  }
+
+  async resetAcademicYear(adminUserId: number): Promise<void> {
+    await db.delete(incidents);
+    await db.delete(exitLogs);
+    await db.delete(groupSchedules);
+    await db.delete(students);
+    await db.delete(groups);
+    await db.delete(users).where(ne(users.id, adminUserId));
+    await db.delete(appSettings);
   }
 }
 

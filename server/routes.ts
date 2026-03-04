@@ -121,6 +121,151 @@ export async function registerRoutes(
     res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
   });
 
+  app.get("/api/guards", requireAuth, requireAdmin, async (_req, res) => {
+    const guards = await storage.getGuards();
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role })));
+  });
+
+  app.get("/api/guards/template", requireAuth, requireAdmin, (_req, res) => {
+    const wb = XLSX.utils.book_new();
+    const headers = [
+      ["Nombre", "Apellidos"],
+      ["María", "García Fernández"],
+      ["Carlos", "López Martín"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    ws["!cols"] = [{ wch: 20 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Profesores");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=plantilla_profesores.xlsx");
+    res.send(Buffer.from(buf));
+  });
+
+  app.post("/api/guards/import", requireAuth, requireAdmin, upload.single("file"), async (req, res) => {
+    const filePath = req.file?.path;
+    try {
+      if (!req.file || !filePath) return res.status(400).json({ message: "No se subió archivo" });
+
+      const guardPassword = await storage.getSetting("guardPassword");
+      if (!guardPassword) return res.status(400).json({ message: "Primero define la contraseña común de los profesores de guardia en la sección de contraseña." });
+
+      const wb = XLSX.readFile(filePath);
+      const sheetName = wb.SheetNames[0];
+      const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+
+      if (!rows.length) return res.status(400).json({ message: "El archivo está vacío" });
+
+      const requiredCols = ["Nombre", "Apellidos"];
+      const headers = Object.keys(rows[0]);
+      const missing = requiredCols.filter(c => !headers.includes(c));
+      if (missing.length) {
+        return res.status(400).json({ message: `Columnas requeridas no encontradas: ${missing.join(", ")}. Descarga la plantilla para ver el formato correcto.` });
+      }
+
+      const hashedPassword = await bcrypt.hash(guardPassword, 10);
+      const created: any[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+        const firstName = String(row["Nombre"] || "").trim();
+        const lastName = String(row["Apellidos"] || "").trim();
+
+        if (!firstName || !lastName) {
+          errors.push(`Fila ${rowNum}: Nombre o Apellidos vacíos`);
+          continue;
+        }
+
+        const fullName = `${firstName} ${lastName}`;
+        const base = `${firstName.toLowerCase().replace(/\s+/g, "")}${lastName.toLowerCase().split(" ")[0].replace(/\s+/g, "")}`;
+        let username = base;
+        let counter = 1;
+        while (await storage.getUserByUsername(username)) {
+          username = `${base}${counter}`;
+          counter++;
+        }
+
+        try {
+          const user = await storage.createUser({ username, password: hashedPassword, fullName, role: "guard" });
+          created.push({ id: user.id, username: user.username, fullName: user.fullName });
+        } catch (err: any) {
+          errors.push(`Fila ${rowNum}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: `${created.length} profesor(es) importado(s) correctamente`,
+        imported: created.length,
+        errors,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: `Error procesando archivo: ${error.message}` });
+    } finally {
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+
+  app.put("/api/guards/password", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password || password.length < 4) return res.status(400).json({ message: "La contraseña debe tener al menos 4 caracteres" });
+      await storage.setSetting("guardPassword", password);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateAllGuardPasswords(hashedPassword);
+      res.json({ message: "Contraseña actualizada para todos los profesores de guardia" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/guards", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { firstName, lastName } = req.body;
+      if (!firstName || !lastName) return res.status(400).json({ message: "Nombre y apellidos requeridos" });
+
+      const guardPassword = await storage.getSetting("guardPassword");
+      if (!guardPassword) return res.status(400).json({ message: "Primero define la contraseña común de los profesores de guardia" });
+
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const base = `${firstName.trim().toLowerCase().replace(/\s+/g, "")}${lastName.trim().toLowerCase().split(" ")[0].replace(/\s+/g, "")}`;
+      let username = base;
+      let counter = 1;
+      while (await storage.getUserByUsername(username)) {
+        username = `${base}${counter}`;
+        counter++;
+      }
+
+      const hashedPassword = await bcrypt.hash(guardPassword, 10);
+      const user = await storage.createUser({ username, password: hashedPassword, fullName, role: "guard" });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/guards/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { firstName, lastName } = req.body;
+      if (!firstName || !lastName) return res.status(400).json({ message: "Nombre y apellidos requeridos" });
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const user = await storage.updateUser(id, { fullName });
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/guards/:id", requireAuth, requireAdmin, async (req, res) => {
+    await storage.deleteUser(parseInt(req.params.id));
+    res.json({ message: "Profesor eliminado" });
+  });
+
   app.get("/api/groups", requireAuth, async (_req, res) => {
     const allGroups = await storage.getAllGroups();
     res.json(allGroups);
@@ -481,6 +626,22 @@ export async function registerRoutes(
     res.json(allIncidents);
   });
 
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    const settings = await storage.getAllSettings();
+    if ((req.session as any).role !== "admin") {
+      delete settings.guardPassword;
+    }
+    res.json(settings);
+  });
+
+  app.put("/api/settings", requireAuth, requireAdmin, async (req, res) => {
+    const { key, value } = req.body;
+    if (!key) return res.status(400).json({ message: "Clave requerida" });
+    await storage.setSetting(key, String(value));
+    const settings = await storage.getAllSettings();
+    res.json(settings);
+  });
+
   app.get("/api/exit-logs/export", requireAuth, requireAdmin, async (req, res) => {
     const { dateFrom, dateTo, groupId, studentName } = req.query;
     const logs = await storage.getExitLogs({
@@ -499,6 +660,20 @@ export async function registerRoutes(
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="salidas_${new Date().toISOString().split("T")[0]}.csv"`);
     res.send("\uFEFF" + csvHeader + csvRows);
+  });
+
+  app.post("/api/admin/reset-academic-year", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { confirmation } = req.body;
+      if (confirmation !== "NUEVO CURSO") {
+        return res.status(400).json({ message: "Confirmación incorrecta. Escribe 'NUEVO CURSO' para continuar." });
+      }
+      const adminUserId = (req.session as any).userId;
+      await storage.resetAcademicYear(adminUserId);
+      res.json({ message: "Curso académico reiniciado correctamente. Todos los datos han sido eliminados." });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   return httpServer;

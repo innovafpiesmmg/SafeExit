@@ -20,8 +20,10 @@ A PWA web application for managing student departures from a school using QR cod
 
 ## Key Features
 - **Student Management**: CRUD with photo upload, parental/bus authorization toggles
-- **Excel Import**: Download template, bulk import students from .xlsx with auto group creation
+- **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation
 - **Group Management**: Create/edit groups with course assignment
+- **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns)
+- **Academic Year Reset**: Deletes all data except admin user (requires typing "NUEVO CURSO" to confirm)
 - **Calendar System**: Interactive 12-slot x 5-day grid for configuring exit permissions per group
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
 - **Audit History**: Filterable exit log table with CSV export
@@ -53,6 +55,7 @@ A PWA web application for managing student departures from a school using QR cod
 - `server/seed.ts` - Initial seed data
 - `server/db.ts` - Database connection
 - `client/src/pages/guard-view.tsx` - Dedicated guard/tablet view (full-screen, no sidebar)
+- `client/src/pages/guards.tsx` - Guard/teacher management with Excel import and academic year reset
 - `client/src/pages/` - Page components (login, dashboard, students, groups, calendar, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
 - `client/src/lib/auth.tsx` - Authentication context
