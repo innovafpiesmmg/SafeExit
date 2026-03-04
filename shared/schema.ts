@@ -48,7 +48,7 @@ export type Student = typeof students.$inferSelect;
 export const groupSchedules = pgTable("group_schedules", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").notNull(),
-  dayOfWeek: integer("day_of_week").notNull(),
+  date: text("date").notNull(),
   timeSlot: integer("time_slot").notNull(),
   exitAllowed: boolean("exit_allowed").notNull().default(false),
 });

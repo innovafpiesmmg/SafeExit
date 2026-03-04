@@ -35,8 +35,10 @@ export interface IStorage {
   generateCarnetTokens(): Promise<number>;
 
   getGroupSchedules(groupId: number): Promise<GroupSchedule[]>;
-  setGroupSchedule(groupId: number, dayOfWeek: number, timeSlot: number, exitAllowed: boolean): Promise<void>;
+  getGroupSchedulesByDate(groupId: number, date: string): Promise<GroupSchedule[]>;
+  setGroupSchedule(groupId: number, date: string, timeSlot: number, exitAllowed: boolean): Promise<void>;
   bulkSetGroupSchedules(schedules: InsertGroupSchedule[]): Promise<void>;
+  getScheduleDates(groupId: number): Promise<string[]>;
 
   createExitLog(log: InsertExitLog): Promise<ExitLog>;
   getExitLogs(filters?: { dateFrom?: string; dateTo?: string; groupId?: number; studentName?: string }): Promise<any[]>;
@@ -161,11 +163,17 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(groupSchedules).where(eq(groupSchedules.groupId, groupId));
   }
 
-  async setGroupSchedule(groupId: number, dayOfWeek: number, timeSlot: number, exitAllowed: boolean): Promise<void> {
+  async getGroupSchedulesByDate(groupId: number, date: string): Promise<GroupSchedule[]> {
+    return db.select().from(groupSchedules).where(
+      and(eq(groupSchedules.groupId, groupId), eq(groupSchedules.date, date))
+    );
+  }
+
+  async setGroupSchedule(groupId: number, date: string, timeSlot: number, exitAllowed: boolean): Promise<void> {
     const existing = await db.select().from(groupSchedules)
       .where(and(
         eq(groupSchedules.groupId, groupId),
-        eq(groupSchedules.dayOfWeek, dayOfWeek),
+        eq(groupSchedules.date, date),
         eq(groupSchedules.timeSlot, timeSlot)
       ));
 
@@ -174,14 +182,23 @@ export class DatabaseStorage implements IStorage {
         .set({ exitAllowed })
         .where(eq(groupSchedules.id, existing[0].id));
     } else {
-      await db.insert(groupSchedules).values({ groupId, dayOfWeek, timeSlot, exitAllowed });
+      await db.insert(groupSchedules).values({ groupId, date, timeSlot, exitAllowed });
     }
   }
 
   async bulkSetGroupSchedules(schedules: InsertGroupSchedule[]): Promise<void> {
     for (const s of schedules) {
-      await this.setGroupSchedule(s.groupId, s.dayOfWeek, s.timeSlot, s.exitAllowed);
+      await this.setGroupSchedule(s.groupId, s.date, s.timeSlot, s.exitAllowed);
     }
+  }
+
+  async getScheduleDates(groupId: number): Promise<string[]> {
+    const rows = await db.select({ date: groupSchedules.date })
+      .from(groupSchedules)
+      .where(and(eq(groupSchedules.groupId, groupId), eq(groupSchedules.exitAllowed, true)));
+    const unique = [...new Set(rows.map(r => r.date))];
+    unique.sort();
+    return unique;
   }
 
   async createExitLog(log: InsertExitLog): Promise<ExitLog> {

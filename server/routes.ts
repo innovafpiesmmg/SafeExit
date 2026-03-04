@@ -502,8 +502,18 @@ export async function registerRoutes(
   });
 
   app.get("/api/schedules/:groupId", requireAuth, async (req, res) => {
+    const { date } = req.query;
+    if (date && typeof date === "string") {
+      const schedules = await storage.getGroupSchedulesByDate(parseInt(req.params.groupId), date);
+      return res.json(schedules);
+    }
     const schedules = await storage.getGroupSchedules(parseInt(req.params.groupId));
     res.json(schedules);
+  });
+
+  app.get("/api/schedules/:groupId/dates", requireAuth, async (req, res) => {
+    const dates = await storage.getScheduleDates(parseInt(req.params.groupId));
+    res.json(dates);
   });
 
   app.post("/api/schedules", requireAuth, requireAdmin, async (req, res) => {
@@ -570,8 +580,9 @@ export async function registerRoutes(
         });
       }
 
-      const dayOfWeek = getCurrentDayOfWeek();
       const timeSlot = getCurrentTimeSlot();
+      const todayStr = new Date().toISOString().split("T")[0];
+      const dayOfWeek = getCurrentDayOfWeek();
 
       if (dayOfWeek > 5) {
         const log = await storage.createExitLog({
@@ -620,21 +631,21 @@ export async function registerRoutes(
         });
       }
 
-      const schedules = await storage.getGroupSchedules(student.groupId);
+      const schedules = await storage.getGroupSchedulesByDate(student.groupId, todayStr);
       const currentSchedule = schedules.find(
-        (s) => s.dayOfWeek === dayOfWeek && s.timeSlot === timeSlot
+        (s) => s.timeSlot === timeSlot
       );
 
       if (currentSchedule && currentSchedule.exitAllowed) {
         const log = await storage.createExitLog({
           studentId: student.id,
           result: "AUTORIZADO",
-          reason: `Permiso grupal - Tramo ${timeSlot}`,
+          reason: `Permiso grupal - ${todayStr} Tramo ${timeSlot}`,
           verifiedBy: userId,
         });
         return res.json({
           result: "AUTORIZADO",
-          reason: `Permiso grupal - Tramo ${timeSlot}`,
+          reason: `Permiso grupal - ${todayStr} Tramo ${timeSlot}`,
           student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
           logId: log.id,
         });

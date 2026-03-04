@@ -1,93 +1,107 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Save, CalendarDays } from "lucide-react";
-import { TIME_SLOTS, DAYS_OF_WEEK, type Group, type GroupSchedule } from "@shared/schema";
+import { Save, CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { TIME_SLOTS, type Group, type GroupSchedule } from "@shared/schema";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isBefore } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function CalendarPage() {
   const { toast } = useToast();
   const [selectedGroup, setSelectedGroup] = useState<string>("");
-  const [grid, setGrid] = useState<Record<string, boolean>>({});
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [slots, setSlots] = useState<Record<number, boolean>>({});
 
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
-  const { data: schedules, isLoading } = useQuery<GroupSchedule[]>({
-    queryKey: ["/api/schedules", selectedGroup],
+
+  const { data: scheduleDates } = useQuery<string[]>({
+    queryKey: ["/api/schedules", selectedGroup, "dates"],
     enabled: !!selectedGroup,
     queryFn: async () => {
-      const res = await fetch(`/api/schedules/${selectedGroup}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Error fetching schedules");
+      const res = await fetch(`/api/schedules/${selectedGroup}/dates`, { credentials: "include" });
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+  });
+
+  const { data: dateSchedules, isLoading: loadingSlots } = useQuery<GroupSchedule[]>({
+    queryKey: ["/api/schedules", selectedGroup, selectedDate],
+    enabled: !!selectedGroup && !!selectedDate,
+    queryFn: async () => {
+      const res = await fetch(`/api/schedules/${selectedGroup}?date=${selectedDate}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Error");
       return res.json();
     },
   });
 
   useEffect(() => {
-    if (schedules) {
-      const newGrid: Record<string, boolean> = {};
-      schedules.forEach(s => {
-        newGrid[`${s.dayOfWeek}-${s.timeSlot}`] = s.exitAllowed;
+    if (dateSchedules) {
+      const newSlots: Record<number, boolean> = {};
+      dateSchedules.forEach(s => {
+        newSlots[s.timeSlot] = s.exitAllowed;
       });
-      setGrid(newGrid);
+      setSlots(newSlots);
+    } else {
+      setSlots({});
     }
-  }, [schedules]);
+  }, [dateSchedules]);
 
   const saveMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/schedules", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules", selectedGroup] });
-      toast({ title: "Horarios guardados correctamente" });
+      toast({ title: "Permisos guardados correctamente" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const toggleCell = (day: number, slot: number) => {
-    const key = `${day}-${slot}`;
-    setGrid(g => ({ ...g, [key]: !g[key] }));
+  const toggleSlot = (slotId: number) => {
+    setSlots(prev => ({ ...prev, [slotId]: !prev[slotId] }));
   };
 
   const handleSave = () => {
-    if (!selectedGroup) return;
-    const schedulesList: any[] = [];
-    DAYS_OF_WEEK.forEach(day => {
-      TIME_SLOTS.forEach(slot => {
-        schedulesList.push({
-          groupId: parseInt(selectedGroup),
-          dayOfWeek: day.id,
-          timeSlot: slot.id,
-          exitAllowed: !!grid[`${day.id}-${slot.id}`],
-        });
-      });
-    });
+    if (!selectedGroup || !selectedDate) return;
+    const schedulesList = TIME_SLOTS.map(slot => ({
+      groupId: parseInt(selectedGroup),
+      date: selectedDate,
+      timeSlot: slot.id,
+      exitAllowed: !!slots[slot.id],
+    }));
     saveMutation.mutate({ schedules: schedulesList });
   };
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startDay = getDay(monthStart);
+  const paddingDays = startDay === 0 ? 6 : startDay - 1;
+
+  const datesWithPermissions = new Set(scheduleDates || []);
+
+  const hasAnySlotEnabled = Object.values(slots).some(v => v);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-calendar-title">Calendario de Salidas</h1>
-          <p className="text-muted-foreground text-sm mt-1">Configura los tramos horarios de salida por grupo</p>
+          <p className="text-muted-foreground text-sm mt-1">Selecciona una fecha para configurar los tramos de salida</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-            <SelectTrigger className="w-48" data-testid="select-calendar-group">
-              <SelectValue placeholder="Seleccionar grupo" />
-            </SelectTrigger>
-            <SelectContent>
-              {groups?.map(g => <SelectItem key={g.id} value={String(g.id)}>{g.name} - {g.course}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {selectedGroup && (
-            <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-calendar">
-              <Save className="w-4 h-4 mr-2" />
-              Guardar
-            </Button>
-          )}
-        </div>
+        <Select value={selectedGroup} onValueChange={v => { setSelectedGroup(v); setSelectedDate(null); }}>
+          <SelectTrigger className="w-56" data-testid="select-calendar-group">
+            <SelectValue placeholder="Seleccionar grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            {groups?.map(g => <SelectItem key={g.id} value={String(g.id)}>{g.name} - {g.course}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {!selectedGroup ? (
@@ -98,68 +112,140 @@ export default function CalendarPage() {
             <p className="text-sm mt-1">Elige un grupo para configurar su calendario de salidas</p>
           </CardContent>
         </Card>
-      ) : isLoading ? (
-        <Skeleton className="h-96" />
       ) : (
-        <Card>
-          <CardContent className="p-4 overflow-x-auto">
-            <table className="w-full border-collapse min-w-[600px]">
-              <thead>
-                <tr>
-                  <th className="p-2 text-left text-xs font-semibold text-muted-foreground w-32">Tramo</th>
-                  {DAYS_OF_WEEK.map(day => (
-                    <th key={day.id} className="p-2 text-center text-xs font-semibold text-muted-foreground">{day.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {TIME_SLOTS.map((slot, idx) => (
-                  <Fragment key={slot.id}>
-                    {idx === 6 && (
-                      <tr>
-                        <td colSpan={6} className="py-2">
-                          <div className="border-t-2 border-dashed border-muted-foreground/20" />
-                          <p className="text-center text-xs text-muted-foreground mt-1 mb-1">Tarde</p>
-                        </td>
-                      </tr>
-                    )}
-                    {idx === 0 && (
-                      <tr>
-                        <td colSpan={6}>
-                          <p className="text-center text-xs text-muted-foreground mb-1">Mañana</p>
-                        </td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td className="p-1">
-                        <div className="text-xs font-mono text-muted-foreground px-2 py-1.5">{slot.label}</div>
-                      </td>
-                      {DAYS_OF_WEEK.map(day => {
-                        const key = `${day.id}-${slot.id}`;
-                        const allowed = !!grid[key];
-                        return (
-                          <td key={day.id} className="p-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => subMonths(m, 1))} data-testid="button-prev-month">
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <CardTitle className="text-lg capitalize" data-testid="text-current-month">
+                  {format(currentMonth, "MMMM yyyy", { locale: es })}
+                </CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => addMonths(m, 1))} data-testid="button-next-month">
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {["L", "M", "X", "J", "V", "S", "D"].map(d => (
+                  <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-1">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: paddingDays }).map((_, i) => (
+                  <div key={`pad-${i}`} />
+                ))}
+                {days.map(day => {
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const isSelected = selectedDate === dateStr;
+                  const hasPermissions = datesWithPermissions.has(dateStr);
+                  const isWeekend = getDay(day) === 0 || getDay(day) === 6;
+                  const isPast = isBefore(day, new Date()) && !isToday(day);
+
+                  return (
+                    <button
+                      key={dateStr}
+                      data-testid={`day-${dateStr}`}
+                      onClick={() => !isWeekend && setSelectedDate(dateStr)}
+                      disabled={isWeekend}
+                      className={`
+                        relative h-10 rounded-md text-sm font-medium transition-all
+                        ${isWeekend ? "text-muted-foreground/30 cursor-not-allowed" : "hover:bg-accent cursor-pointer"}
+                        ${isSelected ? "bg-primary text-primary-foreground hover:bg-primary/90 ring-2 ring-primary ring-offset-1" : ""}
+                        ${isToday(day) && !isSelected ? "bg-accent font-bold" : ""}
+                        ${isPast && !isSelected ? "text-muted-foreground/60" : ""}
+                      `}
+                    >
+                      {format(day, "d")}
+                      {hasPermissions && !isSelected && (
+                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Con permisos
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  Seleccionado
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            {selectedDate ? (
+              <>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {format(new Date(selectedDate + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es })}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5">
+                    {loadingSlots ? (
+                      <div className="space-y-2">
+                        {[1,2,3].map(i => <Skeleton key={i} className="h-9" />)}
+                      </div>
+                    ) : (
+                      <>
+                        {TIME_SLOTS.map((slot, idx) => (
+                          <div key={slot.id}>
+                            {idx === 6 && (
+                              <div className="border-t border-dashed my-2 pt-1">
+                                <p className="text-[10px] text-muted-foreground text-center mb-1">Tarde</p>
+                              </div>
+                            )}
+                            {idx === 0 && (
+                              <p className="text-[10px] text-muted-foreground text-center mb-1">Mañana</p>
+                            )}
                             <button
-                              data-testid={`cell-${day.id}-${slot.id}`}
-                              onClick={() => toggleCell(day.id, slot.id)}
-                              className={`w-full h-10 rounded-md text-xs font-medium transition-colors ${
-                                allowed
+                              data-testid={`slot-${slot.id}`}
+                              onClick={() => toggleSlot(slot.id)}
+                              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-between ${
+                                slots[slot.id]
                                   ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                                  : "bg-muted/50 text-muted-foreground/50 border border-transparent"
+                                  : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
                               }`}
                             >
-                              {allowed ? "Permitido" : "-"}
+                              <span className="font-mono">{slot.label}</span>
+                              {slots[slot.id] && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Permitido</Badge>}
                             </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                          </div>
+                        ))}
+                        <Button
+                          className="w-full mt-3"
+                          onClick={handleSave}
+                          disabled={saveMutation.isPending}
+                          data-testid="button-save-calendar"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          {saveMutation.isPending ? "Guardando..." : "Guardar"}
+                        </Button>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm font-medium">Selecciona una fecha</p>
+                  <p className="text-xs mt-1">Pulsa un día del calendario para configurar sus tramos de salida</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
