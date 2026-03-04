@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, FileDown, QrCode, GraduationCap, Smartphone } from "lucide-react";
+import { Printer, FileDown, GraduationCap, Smartphone, ShieldCheck } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
@@ -18,42 +18,55 @@ function StudentCard({ student, group, qrDataUrl }: { student: Student; group?: 
 
   return (
     <div
-      className="relative border border-border rounded-lg bg-card overflow-hidden"
+      className="relative rounded-xl overflow-hidden shadow-md border"
       style={{ width: "85mm", height: "55mm" }}
       data-testid={`carnet-${student.id}`}
     >
-      <div className="absolute inset-0 grid grid-cols-[35%_1fr] h-full">
-        <div className="flex flex-col items-center justify-center bg-primary/5 p-2 border-r border-border">
-          <Avatar className="w-16 h-16 mb-1.5">
-            <AvatarImage src={student.photoUrl || undefined} />
-            <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-              {student.firstName[0]}{student.lastName[0]}
-            </AvatarFallback>
-          </Avatar>
-          <p className="text-[8px] text-muted-foreground text-center">SafeExit</p>
+      <div className="absolute inset-0 flex flex-col h-full">
+        <div className="bg-primary text-primary-foreground px-3 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="text-[9px] font-bold tracking-wide">SafeExit</span>
+          </div>
+          <span className="text-[7px] opacity-80">Carnet de Alumno</span>
         </div>
-        <div className="flex flex-col justify-between p-2.5">
-          <div>
-            <div className="flex items-start justify-between gap-1">
-              <p className="text-[11px] font-bold leading-tight line-clamp-2" style={{ maxWidth: "calc(100% - 20px)" }}>
-                {student.firstName} {student.lastName}
-              </p>
-              {isAdult && (
-                <span className="flex-shrink-0 bg-primary text-primary-foreground text-[7px] font-bold px-1 py-0.5 rounded">+18</span>
-              )}
-            </div>
-            <div className="mt-1 space-y-0.5">
-              <p className="text-[9px] text-muted-foreground">{student.course}</p>
-              <p className="text-[9px] font-medium">{group?.name || ""}</p>
+
+        <div className="flex-1 flex items-stretch bg-card">
+          <div className="flex flex-col items-center justify-center px-3 py-2" style={{ width: "35%" }}>
+            <Avatar className="w-14 h-14 border-2 border-primary/20 shadow-sm">
+              <AvatarImage src={student.photoUrl || undefined} />
+              <AvatarFallback className="text-base font-bold bg-primary/10 text-primary">
+                {student.firstName[0]}{student.lastName[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex items-center gap-1 mt-1.5">
+              <Badge variant="secondary" className="text-[7px] px-1 py-0">
+                <GraduationCap className="w-2.5 h-2.5 mr-0.5" />
+                {group?.name}
+              </Badge>
             </div>
           </div>
-          <div className="flex items-end justify-between">
-            <div className="text-[7px] text-muted-foreground">
-              ID: {student.id}
+
+          <div className="flex-1 flex flex-col justify-between py-2 pr-3">
+            <div>
+              <div className="flex items-start gap-1">
+                <p className="text-[11px] font-bold leading-tight line-clamp-2">
+                  {student.firstName} {student.lastName}
+                </p>
+                {isAdult && (
+                  <span className="flex-shrink-0 bg-primary text-primary-foreground text-[7px] font-bold px-1 py-0.5 rounded mt-0.5">+18</span>
+                )}
+              </div>
+              <p className="text-[8px] text-muted-foreground mt-0.5">{student.course}</p>
             </div>
-            {qrDataUrl && (
-              <img src={qrDataUrl} alt="QR" className="w-14 h-14" />
-            )}
+            <div className="flex items-end justify-between">
+              <p className="text-[6px] text-muted-foreground">ID: {student.id}</p>
+              {qrDataUrl && (
+                <div className="bg-white p-0.5 rounded border shadow-inner">
+                  <img src={qrDataUrl} alt="QR" className="w-[52px] h-[52px]" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -112,6 +125,9 @@ export default function PrintPage() {
     const marginX = (210 - 2 * cardWidth) / 3;
     const marginY = (297 - 5 * cardHeight) / 6;
 
+    const headerH = 8;
+    const primaryR = 37, primaryG = 99, primaryB = 235;
+
     for (let i = 0; i < printStudents.length; i++) {
       if (i > 0 && i % 10 === 0) doc.addPage();
       const pageIdx = i % 10;
@@ -123,48 +139,120 @@ export default function PrintPage() {
       const group = groups?.find(g => g.id === student.groupId);
       const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
 
-      doc.setDrawColor(200);
-      doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
+      doc.setDrawColor(210);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 2.5, 2.5);
 
-      doc.setFillColor(245, 247, 250);
-      doc.roundedRect(x, y, cardWidth * 0.35, cardHeight, 3, 0, "F");
+      doc.setFillColor(primaryR, primaryG, primaryB);
+      doc.rect(x + 0.15, y + 0.15, cardWidth - 0.3, headerH, "F");
 
-      doc.setFontSize(6);
-      doc.setTextColor(150);
-      doc.text("SafeExit", x + cardWidth * 0.175, y + cardHeight - 4, { align: "center" });
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("SafeExit", x + 4, y + 5.5);
 
-      const initials = `${student.firstName[0]}${student.lastName[0]}`;
-      doc.setFontSize(16);
-      doc.setTextColor(66, 133, 244);
-      doc.text(initials, x + cardWidth * 0.175, y + 25, { align: "center" });
+      doc.setFontSize(5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255);
+      doc.text("Carnet de Alumno", x + cardWidth - 4, y + 5.5, { align: "right" });
 
-      const textX = x + cardWidth * 0.38;
-      doc.setFontSize(9);
-      doc.setTextColor(30);
+      const photoSectionW = cardWidth * 0.32;
+      const contentY = y + headerH + 2;
+      const contentH = cardHeight - headerH - 2;
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(x + 0.15, y + headerH, photoSectionW - 0.15, contentH + 2 - 0.15, "F");
+
+      const photoCenterX = x + photoSectionW / 2;
+      const photoCenterY = contentY + contentH / 2 - 4;
+      const photoR = 8;
+
+      doc.setDrawColor(primaryR, primaryG, primaryB);
+      doc.setLineWidth(0.6);
+      doc.circle(photoCenterX, photoCenterY, photoR + 0.5);
+
+      if (student.photoUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = student.photoUrl!;
+          });
+          const canvas = document.createElement("canvas");
+          const size = 200;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d")!;
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+          ctx.clip();
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+          const dataUrl = canvas.toDataURL("image/png");
+          doc.addImage(dataUrl, "PNG", photoCenterX - photoR, photoCenterY - photoR, photoR * 2, photoR * 2);
+        } catch {
+          doc.setFontSize(14);
+          doc.setTextColor(primaryR, primaryG, primaryB);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${student.firstName[0]}${student.lastName[0]}`, photoCenterX, photoCenterY + 2, { align: "center" });
+        }
+      } else {
+        doc.setFontSize(14);
+        doc.setTextColor(primaryR, primaryG, primaryB);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${student.firstName[0]}${student.lastName[0]}`, photoCenterX, photoCenterY + 2, { align: "center" });
+      }
+
+      doc.setFillColor(primaryR, primaryG, primaryB);
+      doc.setTextColor(255);
+      const groupLabel = group?.name || "";
+      doc.roundedRect(photoCenterX - 8, photoCenterY + photoR + 2, 16, 4, 1, 1, "F");
+      doc.setFontSize(5);
+      doc.setFont("helvetica", "bold");
+      doc.text(groupLabel, photoCenterX, photoCenterY + photoR + 4.8, { align: "center" });
+
+      const textX = x + photoSectionW + 3;
+      const textMaxW = cardWidth - photoSectionW - 6;
+
+      doc.setFontSize(10);
+      doc.setTextColor(20, 20, 20);
+      doc.setFont("helvetica", "bold");
       const name = `${student.firstName} ${student.lastName}`;
-      const truncatedName = name.length > 25 ? name.slice(0, 22) + "..." : name;
-      doc.text(truncatedName, textX, y + 10);
+      const truncatedName = name.length > 22 ? name.slice(0, 19) + "..." : name;
+      doc.text(truncatedName, textX, contentY + 5);
 
       if (age >= 18) {
-        doc.setFillColor(66, 133, 244);
-        doc.roundedRect(textX + doc.getTextWidth(truncatedName) + 2, y + 6, 8, 5, 1, 1, "F");
+        const nameW = doc.getTextWidth(truncatedName);
+        doc.setFillColor(primaryR, primaryG, primaryB);
+        doc.roundedRect(textX + nameW + 1.5, contentY + 1.5, 7, 4, 1, 1, "F");
         doc.setFontSize(5);
         doc.setTextColor(255);
-        doc.text("+18", textX + doc.getTextWidth(truncatedName) + 3.5, y + 9.5);
+        doc.setFont("helvetica", "bold");
+        doc.text("+18", textX + nameW + 3, contentY + 4.5);
       }
 
       doc.setFontSize(7);
       doc.setTextColor(100);
-      doc.text(student.course, textX, y + 16);
-      doc.setFontSize(8);
-      doc.setTextColor(60);
-      doc.text(group?.name || "", textX, y + 22);
+      doc.setFont("helvetica", "normal");
+      doc.text(student.course, textX, contentY + 10);
+
       doc.setFontSize(5);
-      doc.setTextColor(150);
-      doc.text(`ID: ${student.id}`, textX, y + cardHeight - 4);
+      doc.setTextColor(160);
+      doc.text(`ID: ${student.id}`, textX, y + cardHeight - 3);
 
       if (qrUrls[student.id]) {
-        doc.addImage(qrUrls[student.id], "PNG", x + cardWidth - 18, y + cardHeight - 18, 15, 15);
+        const qrSize = 17;
+        const qrX = x + cardWidth - qrSize - 3;
+        const qrY = y + cardHeight - qrSize - 3;
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(230);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 1, 1, "FD");
+        doc.addImage(qrUrls[student.id], "PNG", qrX, qrY, qrSize, qrSize);
       }
     }
 
