@@ -15,6 +15,7 @@ import CalendarPage from "@/pages/calendar";
 import ScannerPage from "@/pages/scanner";
 import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
+import GuardView from "@/pages/guard-view";
 
 function AdminRouter() {
   return (
@@ -26,16 +27,6 @@ function AdminRouter() {
       <Route path="/scan" component={ScannerPage} />
       <Route path="/history" component={HistoryPage} />
       <Route path="/print" component={PrintPage} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function GuardRouter() {
-  return (
-    <Switch>
-      <Route path="/" component={ScannerPage} />
-      <Route path="/scan" component={ScannerPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -57,6 +48,10 @@ function AppLayout() {
 
   if (!user) return <LoginPage />;
 
+  if (user.role === "guard") {
+    return <GuardView />;
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -71,7 +66,7 @@ function AppLayout() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-6">
-            {user.role === "admin" ? <AdminRouter /> : <GuardRouter />}
+            <AdminRouter />
           </main>
         </div>
       </div>
