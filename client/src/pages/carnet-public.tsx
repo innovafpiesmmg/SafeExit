@@ -16,6 +16,7 @@ interface CarnetData {
   photoUrl: string | null;
   qrCode: string;
   dateOfBirth: string;
+  schoolName: string;
 }
 
 export default function CarnetPublicPage() {
@@ -85,6 +86,9 @@ export default function CarnetPublicPage() {
       <Card className="w-full max-w-sm shadow-xl border-2" data-testid="card-carnet-digital">
         <CardContent className="p-0">
           <div className="bg-primary text-primary-foreground p-4 text-center rounded-t-lg">
+            {data.schoolName && (
+              <p className="text-sm font-semibold mb-1 opacity-95" data-testid="text-carnet-school">{data.schoolName}</p>
+            )}
             <div className="flex items-center justify-center gap-2 mb-1">
               <Shield className="w-5 h-5" />
               <span className="font-bold text-lg tracking-wide">SafeExit</span>

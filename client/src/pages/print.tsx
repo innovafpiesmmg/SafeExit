@@ -12,7 +12,7 @@ import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
 
-function StudentCard({ student, group, qrDataUrl }: { student: Student; group?: Group; qrDataUrl: string }) {
+function StudentCard({ student, group, qrDataUrl, schoolName }: { student: Student; group?: Group; qrDataUrl: string; schoolName: string }) {
   const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
   const isAdult = age >= 18;
 
@@ -23,12 +23,17 @@ function StudentCard({ student, group, qrDataUrl }: { student: Student; group?: 
       data-testid={`carnet-${student.id}`}
     >
       <div className="absolute inset-0 flex flex-col h-full">
-        <div className="bg-primary text-primary-foreground px-3 py-1.5 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-bold tracking-wide">SafeExit</span>
+        <div className="bg-primary text-primary-foreground px-3 py-1 flex flex-col">
+          {schoolName && (
+            <span className="text-[7px] font-semibold text-center opacity-90 leading-tight">{schoolName}</span>
+          )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              <span className="text-[8px] font-bold tracking-wide">SafeExit</span>
+            </div>
+            <span className="text-[6px] opacity-80">Carnet de Alumno</span>
           </div>
-          <span className="text-[7px] opacity-80">Carnet de Alumno</span>
         </div>
 
         <div className="flex-1 flex items-stretch bg-card">
@@ -81,6 +86,9 @@ export default function PrintPage() {
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
+  const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+
+  const schoolName = settings?.schoolName || "";
 
   const filtered = selectedGroup === "all"
     ? students || []
@@ -143,25 +151,37 @@ export default function PrintPage() {
       doc.setLineWidth(0.3);
       doc.roundedRect(x, y, cardWidth, cardHeight, 2.5, 2.5);
 
+      const actualHeaderH = schoolName ? headerH + 4 : headerH;
+
       doc.setFillColor(primaryR, primaryG, primaryB);
-      doc.rect(x + 0.15, y + 0.15, cardWidth - 0.3, headerH, "F");
+      doc.rect(x + 0.15, y + 0.15, cardWidth - 0.3, actualHeaderH, "F");
+
+      let headerTextY = y + 3;
+      if (schoolName) {
+        doc.setFontSize(5.5);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        const truncSchool = schoolName.length > 45 ? schoolName.slice(0, 42) + "..." : schoolName;
+        doc.text(truncSchool, x + cardWidth / 2, headerTextY + 1.5, { align: "center" });
+        headerTextY += 4;
+      }
 
       doc.setFontSize(7);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.text("SafeExit", x + 4, y + 5.5);
+      doc.text("SafeExit", x + 4, headerTextY + 2.5);
 
       doc.setFontSize(5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(255, 255, 255);
-      doc.text("Carnet de Alumno", x + cardWidth - 4, y + 5.5, { align: "right" });
+      doc.text("Carnet de Alumno", x + cardWidth - 4, headerTextY + 2.5, { align: "right" });
 
       const photoSectionW = cardWidth * 0.32;
-      const contentY = y + headerH + 2;
-      const contentH = cardHeight - headerH - 2;
+      const contentY = y + actualHeaderH + 2;
+      const contentH = cardHeight - actualHeaderH - 2;
 
       doc.setFillColor(248, 250, 252);
-      doc.rect(x + 0.15, y + headerH, photoSectionW - 0.15, contentH + 2 - 0.15, "F");
+      doc.rect(x + 0.15, y + actualHeaderH, photoSectionW - 0.15, contentH + 2 - 0.15, "F");
 
       const photoCenterX = x + photoSectionW / 2;
       const photoCenterY = contentY + contentH / 2 - 4;
@@ -285,16 +305,27 @@ export default function PrintPage() {
       doc.setDrawColor(200);
       doc.roundedRect(x, y, cellW, cellH, 2, 2);
 
+      let digitalY = y + 5;
+      if (schoolName) {
+        doc.setFontSize(6);
+        doc.setTextColor(60);
+        doc.setFont("helvetica", "bold");
+        doc.text(schoolName, x + cellW / 2, digitalY, { align: "center" });
+        digitalY += 4;
+      }
+
       doc.setFontSize(9);
       doc.setTextColor(30);
+      doc.setFont("helvetica", "bold");
       const name = `${student.firstName} ${student.lastName}`;
       const truncated = name.length > 30 ? name.slice(0, 27) + "..." : name;
-      doc.text(truncated, x + cellW / 2, y + 8, { align: "center" });
+      doc.text(truncated, x + cellW / 2, digitalY + 3, { align: "center" });
 
       const group = groups?.find(g => g.id === student.groupId);
       doc.setFontSize(7);
       doc.setTextColor(100);
-      doc.text(`${student.course} — ${group?.name || ""}`, x + cellW / 2, y + 13, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.text(`${student.course} — ${group?.name || ""}`, x + cellW / 2, digitalY + 8, { align: "center" });
 
       const carnetUrl = `${baseUrl}/carnet/${student.carnetToken}`;
       const qrData = await QRCode.toDataURL(carnetUrl, { width: 200, margin: 1 });
@@ -373,7 +404,7 @@ export default function PrintPage() {
                   className="mt-5"
                   data-testid={`checkbox-student-${student.id}`}
                 />
-                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} />
+                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} schoolName={schoolName} />
               </div>
             );
           })}
