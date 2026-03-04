@@ -69,7 +69,14 @@ function AppLayout() {
   }
 
   if (location === "/login") {
-    setLocation("/");
+    const searchParams = new URLSearchParams(window.location.search);
+    const mode = searchParams.get("mode");
+    if (mode === "guard" && user.role === "tutor") {
+      sessionStorage.setItem("safeexit_view_mode", "guard");
+      setLocation("/guard");
+    } else {
+      setLocation("/");
+    }
     return null;
   }
 
@@ -78,7 +85,8 @@ function AppLayout() {
   }
 
   if (user.role === "tutor") {
-    if (location === "/guard") {
+    const viewMode = sessionStorage.getItem("safeexit_view_mode");
+    if (location === "/guard" || viewMode === "guard") {
       return <GuardView tutorMode />;
     }
     return <TutorView />;

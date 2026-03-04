@@ -117,7 +117,7 @@ export default function TutorView() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/guard")} data-testid="button-tutor-guard-mode">
+            <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem("safeexit_view_mode", "guard"); setLocation("/guard"); }} data-testid="button-tutor-guard-mode">
               <ShieldCheck className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">

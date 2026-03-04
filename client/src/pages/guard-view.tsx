@@ -362,7 +362,7 @@ export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
             </Badge>
           )}
           {tutorMode && (
-            <Button size="icon" variant="ghost" onClick={() => setLocation("/")} data-testid="button-back-tutor" className="min-h-[44px] min-w-[44px]">
+            <Button size="icon" variant="ghost" onClick={() => { sessionStorage.removeItem("safeexit_view_mode"); setLocation("/"); }} data-testid="button-back-tutor" className="min-h-[44px] min-w-[44px]">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}

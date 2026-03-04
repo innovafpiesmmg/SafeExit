@@ -4,23 +4,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, LogIn, Eye, EyeOff } from "lucide-react";
+import { ShieldCheck, LogIn, Eye, EyeOff, Tablet, GraduationCap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/footer";
+import { useLocation } from "wouter";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const mode = searchParams.get("mode");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await login(username, password);
+      if (mode === "guard") {
+        sessionStorage.setItem("safeexit_view_mode", "guard");
+        setLocation("/guard");
+      } else if (mode === "tutor") {
+        sessionStorage.setItem("safeexit_view_mode", "tutor");
+        setLocation("/");
+      }
     } catch {
       toast({ title: "Error", description: "Credenciales inválidas", variant: "destructive" });
     } finally {
@@ -40,6 +52,17 @@ export default function LoginPage() {
             Sistema de Control de Salida Escolar
           </p>
         </div>
+
+        {mode && (
+          <div className={`flex items-center justify-center gap-2 p-3 rounded-lg text-sm font-medium ${
+            mode === "guard"
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+          }`} data-testid="badge-login-mode">
+            {mode === "guard" ? <Tablet className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
+            {mode === "guard" ? "Acceso Profesor de Guardia" : "Acceso Tutor"}
+          </div>
+        )}
 
         <Card>
           <CardHeader className="pb-4">
