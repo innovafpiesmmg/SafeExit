@@ -12,8 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, Share2, Copy, Check, QrCode } from "lucide-react";
 import { differenceInYears } from "date-fns";
+import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
 
 export default function StudentsPage() {
@@ -25,6 +26,9 @@ export default function StudentsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [shareStudent, setShareStudent] = useState<Student | null>(null);
+  const [shareQrUrl, setShareQrUrl] = useState<string>("");
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -123,6 +127,21 @@ export default function StudentsPage() {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handleShare = async (student: Student) => {
+    setShareStudent(student);
+    setCopied(false);
+    const carnetUrl = `${window.location.origin}/carnet/${student.carnetToken}`;
+    const qr = await QRCode.toDataURL(carnetUrl, { width: 300, margin: 2 });
+    setShareQrUrl(qr);
+  };
+
+  const copyLink = () => {
+    if (!shareStudent) return;
+    navigator.clipboard.writeText(`${window.location.origin}/carnet/${shareStudent.carnetToken}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const filtered = students?.filter(s => {
@@ -281,6 +300,11 @@ export default function StudentsPage() {
                     <Button size="sm" variant="secondary" data-testid={`button-edit-student-${student.id}`} onClick={() => handleEdit(student)} className="flex-1">
                       <Pencil className="w-3 h-3 mr-1" /> Editar
                     </Button>
+                    {student.carnetToken && (
+                      <Button size="sm" variant="outline" data-testid={`button-share-student-${student.id}`} onClick={() => handleShare(student)} className="flex-1">
+                        <Share2 className="w-3 h-3 mr-1" /> Carnet
+                      </Button>
+                    )}
                     <Button size="sm" variant="destructive" data-testid={`button-delete-student-${student.id}`} onClick={() => { if (confirm("¿Eliminar alumno?")) deleteMutation.mutate(student.id); }} className="flex-1">
                       <Trash2 className="w-3 h-3 mr-1" /> Eliminar
                     </Button>
@@ -291,6 +315,56 @@ export default function StudentsPage() {
           })}
         </div>
       )}
+      <Dialog open={!!shareStudent} onOpenChange={(open) => { if (!open) setShareStudent(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Carnet Digital
+            </DialogTitle>
+          </DialogHeader>
+          {shareStudent && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="font-semibold" data-testid="text-share-student-name">
+                  {shareStudent.firstName} {shareStudent.lastName}
+                </p>
+                <p className="text-sm text-muted-foreground">{shareStudent.course}</p>
+              </div>
+
+              {shareQrUrl && (
+                <div className="flex justify-center">
+                  <div className="bg-white p-3 rounded-xl border shadow-inner">
+                    <img src={shareQrUrl} alt="QR del enlace al carnet" className="w-48 h-48" data-testid="img-share-qr" />
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-center text-muted-foreground">
+                El alumno puede escanear este QR con su móvil para acceder a su carnet digital
+              </p>
+
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={`${window.location.origin}/carnet/${shareStudent.carnetToken}`}
+                  className="text-xs"
+                  data-testid="input-share-link"
+                />
+                <Button size="icon" variant="outline" onClick={copyLink} data-testid="button-copy-link">
+                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              <Button className="w-full" variant="outline" data-testid="button-open-carnet" onClick={() => window.open(`/carnet/${shareStudent.carnetToken}`, "_blank")}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Abrir carnet en nueva pestaña
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportResult(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>

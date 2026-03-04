@@ -26,10 +26,12 @@ export interface IStorage {
   getAllStudents(): Promise<Student[]>;
   getStudent(id: number): Promise<Student | undefined>;
   getStudentByQr(qrCode: string): Promise<Student | undefined>;
+  getStudentByCarnetToken(token: string): Promise<Student | undefined>;
   createStudent(student: InsertStudent): Promise<Student>;
   updateStudent(id: number, student: Partial<InsertStudent>): Promise<Student | undefined>;
   deleteStudent(id: number): Promise<void>;
   getStudentsByGroup(groupId: number): Promise<Student[]>;
+  generateCarnetTokens(): Promise<number>;
 
   getGroupSchedules(groupId: number): Promise<GroupSchedule[]>;
   setGroupSchedule(groupId: number, dayOfWeek: number, timeSlot: number, exitAllowed: boolean): Promise<void>;
@@ -112,9 +114,15 @@ export class DatabaseStorage implements IStorage {
     return student;
   }
 
+  async getStudentByCarnetToken(token: string): Promise<Student | undefined> {
+    const [student] = await db.select().from(students).where(eq(students.carnetToken, token));
+    return student;
+  }
+
   async createStudent(student: InsertStudent): Promise<Student> {
     const qrCode = `SAFEEXIT-${randomUUID()}`;
-    const [created] = await db.insert(students).values({ ...student, qrCode }).returning();
+    const carnetToken = randomUUID().replace(/-/g, "").slice(0, 16);
+    const [created] = await db.insert(students).values({ ...student, qrCode, carnetToken }).returning();
     return created;
   }
 
@@ -129,6 +137,19 @@ export class DatabaseStorage implements IStorage {
 
   async getStudentsByGroup(groupId: number): Promise<Student[]> {
     return db.select().from(students).where(eq(students.groupId, groupId));
+  }
+
+  async generateCarnetTokens(): Promise<number> {
+    const all = await db.select().from(students);
+    let count = 0;
+    for (const s of all) {
+      if (!s.carnetToken) {
+        const token = randomUUID().replace(/-/g, "").slice(0, 16);
+        await db.update(students).set({ carnetToken: token }).where(eq(students.id, s.id));
+        count++;
+      }
+    }
+    return count;
   }
 
   async getGroupSchedules(groupId: number): Promise<GroupSchedule[]> {

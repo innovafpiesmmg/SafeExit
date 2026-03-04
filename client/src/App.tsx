@@ -18,6 +18,7 @@ import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
 import GuardView from "@/pages/guard-view";
 import GuardsPage from "@/pages/guards";
+import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
 function AdminRouter() {
@@ -39,6 +40,10 @@ function AdminRouter() {
 function AppLayout() {
   const { user, loading } = useAuth();
   const [location] = useLocation();
+
+  if (location.startsWith("/carnet/")) {
+    return <CarnetPublicPage />;
+  }
 
   if (loading) {
     return (

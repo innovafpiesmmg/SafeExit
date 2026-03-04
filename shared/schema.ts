@@ -36,9 +36,10 @@ export const students = pgTable("students", {
   parentalAuthorization: boolean("parental_authorization").notNull().default(false),
   busAuthorization: boolean("bus_authorization").notNull().default(false),
   qrCode: text("qr_code").notNull().unique(),
+  carnetToken: text("carnet_token").unique(),
 });
 
-export const insertStudentSchema = createInsertSchema(students).omit({ id: true, qrCode: true });
+export const insertStudentSchema = createInsertSchema(students).omit({ id: true, qrCode: true, carnetToken: true });
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
 export type Student = typeof students.$inferSelect;
 

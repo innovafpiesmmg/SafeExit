@@ -668,6 +668,34 @@ export async function registerRoutes(
     res.send("\uFEFF" + csvHeader + csvRows);
   });
 
+  app.get("/api/carnet/:token", async (req, res) => {
+    try {
+      const student = await storage.getStudentByCarnetToken(req.params.token);
+      if (!student) return res.status(404).json({ message: "Carnet no encontrado" });
+      const group = await storage.getGroup(student.groupId);
+      res.json({
+        firstName: student.firstName,
+        lastName: student.lastName,
+        course: student.course,
+        groupName: group?.name || "",
+        photoUrl: student.photoUrl,
+        qrCode: student.qrCode,
+        dateOfBirth: student.dateOfBirth,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/students/generate-tokens", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      const count = await storage.generateCarnetTokens();
+      res.json({ message: `Tokens generados para ${count} alumno(s)`, count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/admin/reset-academic-year", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { confirmation } = req.body;

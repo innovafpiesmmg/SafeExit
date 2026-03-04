@@ -27,6 +27,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Calendar System**: Interactive 12-slot x 5-day grid for configuring exit permissions per group
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
 - **Audit History**: Filterable exit log table with CSV export
+- **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. PDF generation of QR links for classroom distribution.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) containing photo, data, QR code
 - **Sound Feedback**: Beep for authorized, alert for denied
 - **Incident Reporting**: Optional note creation on authorized exits

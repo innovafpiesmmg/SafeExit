@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, FileDown, QrCode, GraduationCap } from "lucide-react";
+import { Printer, FileDown, QrCode, GraduationCap, Smartphone } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
@@ -171,6 +171,58 @@ export default function PrintPage() {
     doc.save("carnets_safeexit.pdf");
   };
 
+  const handleDigitalPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const printStudents = filtered.filter(s => selectedStudents.has(s.id) && s.carnetToken);
+    const baseUrl = window.location.origin;
+    const perPage = 8;
+    const cols = 2;
+    const cellW = 85;
+    const cellH = 65;
+    const marginX = (210 - cols * cellW) / (cols + 1);
+    const rows = 4;
+    const marginY = (297 - rows * cellH) / (rows + 1);
+
+    for (let i = 0; i < printStudents.length; i++) {
+      if (i > 0 && i % perPage === 0) doc.addPage();
+      const pageIdx = i % perPage;
+      const col = pageIdx % cols;
+      const row = Math.floor(pageIdx / cols);
+      const x = marginX + col * (cellW + marginX);
+      const y = marginY + row * (cellH + marginY);
+      const student = printStudents[i];
+
+      doc.setDrawColor(200);
+      doc.roundedRect(x, y, cellW, cellH, 2, 2);
+
+      doc.setFontSize(9);
+      doc.setTextColor(30);
+      const name = `${student.firstName} ${student.lastName}`;
+      const truncated = name.length > 30 ? name.slice(0, 27) + "..." : name;
+      doc.text(truncated, x + cellW / 2, y + 8, { align: "center" });
+
+      const group = groups?.find(g => g.id === student.groupId);
+      doc.setFontSize(7);
+      doc.setTextColor(100);
+      doc.text(`${student.course} — ${group?.name || ""}`, x + cellW / 2, y + 13, { align: "center" });
+
+      const carnetUrl = `${baseUrl}/carnet/${student.carnetToken}`;
+      const qrData = await QRCode.toDataURL(carnetUrl, { width: 200, margin: 1 });
+      doc.addImage(qrData, "PNG", x + (cellW - 35) / 2, y + 16, 35, 35);
+
+      doc.setFontSize(5);
+      doc.setTextColor(130);
+      doc.text("Escanea con tu móvil para abrir tu carnet digital", x + cellW / 2, y + 56, { align: "center" });
+
+      doc.setFontSize(4);
+      doc.text(carnetUrl, x + cellW / 2, y + 61, { align: "center" });
+    }
+
+    doc.save("carnets_digitales_safeexit.pdf");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -190,7 +242,11 @@ export default function PrintPage() {
           </Select>
           <Button onClick={handlePrint} disabled={selectedStudents.size === 0} data-testid="button-generate-pdf">
             <FileDown className="w-4 h-4 mr-2" />
-            Generar PDF ({selectedStudents.size})
+            Carnets PDF ({selectedStudents.size})
+          </Button>
+          <Button onClick={handleDigitalPdf} disabled={selectedStudents.size === 0 || !filtered.some(s => selectedStudents.has(s.id) && s.carnetToken)} variant="outline" data-testid="button-generate-digital-pdf">
+            <Smartphone className="w-4 h-4 mr-2" />
+            Enlaces QR ({filtered.filter(s => selectedStudents.has(s.id) && s.carnetToken).length})
           </Button>
         </div>
       </div>
