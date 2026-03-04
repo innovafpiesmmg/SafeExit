@@ -17,6 +17,7 @@ import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
 import GuardView from "@/pages/guard-view";
 import GuardsPage from "@/pages/guards";
+import { Footer } from "@/components/footer";
 
 function AdminRouter() {
   return (
@@ -70,6 +71,7 @@ function AppLayout() {
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <AdminRouter />
           </main>
+          <Footer />
         </div>
       </div>
     </SidebarProvider>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ShieldCheck, LogIn, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Footer } from "@/components/footer";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -106,6 +107,7 @@ export default function LoginPage() {
             </div>
           </CardContent>
         </Card>
+        <Footer />
       </div>
     </div>
   );
