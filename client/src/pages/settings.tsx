@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -23,6 +27,8 @@ export default function SettingsPage() {
     secure: false,
   });
   const [schoolName, setSchoolName] = useState("");
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetConfirmation, setResetConfirmation] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -68,6 +74,17 @@ export default function SettingsPage() {
       } else {
         toast({ title: "Error de conexión", description: data.message, variant: "destructive" });
       }
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/reset-academic-year", { confirmation: resetConfirmation }),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({ title: "Curso académico reiniciado", description: "Todos los datos han sido eliminados." });
+      setResetDialogOpen(false);
+      setResetConfirmation("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -224,6 +241,76 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="border-destructive/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            Nuevo Curso Académico
+          </CardTitle>
+          <CardDescription>
+            Elimina todos los datos (alumnos, grupos, horarios, historial, profesores y ajustes) excepto tu usuario administrador. Esta acción es irreversible.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            onClick={() => setResetDialogOpen(true)}
+            data-testid="button-reset-year"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Iniciar Nuevo Curso
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Confirmar Nuevo Curso Académico
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">
+                Esta acción eliminará permanentemente:
+              </span>
+              <span className="block text-sm">
+                - Todos los alumnos y sus datos
+                <br />- Todos los grupos y horarios
+                <br />- Todo el historial de salidas
+                <br />- Todas las entradas tardías
+                <br />- Todos los profesores de guardia y tutores
+                <br />- Todos los ajustes de la aplicación
+                <br />- Todas las incidencias
+              </span>
+              <span className="block font-medium text-foreground">
+                Solo se conservará tu usuario administrador.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-sm">Escribe <span className="font-bold text-destructive">NUEVO CURSO</span> para confirmar:</Label>
+            <Input
+              value={resetConfirmation}
+              onChange={e => setResetConfirmation(e.target.value)}
+              placeholder="NUEVO CURSO"
+              data-testid="input-reset-confirmation"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setResetConfirmation("")} data-testid="button-cancel-reset">Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={resetConfirmation !== "NUEVO CURSO" || resetMutation.isPending}
+              onClick={() => resetMutation.mutate()}
+              data-testid="button-confirm-reset"
+            >
+              {resetMutation.isPending ? "Eliminando..." : "Eliminar Todo"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
