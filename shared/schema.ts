@@ -82,20 +82,46 @@ export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: tru
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Incident = typeof incidents.$inferSelect;
 
-export const TIME_SLOTS = [
-  { id: 1, label: "08:00 - 08:55", period: "morning" },
-  { id: 2, label: "08:55 - 09:50", period: "morning" },
-  { id: 3, label: "09:50 - 10:45", period: "morning" },
-  { id: 4, label: "10:45 - 11:15", period: "morning" },
-  { id: 5, label: "11:15 - 12:10", period: "morning" },
-  { id: 6, label: "12:10 - 13:05", period: "morning" },
-  { id: 7, label: "13:05 - 14:00", period: "afternoon" },
-  { id: 8, label: "14:00 - 14:55", period: "afternoon" },
-  { id: 9, label: "14:55 - 15:50", period: "afternoon" },
-  { id: 10, label: "15:50 - 16:45", period: "afternoon" },
-  { id: 11, label: "16:45 - 17:40", period: "afternoon" },
-  { id: 12, label: "17:40 - 18:35", period: "afternoon" },
-] as const;
+export interface TimeSlotConfig {
+  id: number;
+  start: string;
+  end: string;
+}
+
+export const DEFAULT_TIME_SLOTS: TimeSlotConfig[] = [
+  { id: 1, start: "08:00", end: "08:55" },
+  { id: 2, start: "08:55", end: "09:50" },
+  { id: 3, start: "09:50", end: "10:45" },
+  { id: 4, start: "10:45", end: "11:15" },
+  { id: 5, start: "11:15", end: "12:10" },
+  { id: 6, start: "12:10", end: "13:05" },
+  { id: 7, start: "13:05", end: "14:00" },
+  { id: 8, start: "14:00", end: "14:55" },
+  { id: 9, start: "14:55", end: "15:50" },
+  { id: 10, start: "15:50", end: "16:45" },
+  { id: 11, start: "16:45", end: "17:40" },
+  { id: 12, start: "17:40", end: "18:35" },
+];
+
+export type TimeSlotsConfig = Record<string, TimeSlotConfig[]>;
+
+export function getDefaultTimeSlotsConfig(): TimeSlotsConfig {
+  const config: TimeSlotsConfig = {};
+  for (let d = 1; d <= 5; d++) {
+    config[String(d)] = DEFAULT_TIME_SLOTS.map(s => ({ ...s }));
+  }
+  return config;
+}
+
+export function getTimeSlotsForDay(config: TimeSlotsConfig, dayOfWeek: number): TimeSlotConfig[] {
+  return config[String(dayOfWeek)] || DEFAULT_TIME_SLOTS;
+}
+
+export const TIME_SLOTS = DEFAULT_TIME_SLOTS.map(s => ({
+  id: s.id,
+  label: `${s.start} - ${s.end}`,
+  period: s.id <= 6 ? "morning" : "afternoon",
+})) as readonly { id: number; label: string; period: string }[];
 
 export const lateArrivals = pgTable("late_arrivals", {
   id: serial("id").primaryKey(),

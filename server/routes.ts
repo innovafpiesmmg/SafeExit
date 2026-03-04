@@ -5,7 +5,7 @@ import { differenceInYears } from "date-fns";
 import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
-import { TIME_SLOTS } from "@shared/schema";
+import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig } from "@shared/schema";
 import { sendLateArrivalEmail, testSmtpConnection } from "./email";
 import multer from "multer";
 import path from "path";
@@ -28,29 +28,19 @@ const multerStorage = multer.diskStorage({
 });
 const upload = multer({ storage: multerStorage });
 
-function getCurrentTimeSlot(): number {
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function getCurrentTimeSlotFromConfig(slotsForDay: TimeSlotConfig[]): number {
   const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const totalMinutes = hours * 60 + minutes;
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const slotRanges = [
-    { id: 1, start: 480, end: 535 },
-    { id: 2, start: 535, end: 590 },
-    { id: 3, start: 590, end: 645 },
-    { id: 4, start: 645, end: 675 },
-    { id: 5, start: 675, end: 730 },
-    { id: 6, start: 730, end: 785 },
-    { id: 7, start: 785, end: 840 },
-    { id: 8, start: 840, end: 895 },
-    { id: 9, start: 895, end: 950 },
-    { id: 10, start: 950, end: 1005 },
-    { id: 11, start: 1005, end: 1060 },
-    { id: 12, start: 1060, end: 1115 },
-  ];
-
-  for (const slot of slotRanges) {
-    if (totalMinutes >= slot.start && totalMinutes < slot.end) {
+  for (const slot of slotsForDay) {
+    const start = timeToMinutes(slot.start);
+    const end = timeToMinutes(slot.end);
+    if (totalMinutes >= start && totalMinutes < end) {
       return slot.id;
     }
   }
@@ -580,9 +570,13 @@ export async function registerRoutes(
         });
       }
 
-      const timeSlot = getCurrentTimeSlot();
-      const todayStr = new Date().toISOString().split("T")[0];
       const dayOfWeek = getCurrentDayOfWeek();
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      const timeSlotsJson = await storage.getSetting("timeSlots");
+      const timeSlotsConfig: TimeSlotsConfig = timeSlotsJson ? JSON.parse(timeSlotsJson) : getDefaultTimeSlotsConfig();
+      const slotsForDay = getTimeSlotsForDay(timeSlotsConfig, dayOfWeek);
+      const timeSlot = getCurrentTimeSlotFromConfig(slotsForDay);
 
       if (dayOfWeek > 5) {
         const log = await storage.createExitLog({
