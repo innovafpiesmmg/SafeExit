@@ -460,11 +460,24 @@ export async function registerRoutes(
   app.get("/api/tutor/students", requireAuth, async (req, res) => {
     try {
       const user = await storage.getUser((req.session as any).userId);
-      if (!user || user.role !== "tutor" || !user.groupId) {
+      if (!user) return res.status(403).json({ message: "Usuario no encontrado" });
+
+      let groupId: number | null = null;
+      if (user.role === "admin") {
+        groupId = req.query.groupId ? parseInt(req.query.groupId as string) : null;
+        if (!groupId) {
+          const groups = await storage.getAllGroups();
+          if (groups.length > 0) groupId = groups[0].id;
+        }
+      } else if (user.role === "tutor" && user.groupId) {
+        groupId = user.groupId;
+      } else {
         return res.status(403).json({ message: "No tienes un grupo asignado" });
       }
-      const groupStudents = await storage.getStudentsByGroup(user.groupId);
-      const group = await storage.getGroup(user.groupId);
+
+      if (!groupId) return res.json({ students: [], group: null });
+      const groupStudents = await storage.getStudentsByGroup(groupId);
+      const group = await storage.getGroup(groupId);
       res.json({ students: groupStudents, group });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -474,13 +487,14 @@ export async function registerRoutes(
   app.patch("/api/tutor/students/:id/photo", requireAuth, upload.single("photo"), async (req, res) => {
     try {
       const user = await storage.getUser((req.session as any).userId);
-      if (!user || user.role !== "tutor" || !user.groupId) {
+      if (!user || (user.role !== "tutor" && user.role !== "admin")) {
         return res.status(403).json({ message: "Acceso denegado" });
       }
       if (!req.file) return res.status(400).json({ message: "No se subió imagen" });
       const studentId = parseInt(req.params.id);
       const student = await storage.getStudent(studentId);
-      if (!student || student.groupId !== user.groupId) {
+      if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
+      if (user.role === "tutor" && student.groupId !== user.groupId) {
         return res.status(403).json({ message: "Este alumno no pertenece a tu grupo" });
       }
       const photoUrl = `/uploads/${req.file.filename}`;

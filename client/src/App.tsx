@@ -71,24 +71,33 @@ function AppLayout() {
   if (location === "/login") {
     const searchParams = new URLSearchParams(window.location.search);
     const mode = searchParams.get("mode");
-    if (mode === "guard" && user.role === "tutor") {
+    if (mode === "guard") {
       sessionStorage.setItem("safeexit_view_mode", "guard");
       setLocation("/guard");
+    } else if (mode === "tutor") {
+      sessionStorage.setItem("safeexit_view_mode", "tutor");
+      setLocation("/tutor");
     } else {
       setLocation("/");
     }
     return null;
   }
 
+  const viewMode = sessionStorage.getItem("safeexit_view_mode");
+
   if (user.role === "guard") {
     return <GuardView />;
   }
 
-  if (user.role === "tutor") {
-    const viewMode = sessionStorage.getItem("safeexit_view_mode");
-    if (location === "/guard" || viewMode === "guard") {
-      return <GuardView tutorMode />;
-    }
+  if (viewMode === "guard") {
+    return <GuardView tutorMode />;
+  }
+
+  if (user.role === "tutor" && viewMode !== "guard") {
+    return <TutorView />;
+  }
+
+  if (viewMode === "tutor") {
     return <TutorView />;
   }
 

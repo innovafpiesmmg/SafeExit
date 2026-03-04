@@ -32,7 +32,10 @@ export default function LateArrivalsHistoryPage() {
     queryKey: ["/api/late-arrivals", dateFrom, dateTo, groupFilter, nameFilter],
     queryFn: async () => {
       const res = await fetch(`/api/late-arrivals?${queryParams.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Error");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error cargando historial de entradas tardías");
+      }
       return res.json();
     },
   });

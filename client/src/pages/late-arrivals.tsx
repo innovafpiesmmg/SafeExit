@@ -35,7 +35,11 @@ export default function LateArrivalsPage() {
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
   const { data: groupStudents, isLoading: loadingStudents } = useQuery<Student[]>({
     queryKey: ["/api/groups", selectedGroupId, "students"],
-    queryFn: () => fetch(`/api/groups/${selectedGroupId}/students`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`/api/groups/${selectedGroupId}/students`, { credentials: "include" });
+      if (!res.ok) throw new Error("Error cargando alumnos del grupo");
+      return res.json();
+    },
     enabled: !!selectedGroupId,
   });
   const { data: todayArrivals, isLoading: loadingToday } = useQuery<any[]>({

@@ -13,8 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import {
-  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus, ShieldCheck,
+  Camera, Search, LogOut, GraduationCap, QrCode, Share2, Copy, Check, Users, AlertCircle, ImagePlus, ShieldCheck, ChevronDown, ArrowLeft,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
@@ -32,9 +33,29 @@ export default function TutorView() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [photoTargetId, setPhotoTargetId] = useState<number | null>(null);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
-  const { data, isLoading, isError } = useQuery<{ students: Student[]; group: Group }>({
-    queryKey: ["/api/tutor/students"],
+  const isAdmin = user?.role === "admin";
+
+  const { data: allGroups } = useQuery<Group[]>({
+    queryKey: ["/api/groups"],
+    enabled: isAdmin,
+  });
+
+  const tutorQueryKey = isAdmin && selectedGroupId
+    ? ["/api/tutor/students", `?groupId=${selectedGroupId}`]
+    : ["/api/tutor/students"];
+
+  const { data, isLoading, isError } = useQuery<{ students: Student[]; group: Group | null }>({
+    queryKey: tutorQueryKey,
+    queryFn: async () => {
+      const url = isAdmin && selectedGroupId
+        ? `/api/tutor/students?groupId=${selectedGroupId}`
+        : "/api/tutor/students";
+      const res = await fetch(url, { credentials: "include", headers: { "Cache-Control": "no-cache" } });
+      if (!res.ok) throw new Error("Error loading students");
+      return res.json();
+    },
   });
 
   const students = data?.students || [];
@@ -121,6 +142,11 @@ export default function TutorView() {
             <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem("safeexit_view_mode", "guard"); setLocation("/guard"); }} data-testid="button-tutor-guard-mode">
               <ShieldCheck className="w-4 h-4" />
             </Button>
+            {isAdmin && (
+              <Button variant="ghost" size="sm" onClick={() => { sessionStorage.removeItem("safeexit_view_mode"); setLocation("/"); }} data-testid="button-back-admin">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">
               <LogOut className="w-4 h-4" />
             </Button>
@@ -131,6 +157,18 @@ export default function TutorView() {
       <PwaInstallBanner />
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 space-y-4">
+        {isAdmin && allGroups && allGroups.length > 0 && (
+          <Select value={selectedGroupId} onValueChange={setSelectedGroupId} data-testid="select-tutor-group">
+            <SelectTrigger className="h-9" data-testid="select-tutor-group-trigger">
+              <SelectValue placeholder="Seleccionar grupo" />
+            </SelectTrigger>
+            <SelectContent>
+              {allGroups.map(g => (
+                <SelectItem key={g.id} value={String(g.id)}>{g.name} — {g.course}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="text-xs">
             <Users className="w-3 h-3 mr-1" />
