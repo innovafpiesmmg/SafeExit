@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { playSuccessSound, playErrorSound } from "@/lib/sounds";
-import { Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle, RotateCcw, Send } from "lucide-react";
+import {
+  Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle,
+  RotateCcw, Send, Search, Users,
+} from "lucide-react";
+import type { Student, Group } from "@shared/schema";
 
 export default function ScannerPage() {
   const { toast } = useToast();
@@ -19,9 +25,22 @@ export default function ScannerPage() {
   const [scanning, setScanning] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
   const [incidentNote, setIncidentNote] = useState("");
+  const [activeTab, setActiveTab] = useState("qr");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [searchStudent, setSearchStudent] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<any>(null);
   const videoRef = useRef<HTMLDivElement>(null);
+
+  const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
+  const { data: groupStudents, isLoading: loadingStudents } = useQuery<Student[]>({
+    queryKey: [`/api/groups/${selectedGroupId}/students`],
+    enabled: !!selectedGroupId,
+  });
+
+  const filteredStudents = groupStudents?.filter(s =>
+    `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchStudent.toLowerCase())
+  ) || [];
 
   const verifyMutation = useMutation({
     mutationFn: async (qrCode: string) => {
@@ -61,6 +80,10 @@ export default function ScannerPage() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleManualScan();
+  };
+
+  const handleStudentVerify = (student: Student) => {
+    verifyMutation.mutate(student.qrCode);
   };
 
   const startCamera = async () => {
@@ -115,54 +138,134 @@ export default function ScannerPage() {
             <QrCode className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold" data-testid="text-scanner-title">Verificación de Salida</h1>
-          <p className="text-muted-foreground text-sm mt-1">Escanea o introduce el código QR del carnet</p>
+          <p className="text-muted-foreground text-sm mt-1">Escanea el QR del carnet o busca al alumno por nombre</p>
         </div>
 
         {!scanResult ? (
           <>
             <Card>
-              <CardContent className="p-6 space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    ref={inputRef}
-                    data-testid="input-qr-code"
-                    placeholder="Código QR..."
-                    value={qrInput}
-                    onChange={e => setQrInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="text-lg"
-                    autoFocus
-                  />
-                  <Button
-                    onClick={handleManualScan}
-                    data-testid="button-verify"
-                    disabled={verifyMutation.isPending || !qrInput.trim()}
-                    className="min-w-[60px] min-h-[48px]"
-                  >
-                    <ShieldCheck className="w-5 h-5" />
-                  </Button>
-                </div>
+              <CardContent className="p-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="qr" data-testid="tab-scanner-qr">
+                      <QrCode className="w-4 h-4 mr-1.5" /> Escanear QR
+                    </TabsTrigger>
+                    <TabsTrigger value="search" data-testid="tab-scanner-search">
+                      <Search className="w-4 h-4 mr-1.5" /> Buscar alumno
+                    </TabsTrigger>
+                  </TabsList>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">o usa la cámara</span>
-                  </div>
-                </div>
+                  <TabsContent value="qr" className="mt-4 space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        ref={inputRef}
+                        data-testid="input-qr-code"
+                        placeholder="Código QR..."
+                        value={qrInput}
+                        onChange={e => setQrInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="text-lg"
+                        autoFocus
+                      />
+                      <Button
+                        onClick={handleManualScan}
+                        data-testid="button-verify"
+                        disabled={verifyMutation.isPending || !qrInput.trim()}
+                        className="min-w-[60px] min-h-[48px]"
+                      >
+                        <ShieldCheck className="w-5 h-5" />
+                      </Button>
+                    </div>
 
-                {scanning ? (
-                  <div className="space-y-3">
-                    <div id="qr-reader" ref={videoRef} className="rounded-lg overflow-hidden" />
-                    <Button onClick={stopCamera} variant="destructive" className="w-full min-h-[56px] text-base" data-testid="button-stop-camera">
-                      Detener Cámara
-                    </Button>
-                  </div>
-                ) : (
-                  <Button onClick={startCamera} variant="secondary" className="w-full min-h-[56px] text-base" data-testid="button-start-camera">
-                    <Camera className="w-5 h-5 mr-2" />
-                    Activar Cámara
-                  </Button>
-                )}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">o usa la cámara</span>
+                      </div>
+                    </div>
+
+                    {scanning ? (
+                      <div className="space-y-3">
+                        <div id="qr-reader" ref={videoRef} className="rounded-lg overflow-hidden" />
+                        <Button onClick={stopCamera} variant="destructive" className="w-full min-h-[56px] text-base" data-testid="button-stop-camera">
+                          Detener Cámara
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button onClick={startCamera} variant="secondary" className="w-full min-h-[56px] text-base" data-testid="button-start-camera">
+                        <Camera className="w-5 h-5 mr-2" />
+                        Activar Cámara
+                      </Button>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="search" className="mt-4 space-y-3">
+                    <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                      <SelectTrigger className="h-12" data-testid="select-group-scanner">
+                        <SelectValue placeholder="Seleccionar grupo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups?.map(g => (
+                          <SelectItem key={g.id} value={String(g.id)}>{g.name} ({g.course})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedGroupId && (
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          className="pl-9 h-12"
+                          placeholder="Buscar alumno..."
+                          value={searchStudent}
+                          onChange={e => setSearchStudent(e.target.value)}
+                          data-testid="input-search-student-scanner"
+                        />
+                      </div>
+                    )}
+
+                    {selectedGroupId && loadingStudents ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+                        <p className="text-sm">Cargando alumnos...</p>
+                      </div>
+                    ) : selectedGroupId && filteredStudents.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">{searchStudent ? "No se encontraron alumnos" : "No hay alumnos en este grupo"}</p>
+                      </div>
+                    ) : selectedGroupId ? (
+                      <div className="space-y-1.5 max-h-[350px] overflow-y-auto">
+                        {filteredStudents.map(student => (
+                          <button
+                            key={student.id}
+                            onClick={() => handleStudentVerify(student)}
+                            disabled={verifyMutation.isPending}
+                            className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left disabled:opacity-50"
+                            data-testid={`button-scanner-student-${student.id}`}
+                          >
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={student.photoUrl || undefined} />
+                              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                                {student.firstName[0]}{student.lastName[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{student.firstName} {student.lastName}</p>
+                              <p className="text-xs text-muted-foreground">{student.course}</p>
+                            </div>
+                            <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Selecciona un grupo para ver los alumnos</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 
