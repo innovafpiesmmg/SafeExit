@@ -30,7 +30,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Time Slots Config**: Per-day-of-week time slot configuration stored as JSON in appSettings (key: "timeSlots"). Backend uses it for verify logic. UI pending.
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
 - **Late Arrivals**: Register student late arrivals via QR scan or manual group/student selection. Optional email notification to student's email. Today's arrivals sidebar.
-- **SMTP Email**: Configurable SMTP settings in admin panel. Test connection button. Used for late arrival notifications.
+- **SMTP Email**: Configurable SMTP settings in admin panel. Test connection button. Used for late arrival notifications and authorized minor exit notifications.
 - **Audit History**: Filterable exit log table with CSV export
 - **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. Shows school name and academic year.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) with blue header (school name + academic year + "SafeExit"), photo, avatar with group badge, QR code (22mm/68px)

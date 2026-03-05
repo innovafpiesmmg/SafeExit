@@ -6,7 +6,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
 import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig } from "@shared/schema";
-import { sendLateArrivalEmail, testSmtpConnection } from "./email";
+import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection } from "./email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -649,15 +649,17 @@ export async function registerRoutes(
       const BUS_SLOTS = [6, 12];
       if (BUS_SLOTS.includes(timeSlot) && student.busAuthorization) {
         const slotLabel = timeSlot === 6 ? "6a hora mañana" : "6a hora tarde";
+        const reason = `Salida por guagua - ${slotLabel}`;
         const log = await storage.createExitLog({
           studentId: student.id,
           result: "AUTORIZADO",
-          reason: `Salida por guagua - ${slotLabel}`,
+          reason,
           verifiedBy: userId,
         });
+        sendEarlyExitEmail(student, reason, new Date()).catch(() => {});
         return res.json({
           result: "AUTORIZADO",
-          reason: `Salida por guagua - ${slotLabel}`,
+          reason,
           student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
           logId: log.id,
         });
@@ -669,15 +671,17 @@ export async function registerRoutes(
       );
 
       if (currentSchedule && currentSchedule.exitAllowed) {
+        const reason = `Permiso grupal - ${todayStr} Tramo ${timeSlot}`;
         const log = await storage.createExitLog({
           studentId: student.id,
           result: "AUTORIZADO",
-          reason: `Permiso grupal - ${todayStr} Tramo ${timeSlot}`,
+          reason,
           verifiedBy: userId,
         });
+        sendEarlyExitEmail(student, reason, new Date()).catch(() => {});
         return res.json({
           result: "AUTORIZADO",
-          reason: `Permiso grupal - ${todayStr} Tramo ${timeSlot}`,
+          reason,
           student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
           logId: log.id,
         });
