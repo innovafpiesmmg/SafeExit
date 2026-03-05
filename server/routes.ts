@@ -28,6 +28,13 @@ const multerStorage = multer.diskStorage({
 });
 const upload = multer({ storage: multerStorage });
 
+function normalizeUsername(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
@@ -176,7 +183,7 @@ export async function registerRoutes(
         }
 
         const fullName = `${firstName} ${lastName}`;
-        const base = `${firstName.toLowerCase().replace(/\s+/g, "")}${lastName.toLowerCase().split(" ")[0].replace(/\s+/g, "")}`;
+        const base = normalizeUsername(`${firstName.toLowerCase()}${lastName.toLowerCase().split(" ")[0]}`);
         let username = base;
         let counter = 1;
         while (await storage.getUserByUsername(username)) {
@@ -235,7 +242,7 @@ export async function registerRoutes(
         assignedGroupId = group.id;
       }
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
-      const base = `${firstName.trim().toLowerCase().replace(/\s+/g, "")}${lastName.trim().toLowerCase().split(" ")[0].replace(/\s+/g, "")}`;
+      const base = normalizeUsername(`${firstName.trim().toLowerCase()}${lastName.trim().toLowerCase().split(" ")[0]}`);
       let username = base;
       let counter = 1;
       while (await storage.getUserByUsername(username)) {

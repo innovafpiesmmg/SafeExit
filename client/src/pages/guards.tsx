@@ -257,7 +257,7 @@ export default function GuardsPage() {
         </div>
       </div>
 
-      {!hasPassword && (
+      {!hasPassword ? (
         <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
           <CardContent className="p-4 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -270,6 +270,21 @@ export default function GuardsPage() {
                 <Key className="w-3 h-3 mr-1" /> Definir contraseña
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-emerald-300/50 bg-emerald-50/50 dark:bg-emerald-950/10 dark:border-emerald-800/50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Contraseña actual: <code className="bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded text-sm font-mono" data-testid="text-current-password">{settings?.guardPassword}</code></p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                Todos los profesores usan esta contraseña con su usuario asignado para iniciar sesión.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-change-password">
+              <Key className="w-3 h-3 mr-1" /> Cambiar
+            </Button>
           </CardContent>
         </Card>
       )}
