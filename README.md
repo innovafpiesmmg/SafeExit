@@ -7,6 +7,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 ### Gestión de alumnos
 - Alta, edición y eliminación de alumnos con foto, curso y grupo
 - Importación masiva desde Excel (.xlsx) con creación automática de grupos
+- La plantilla Excel incluye columnas opcionales para personas autorizadas (nombre, apellidos y DNI/NIE, hasta 10 por alumno)
 - Descarga de plantilla Excel para importación
 - Autorización parental y de guagua (transporte) por alumno
 - Campo de email opcional para notificaciones a la familia
