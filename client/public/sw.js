@@ -29,6 +29,8 @@ self.addEventListener("fetch", (event) => {
 
   if (url.pathname.startsWith("/api/")) return;
 
+  if (url.pathname.startsWith("/carnet/")) return;
+
   event.respondWith(
     fetch(request)
       .then((response) => {

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield, GraduationCap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Shield, GraduationCap, Download, Bookmark } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 
@@ -20,7 +21,30 @@ interface CarnetData {
   academicYear: string;
 }
 
+function useDisablePwa() {
+  useEffect(() => {
+    const manifest = document.querySelector('link[rel="manifest"]');
+    const appleMeta = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
+    if (manifest) manifest.remove();
+    if (appleMeta) appleMeta.remove();
+
+    const beforeInstall = (e: Event) => e.preventDefault();
+    window.addEventListener("beforeinstallprompt", beforeInstall);
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(r => r.unregister());
+      });
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", beforeInstall);
+    };
+  }, []);
+}
+
 export default function CarnetPublicPage() {
+  useDisablePwa();
   const [, params] = useRoute("/carnet/:token");
   const token = params?.token;
   const [data, setData] = useState<CarnetData | null>(null);
@@ -138,9 +162,34 @@ export default function CarnetPublicPage() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground mt-4 text-center">
-        Guarda este enlace en favoritos o añádelo a tu pantalla de inicio
-      </p>
+      <div className="mt-4 text-center space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Guarda este enlace en favoritos para acceder rápidamente a tu carnet
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          onClick={() => {
+            const canvas = document.createElement("canvas");
+            const img = document.querySelector('[data-testid="img-carnet-qr"] img') as HTMLImageElement;
+            if (!img) return;
+            canvas.width = img.naturalWidth || 300;
+            canvas.height = img.naturalHeight || 300;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0);
+            const link = document.createElement("a");
+            link.download = `carnet-${data.firstName}-${data.lastName}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+          }}
+          data-testid="button-download-qr"
+        >
+          <Download className="w-3 h-3 mr-1" />
+          Descargar código QR
+        </Button>
+      </div>
     </div>
   );
 }
