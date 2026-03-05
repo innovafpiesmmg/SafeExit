@@ -1,6 +1,6 @@
 # SafeExit - Sistema de Control de Salida Escolar
 
-SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las salidas de alumnos en centros educativos mediante carnets con código QR. Diseñada para funcionar en PC (administración) y tablets (verificación en puerta).
+SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las salidas de alumnos en centros educativos de bachillerato y FP mediante carnets con código QR. Diseñada para funcionar en PC (administración), tablets en horizontal (verificación en puerta) y móviles (tutores).
 
 ## Características principales
 
@@ -9,78 +9,140 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Importación masiva desde Excel (.xlsx) con creación automática de grupos
 - Descarga de plantilla Excel para importación
 - Autorización parental y de guagua (transporte) por alumno
+- Campo de email opcional para notificaciones a la familia
 - Código QR único autogenerado por alumno
+- Gestión de personas autorizadas para recogida (hasta 10 por alumno, con nombre, apellido y DNI/NIE)
 
 ### Gestión de grupos y horarios
 - Creación y edición de grupos (1A, 2B, 1 BACH A, etc.)
-- Calendario visual de salidas: 12 tramos horarios x 5 días por grupo
-- Configuración rápida de los tramos permitidos con un clic
+- Calendario visual de salidas: 12 tramos horarios configurables por día de la semana
+- Configuración de permisos de salida por grupo en fechas concretas
+- Indicadores visuales (puntos verdes) en días con permisos configurados
+- Fines de semana deshabilitados automáticamente
 
 ### Verificación de salida (QR)
+- Tres pestañas en la vista del guardia: **QR**, **Buscar** y **Acompañada**
 - Escaneo de carnets QR con cámara del tablet o pistola lectora de códigos
+- Búsqueda manual de alumno por grupo y nombre
 - Verificación instantánea: AUTORIZADO / DENEGADO en pantalla completa
 - Algoritmo de verificación:
   1. Mayor de 18 años → AUTORIZADO (adulto)
   2. Menor sin autorización parental → DENEGADO
-  3. Autorización de guagua en tramos 6/12 → AUTORIZADO
-  4. Menor con autorización → Consulta horario del grupo
-  5. Horario permite salida → AUTORIZADO
-  6. En caso contrario → DENEGADO
+  3. Fin de semana → DENEGADO
+  4. Fuera de tramos horarios configurados → DENEGADO
+  5. Autorización de guagua en tramos 6/12 → AUTORIZADO
+  6. Menor con autorización → Consulta horario del grupo para la fecha y tramo actual
+  7. Horario permite salida → AUTORIZADO
+  8. En caso contrario → DENEGADO
 - Foto del alumno en pantalla de resultado
 - Señal sonora: tono agudo (autorizado) / alerta grave (denegado)
+- Auto-retorno configurable (3/5/7/10/15 segundos)
+- Selección de cámara cuando hay varias disponibles
+
+### Salida acompañada
+- Pestaña dedicada en la vista del guardia para verificar la recogida de alumnos
+- Flujo: seleccionar grupo → buscar alumno → introducir DNI/NIE del acompañante
+- El DNI/NIE se puede introducir manualmente o **escanear con la cámara** (lectura del código de barras PDF417 del DNI español)
+- Si la persona está en la lista de autorizados → salida AUTORIZADO + registro en historial
+- Si no está autorizada → salida DENEGADO + incidencia automática
+- Envío opcional de correo electrónico al registrar una salida acompañada (configurable por el administrador)
+- Gestión de personas autorizadas desde la página de alumnos (hasta 10 por alumno)
+
+### Entradas tardías
+- Registro de llegadas tardías de alumnos
+- Dos modos: escaneo de QR o selección manual (grupo + alumno)
+- Campo de notas opcional por cada registro
+- Envío automático de email a la familia (si está configurado SMTP y el alumno tiene email)
+- Panel lateral con las entradas tardías del día actual
+- Diseño horizontal optimizado para tablet en modo landscape
+
+### Notificaciones por correo electrónico
+- Configuración completa del servidor SMTP desde el panel de administración
+- Botón de prueba de conexión SMTP
+- Notificaciones automáticas para:
+  - Entradas tardías de alumnos
+  - Salidas autorizadas de menores
+  - Salidas acompañadas (opcional, activable por el admin)
 
 ### Profesores de guardia y tutores
 - Gestión de profesores con nombre y apellidos
-- Dos roles: **Guardia** (verificación en puerta) y **Tutor** (gestión de grupo)
+- Dos roles: **Guardia** (verificación en puerta) y **Tutor** (gestión de grupo + registros)
+- Asignación de grupo a tutores
 - Contraseña común definida por el administrador
-- Importación masiva desde Excel
+- Importación masiva desde Excel (columnas Nombre/Apellidos)
 - Usuarios autogenerados automáticamente
-- Vista de guardia dedicada para tablet: pantalla completa, sin sidebar
-- Vista de tutor para móvil: ver alumnos del grupo, subir fotos y compartir carnets digitales
+- QR de acceso rápido para que los profesores inicien sesión escaneándolo
 
 ### Historial y auditoría
-- Registro de cada verificación con fecha, hora, resultado y motivo
-- Filtros por fecha, grupo y nombre de alumno
-- Exportación a CSV del historial completo
+- Registro de cada verificación de salida con fecha, hora, resultado, motivo y verificador
+- Registro de cada entrada tardía con fecha, hora, email enviado, registrador y notas
+- Filtros por rango de fechas, grupo y nombre de alumno
+- **Exportación a Excel (.xlsx)** del historial de salidas y entradas tardías con los filtros aplicados
 - Registro de incidencias vinculadas a salidas
+- Incidencias automáticas en intentos de recogida no autorizada
+
+### Registros del tutor
+- Pestaña "Registros" en la vista de tutor para consultar el historial de su grupo
+- Dos sub-pestañas: **Salidas** y **Tardías**
+- Filtros por fecha y nombre de alumno
+- Datos automáticamente limitados al grupo asignado del tutor (sin acceso a otros grupos)
 
 ### Impresión de carnets
-- Generación de PDF con carnets en formato 2x5 (85x55mm)
-- Cada carnet incluye: foto, nombre, apellidos, curso, grupo y código QR
-
-### Vista de guardia (tablet)
-- Pantalla completa optimizada para tablets
-- Botones grandes táctiles (h-14, h-16)
-- Reloj en tiempo real y estado de conexión WiFi
-- Auto-retorno configurable (3/5/7/10/15 segundos)
-- Estadísticas diarias: salidas permitidas y denegadas
-- Compatible con pistola lectora de códigos de barras (envía Enter)
-
-### Vista de tutor (móvil)
-- Vista optimizada para móvil con lista de alumnos del grupo asignado
-- Subida de fotos directa desde la cámara del dispositivo
-- Compartir carnet digital de cada alumno mediante QR o enlace
-- Búsqueda de alumnos dentro del grupo
+- Generación de PDF con carnets en formato 2x5 (85x55mm por tarjeta)
+- Cada carnet incluye: cabecera azul con nombre del centro, curso académico y "SafeExit", foto del alumno, nombre, apellidos, curso, grupo y código QR
+- QR de 22mm/68px optimizado para lectura rápida
 
 ### Carnet digital
-- Página pública de carnet en `/carnet/:token` (sin login)
+- Página pública de carnet en `/carnet/:token` (sin necesidad de login)
 - QR del carnet visible en el móvil del alumno
-- Compartir enlace/QR desde la gestión de alumnos o desde la vista de tutor
-- PDF con enlaces QR para distribución en clase
+- Compartir enlace o QR desde la gestión de alumnos o desde la vista de tutor
+- Muestra nombre del centro y curso académico
 
-### Gestión de curso académico
-- Función "Nuevo Curso Académico" que elimina todos los datos
-- Conserva únicamente el usuario administrador
-- Requiere confirmación escribiendo "NUEVO CURSO"
+### Vista de guardia (tablet)
+- Pantalla completa optimizada para tablets en horizontal
+- Tres pestañas internas: escaneo QR, búsqueda por nombre y salida acompañada
+- Botones grandes táctiles
+- Reloj en tiempo real y estado de conexión WiFi
+- Auto-retorno configurable al estado de espera
+- Estadísticas diarias: total de salidas, permitidas y denegadas
+- Compatible con pistola lectora de códigos de barras (envía Enter automáticamente)
+- Selección de cámara cuando hay varias disponibles
+
+### Vista de tutor (móvil)
+- Vista optimizada para móvil con navegación por pestañas inferiores
+- 4 pestañas: **Mi Grupo**, **Guardia**, **Tardías** y **Registros**
+- Mi Grupo: lista de alumnos del grupo asignado, subida de fotos desde cámara, compartir carnet digital
+- Guardia: verificación de salida con QR, búsqueda y salida acompañada
+- Tardías: registro de entradas tardías
+- Registros: historial de salidas y tardías del grupo
+- Búsqueda de alumnos dentro del grupo
+
+### Configuración y ajustes (admin)
+- Nombre del centro educativo (usado en emails y carnets)
+- Curso académico (mostrado en carnets)
+- Configuración completa del servidor SMTP (host, puerto, usuario, contraseña, dirección de envío, SSL/TLS)
+- Toggle para activar/desactivar el correo en salida acompañada
+- Función "Nuevo Curso Académico": elimina todos los datos excepto el usuario admin (requiere escribir "NUEVO CURSO" para confirmar)
 
 ### PWA (Progressive Web App)
 - Instalable en tablets y móviles como aplicación nativa
 - Service worker para caché de recursos
 - Iconos y manifest configurados
+- Banner de instalación automático
 
 ### Landing page
-- Página de presentación atractiva con fotos
+- Página de presentación con fotos de stock
 - Acceso directo al login
+
+---
+
+## Roles del sistema
+
+| Rol | Acceso | Dispositivo |
+|-----|--------|-------------|
+| **Admin** | Panel completo: alumnos, grupos, profesores, calendario, historial, impresión, escáner, entradas tardías, ajustes | PC |
+| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías | Tablet |
+| **Tutor** | Gestión de su grupo + verificación + tardías + historial de registros de su grupo | Móvil |
 
 ---
 
@@ -228,6 +290,22 @@ Archivo: `/etc/safeexit/env`
 
 ---
 
+## Stack tecnológico
+
+- **Frontend**: React + Tailwind CSS + shadcn/ui
+- **Backend**: Express.js (Node.js)
+- **Base de datos**: PostgreSQL + Drizzle ORM
+- **Autenticación**: Sesiones con express-session
+- **QR**: qrcode (generación) + html5-qrcode (escaneo con soporte PDF417 para DNI)
+- **PDF**: jsPDF (impresión de carnets)
+- **Excel**: xlsx (importación y exportación .xlsx)
+- **Email**: nodemailer (notificaciones SMTP)
+- **Proxy**: Nginx
+- **Proceso**: systemd
+- **Tunnel**: Cloudflare (opcional)
+
+---
+
 ## Solución de problemas
 
 | Problema | Causa probable | Solución |
@@ -238,21 +316,8 @@ Archivo: `/etc/safeexit/env`
 | No conecta a la BD | PostgreSQL parado | `sudo systemctl start postgresql` |
 | Error de permisos | Usuario sin acceso | `sudo chown -R safeexit:safeexit /var/www/safeexit` |
 | Fotos no se ven | Uploads sin permisos | `sudo chown safeexit:safeexit /var/www/safeexit/uploads` |
-
----
-
-## Stack tecnológico
-
-- **Frontend**: React + Tailwind CSS + shadcn/ui
-- **Backend**: Express.js (Node.js)
-- **Base de datos**: PostgreSQL + Drizzle ORM
-- **Autenticación**: Sesiones con express-session
-- **QR**: qrcode (generación) + html5-qrcode (escaneo)
-- **PDF**: jsPDF (impresión de carnets)
-- **Excel**: xlsx (importación/exportación)
-- **Proxy**: Nginx
-- **Proceso**: systemd
-- **Tunnel**: Cloudflare (opcional)
+| La cámara no funciona | HTTPS necesario para cámara | Configurar Cloudflare Tunnel o certificado SSL |
+| No se escanea el DNI | Código de barras no enfocado | Acercar/alejar la cámara, buena iluminación |
 
 ---
 
