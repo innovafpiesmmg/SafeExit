@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee, ArrowUp, ArrowDown } from "lucide-react";
 import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                     <span>Inicio</span>
                     <span className="w-4" />
                     <span>Fin</span>
-                    <span className="w-8" />
+                    <span className="w-20" />
                   </div>
                   {(timeSlots[dayKey] || []).map((slot: TimeSlotConfig, idx: number) => {
                     const isBreak = !!slot.isBreak;
@@ -266,21 +266,55 @@ export default function SettingsPage() {
                         className={`h-8 text-sm ${isBreak ? "border-amber-300 dark:border-amber-700" : ""}`}
                         data-testid={`input-slot-end-${dayKey}-${slot.id}`}
                       />
-                      {isBreak ? (
+                      <div className="flex items-center gap-0.5 w-20">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          disabled={idx === 0}
                           onClick={() => {
                             const updated = { ...timeSlots };
-                            updated[dayKey] = updated[dayKey].filter((_, i) => i !== idx);
+                            const arr = [...updated[dayKey]];
+                            [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                            updated[dayKey] = arr;
                             setTimeSlots(updated);
                           }}
-                          data-testid={`button-remove-break-${dayKey}-${slot.id}`}
+                          data-testid={`button-move-up-${dayKey}-${slot.id}`}
                         >
-                          <X className="w-4 h-4" />
+                          <ArrowUp className="w-3.5 h-3.5" />
                         </Button>
-                      ) : <span className="w-8" />}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          disabled={idx === (timeSlots[dayKey] || []).length - 1}
+                          onClick={() => {
+                            const updated = { ...timeSlots };
+                            const arr = [...updated[dayKey]];
+                            [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+                            updated[dayKey] = arr;
+                            setTimeSlots(updated);
+                          }}
+                          data-testid={`button-move-down-${dayKey}-${slot.id}`}
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                        {isBreak ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={() => {
+                              const updated = { ...timeSlots };
+                              updated[dayKey] = updated[dayKey].filter((_, i) => i !== idx);
+                              setTimeSlots(updated);
+                            }}
+                            data-testid={`button-remove-break-${dayKey}-${slot.id}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        ) : <span className="w-7" />}
+                      </div>
                     </div>
                     );
                   })}
