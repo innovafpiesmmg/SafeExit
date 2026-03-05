@@ -193,8 +193,11 @@ El instalador te pedirá:
 
 Abre en el navegador:
 ```
-http://IP_DEL_SERVIDOR
+http://safeexit.local
 ```
+O usa la IP directamente: `http://IP_DEL_SERVIDOR`
+
+El instalador configura automáticamente un servicio DNS local (`dnsmasq`) que resuelve `safeexit.local` a la IP del servidor. Para que los dispositivos de la red usen este DNS, configura el router del centro para que apunte su DNS primario a la IP del servidor, o usa un servidor DNS local como Umbrella/Pi-hole.
 
 ---
 

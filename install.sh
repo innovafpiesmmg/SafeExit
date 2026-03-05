@@ -68,20 +68,20 @@ if [ "$IS_UPDATE" = false ]; then
     echo ""
 fi
 
-print_header "1/8 - Actualizando sistema operativo"
+print_header "1/9 - Actualizando sistema operativo"
 print_status "Actualizando repositorios y paquetes del sistema..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 print_success "Sistema actualizado"
 
-print_header "2/8 - Instalando dependencias del sistema"
+print_header "2/9 - Instalando dependencias del sistema"
 print_status "Instalando paquetes necesarios..."
 apt-get install -y -qq curl git build-essential nginx postgresql postgresql-contrib ca-certificates gnupg lsb-release
 apt-mark manual nginx postgresql postgresql-contrib build-essential
 print_success "Dependencias del sistema instaladas"
 
-print_header "3/8 - Instalando Node.js 20.x"
+print_header "3/9 - Instalando Node.js 20.x"
 if command -v node &> /dev/null; then
     NODE_VERSION=$(node -v)
     print_status "Node.js ya instalado: $NODE_VERSION"
@@ -98,7 +98,7 @@ fi
 chmod 755 /usr/bin/node /usr/bin/npm 2>/dev/null || true
 print_success "Node.js $(node -v) instalado"
 
-print_header "4/8 - Configurando PostgreSQL"
+print_header "4/9 - Configurando PostgreSQL"
 systemctl enable postgresql
 systemctl start postgresql
 
@@ -126,11 +126,11 @@ else
     print_status "Base de datos existente conservada"
 fi
 
-print_header "5/8 - Configurando usuario del sistema"
+print_header "5/9 - Configurando usuario del sistema"
 id "$APP_USER" &>/dev/null || useradd --system --create-home --shell /bin/bash "$APP_USER"
 print_success "Usuario '$APP_USER' configurado"
 
-print_header "6/8 - Descargando aplicación"
+print_header "6/9 - Descargando aplicación"
 git config --global --add safe.directory "$APP_DIR"
 if [ -d "$APP_DIR/.git" ]; then
     print_status "Actualizando código desde GitHub..."
@@ -146,7 +146,7 @@ print_success "Código descargado en $APP_DIR"
 mkdir -p "$APP_DIR/uploads"
 chown "$APP_USER:$APP_USER" "$APP_DIR/uploads"
 
-print_header "7/8 - Compilando aplicación"
+print_header "7/9 - Compilando aplicación"
 DATABASE_URL="postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME"
 
 mkdir -p "$CONFIG_DIR"
@@ -179,7 +179,34 @@ print_status "Ejecutando migraciones de base de datos..."
 sudo -u "$APP_USER" bash -c "export $(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npx drizzle-kit push --force 2>&1" | tail -3
 print_success "Aplicación compilada"
 
-print_header "8/8 - Configurando servicios"
+print_header "8/9 - Configurando DNS local (safeexit.local)"
+print_status "Instalando dnsmasq para resolución de nombre local..."
+apt-get install -y -qq dnsmasq || true
+
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+DNSMASQ_CONF="/etc/dnsmasq.d/safeexit.conf"
+cat > "$DNSMASQ_CONF" << DNSEOF
+address=/safeexit.local/$SERVER_IP
+DNSEOF
+
+if grep -q "^dns=dnsmasq" /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
+    print_status "NetworkManager usa dnsmasq, configurando integración..."
+    systemctl restart NetworkManager 2>/dev/null || true
+else
+    systemctl enable dnsmasq 2>/dev/null || true
+    systemctl restart dnsmasq 2>/dev/null || true
+fi
+
+if ! grep -q "safeexit.local" /etc/hosts 2>/dev/null; then
+    echo "$SERVER_IP  safeexit.local" >> /etc/hosts
+fi
+
+print_success "DNS local configurado: safeexit.local -> $SERVER_IP"
+print_status "Los dispositivos de la red deben usar este servidor como DNS"
+print_status "o configurar su router para apuntar DNS a $SERVER_IP"
+
+print_header "9/9 - Configurando servicios"
 
 cat > "/etc/systemd/system/$APP_NAME.service" << SVCEOF
 [Unit]
@@ -210,7 +237,7 @@ print_success "Servicio $APP_NAME configurado y arrancado"
 cat > "/etc/nginx/sites-available/$APP_NAME" << NGXEOF
 server {
     listen 80;
-    server_name _;
+    server_name safeexit.local _;
 
     client_max_body_size 50M;
 
@@ -258,11 +285,17 @@ echo ""
 print_header "INSTALACIÓN COMPLETADA"
 echo -e "  ${GREEN}SafeExit está funcionando correctamente${NC}"
 echo ""
-echo -e "  ${CYAN}URL de acceso:${NC}  http://$SERVER_IP"
+echo -e "  ${CYAN}URL de acceso:${NC}  http://safeexit.local"
+echo -e "  ${CYAN}URL alternativa:${NC}  http://$SERVER_IP"
 if [ "$IS_UPDATE" = false ]; then
 echo -e "  ${CYAN}Usuario admin:${NC}  $ADMIN_USER"
 echo -e "  ${CYAN}Contraseña:${NC}     (la que introdujiste)"
 fi
+echo ""
+echo -e "  ${YELLOW}DNS local:${NC}"
+echo -e "    dnsmasq resuelve ${CYAN}safeexit.local${NC} -> ${CYAN}$SERVER_IP${NC}"
+echo -e "    Para que funcione, configura el DNS del router"
+echo -e "    apuntando a ${CYAN}$SERVER_IP${NC}, o usa la IP directamente."
 echo ""
 echo -e "  ${YELLOW}Comandos útiles:${NC}"
 echo -e "    Estado:      ${CYAN}systemctl status $APP_NAME${NC}"

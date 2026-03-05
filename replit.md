@@ -61,7 +61,7 @@ A PWA web application for managing student departures from a school using QR cod
 - Admin: `admin` / `admin123` (env ADMIN_USER/ADMIN_PASS override in production)
 
 ## Deployment
-- `install.sh` - Automated installer for Ubuntu servers (PostgreSQL, Node.js, Nginx, systemd)
+- `install.sh` - Automated installer for Ubuntu servers (PostgreSQL, Node.js, Nginx, dnsmasq for safeexit.local, systemd)
 - Seed creates admin from ADMIN_USER/ADMIN_PASS/ADMIN_NAME env vars
 - SECURE_COOKIES env var controls cookie security (false for HTTP, true for HTTPS/Cloudflare)
 - Config stored at /etc/safeexit/env (outside repo, survives git pull)
