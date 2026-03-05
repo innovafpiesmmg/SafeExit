@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +8,37 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Save, CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
-import { TIME_SLOTS, type Group, type GroupSchedule } from "@shared/schema";
-
-function getFilteredSlots(group: Group | undefined) {
-  if (!group || group.schedule === "full") return TIME_SLOTS;
-  if (group.schedule === "afternoon") return TIME_SLOTS.filter(s => s.id > 6);
-  return TIME_SLOTS.filter(s => s.id <= 6);
-}
+import { type Group, type GroupSchedule, type TimeSlotsConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
+
+function buildDisplaySlots(config: TimeSlotsConfig, dayOfWeek: number) {
+  const daySlots = config[String(dayOfWeek)] || getDefaultTimeSlotsConfig()["1"];
+  const classSlots = daySlots.filter(s => !s.isBreak);
+  return daySlots.map(s => {
+    let period: "morning" | "afternoon";
+    if (s.isBreak) {
+      const breakIdx = daySlots.indexOf(s);
+      const prevClassSlots = daySlots.slice(0, breakIdx).filter(ps => !ps.isBreak);
+      period = prevClassSlots.length <= 6 ? "morning" : "afternoon";
+    } else {
+      const classIdx = classSlots.indexOf(s);
+      period = classIdx < 6 ? "morning" : "afternoon";
+    }
+    return {
+      id: s.id,
+      label: s.isBreak ? `☕ ${s.label || "Recreo"} (${s.start} - ${s.end})` : `${s.start} - ${s.end}`,
+      period,
+      isBreak: !!s.isBreak,
+    };
+  });
+}
+
+function getFilteredSlots(displaySlots: ReturnType<typeof buildDisplaySlots>, group: Group | undefined) {
+  if (!group || group.schedule === "full") return displaySlots;
+  if (group.schedule === "afternoon") return displaySlots.filter(s => s.period === "afternoon");
+  return displaySlots.filter(s => s.period === "morning");
+}
 
 export default function CalendarPage() {
   const { toast } = useToast();
@@ -26,6 +48,14 @@ export default function CalendarPage() {
   const [slots, setSlots] = useState<Record<number, boolean>>({});
 
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
+  const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+
+  const timeSlotsConfig: TimeSlotsConfig = useMemo(() => {
+    if (settings?.timeSlots) {
+      try { return JSON.parse(settings.timeSlots); } catch { }
+    }
+    return getDefaultTimeSlotsConfig();
+  }, [settings]);
 
   const { data: scheduleDates } = useQuery<string[]>({
     queryKey: ["/api/schedules", selectedGroup, "dates"],
@@ -74,7 +104,7 @@ export default function CalendarPage() {
 
   const handleSave = () => {
     if (!selectedGroup || !selectedDate) return;
-    const schedulesList = filteredSlots.map(slot => ({
+    const schedulesList = filteredSlots.filter(slot => !slot.isBreak).map(slot => ({
       groupId: parseInt(selectedGroup),
       date: selectedDate,
       timeSlot: slot.id,
@@ -92,7 +122,9 @@ export default function CalendarPage() {
   const datesWithPermissions = new Set(scheduleDates || []);
 
   const selectedGroupObj = groups?.find(g => String(g.id) === selectedGroup);
-  const filteredSlots = getFilteredSlots(selectedGroupObj);
+  const selectedDayOfWeek = selectedDate ? ((new Date(selectedDate + "T12:00:00").getDay() || 7)) : 1;
+  const displaySlots = buildDisplaySlots(timeSlotsConfig, selectedDayOfWeek);
+  const filteredSlots = getFilteredSlots(displaySlots, selectedGroupObj);
   const hasAnySlotEnabled = Object.values(slots).some(v => v);
 
   return (
@@ -209,8 +241,8 @@ export default function CalendarPage() {
                     ) : (
                       <>
                         {filteredSlots.map((slot, idx) => {
-                          const showMorningLabel = idx === 0 && slot.id <= 6;
-                          const showAfternoonLabel = (idx === 0 && slot.id > 6) || (idx > 0 && slot.id === 7);
+                          const showMorningLabel = idx === 0 && slot.period === "morning";
+                          const showAfternoonLabel = (idx === 0 && slot.period === "afternoon") || (idx > 0 && slot.period === "afternoon" && filteredSlots[idx - 1]?.period === "morning");
                           return (
                           <div key={slot.id}>
                             {showAfternoonLabel && (
@@ -221,18 +253,27 @@ export default function CalendarPage() {
                             {showMorningLabel && (
                               <p className="text-[10px] text-muted-foreground text-center mb-1">Mañana</p>
                             )}
-                            <button
-                              data-testid={`slot-${slot.id}`}
-                              onClick={() => toggleSlot(slot.id)}
-                              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-between ${
-                                slots[slot.id]
-                                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                                  : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
-                              }`}
-                            >
-                              <span className="font-mono">{slot.label}</span>
-                              {slots[slot.id] && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Permitido</Badge>}
-                            </button>
+                            {slot.isBreak ? (
+                              <div
+                                data-testid={`slot-break-${slot.id}`}
+                                className="w-full text-center px-3 py-1.5 rounded-md text-xs font-medium bg-amber-100/60 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-300/40 dark:border-amber-700/40"
+                              >
+                                {slot.label}
+                              </div>
+                            ) : (
+                              <button
+                                data-testid={`slot-${slot.id}`}
+                                onClick={() => toggleSlot(slot.id)}
+                                className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-colors flex items-center justify-between ${
+                                  slots[slot.id]
+                                    ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                                    : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
+                                }`}
+                              >
+                                <span className="font-mono">{slot.label}</span>
+                                {slots[slot.id] && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Permitido</Badge>}
+                              </button>
+                            )}
                           </div>
                           );
                         })}

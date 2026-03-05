@@ -668,6 +668,23 @@ export async function registerRoutes(
         });
       }
 
+      const currentSlotConfig = slotsForDay.find(s => s.id === timeSlot);
+      if (currentSlotConfig?.isBreak) {
+        const breakLabel = currentSlotConfig.label || "Recreo";
+        const log = await storage.createExitLog({
+          studentId: student.id,
+          result: "DENEGADO",
+          reason: `${breakLabel} - No se permite salida`,
+          verifiedBy: userId,
+        });
+        return res.json({
+          result: "DENEGADO",
+          reason: `${breakLabel} - No se permite salida`,
+          student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
+          logId: log.id,
+        });
+      }
+
       const BUS_SLOTS = [6, 12];
       if (BUS_SLOTS.includes(timeSlot) && student.busAuthorization) {
         const slotLabel = timeSlot === 6 ? "6a hora mañana" : "6a hora tarde";

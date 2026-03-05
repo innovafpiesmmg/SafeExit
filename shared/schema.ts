@@ -96,21 +96,26 @@ export interface TimeSlotConfig {
   id: number;
   start: string;
   end: string;
+  isBreak?: boolean;
+  label?: string;
 }
 
 export const DEFAULT_TIME_SLOTS: TimeSlotConfig[] = [
   { id: 1, start: "08:00", end: "08:55" },
   { id: 2, start: "08:55", end: "09:50" },
-  { id: 3, start: "09:50", end: "10:45" },
-  { id: 4, start: "10:45", end: "11:15" },
-  { id: 5, start: "11:15", end: "12:10" },
-  { id: 6, start: "12:10", end: "13:05" },
-  { id: 7, start: "13:05", end: "14:00" },
-  { id: 8, start: "14:00", end: "14:55" },
-  { id: 9, start: "14:55", end: "15:50" },
-  { id: 10, start: "15:50", end: "16:45" },
-  { id: 11, start: "16:45", end: "17:40" },
-  { id: 12, start: "17:40", end: "18:35" },
+  { id: 100, start: "09:50", end: "10:10", isBreak: true, label: "Recreo 1" },
+  { id: 3, start: "10:10", end: "11:05" },
+  { id: 4, start: "11:05", end: "12:00" },
+  { id: 101, start: "12:00", end: "12:20", isBreak: true, label: "Recreo 2" },
+  { id: 5, start: "12:20", end: "13:15" },
+  { id: 6, start: "13:15", end: "14:10" },
+  { id: 7, start: "15:00", end: "15:55" },
+  { id: 8, start: "15:55", end: "16:50" },
+  { id: 102, start: "16:50", end: "17:10", isBreak: true, label: "Recreo 3" },
+  { id: 9, start: "17:10", end: "18:05" },
+  { id: 10, start: "18:05", end: "19:00" },
+  { id: 11, start: "19:00", end: "19:55" },
+  { id: 12, start: "19:55", end: "20:50" },
 ];
 
 export type TimeSlotsConfig = Record<string, TimeSlotConfig[]>;
@@ -127,11 +132,24 @@ export function getTimeSlotsForDay(config: TimeSlotsConfig, dayOfWeek: number): 
   return config[String(dayOfWeek)] || DEFAULT_TIME_SLOTS;
 }
 
-export const TIME_SLOTS = DEFAULT_TIME_SLOTS.map(s => ({
-  id: s.id,
-  label: `${s.start} - ${s.end}`,
-  period: s.id <= 6 ? "morning" : "afternoon",
-})) as readonly { id: number; label: string; period: string }[];
+const _classSlots = DEFAULT_TIME_SLOTS.filter(s => !s.isBreak);
+export const TIME_SLOTS = DEFAULT_TIME_SLOTS.map((s, _i, arr) => {
+  let period: string;
+  if (s.isBreak) {
+    const breakIdx = arr.indexOf(s);
+    const prevClass = arr.slice(0, breakIdx).filter(ps => !ps.isBreak);
+    period = prevClass.length <= 6 ? "morning" : "afternoon";
+  } else {
+    const classIdx = _classSlots.indexOf(s);
+    period = classIdx < 6 ? "morning" : "afternoon";
+  }
+  return {
+    id: s.id,
+    label: s.isBreak ? `☕ ${s.label || "Recreo"} (${s.start} - ${s.end})` : `${s.start} - ${s.end}`,
+    period,
+    isBreak: !!s.isBreak,
+  };
+}) as readonly { id: number; label: string; period: string; isBreak: boolean }[];
 
 export const lateArrivals = pgTable("late_arrivals", {
   id: serial("id").primaryKey(),

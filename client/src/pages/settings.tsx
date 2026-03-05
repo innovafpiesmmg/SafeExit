@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee } from "lucide-react";
 import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -206,16 +206,40 @@ export default function SettingsPage() {
             {["1", "2", "3", "4", "5"].map(dayKey => (
               <TabsContent key={dayKey} value={dayKey} className="mt-4">
                 <div className="space-y-2">
-                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center text-xs font-medium text-muted-foreground px-1">
-                    <span className="w-16">Tramo</span>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] gap-2 items-center text-xs font-medium text-muted-foreground px-1">
+                    <span className="w-20">Tramo</span>
                     <span>Inicio</span>
                     <span className="w-4" />
                     <span>Fin</span>
+                    <span className="w-8" />
                   </div>
-                  {(timeSlots[dayKey] || []).map((slot: TimeSlotConfig, idx: number) => (
-                    <div key={slot.id} className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
-                      <span className="text-sm font-medium w-16 text-muted-foreground" data-testid={`text-slot-label-${dayKey}-${slot.id}`}>
-                        {slot.id <= 6 ? `M${slot.id}` : `T${slot.id - 6}`}
+                  {(timeSlots[dayKey] || []).map((slot: TimeSlotConfig, idx: number) => {
+                    const isBreak = !!slot.isBreak;
+                    let slotLabel: string;
+                    if (isBreak) {
+                      slotLabel = slot.label || "Recreo";
+                    } else {
+                      const classSlots = (timeSlots[dayKey] || []).filter(s => !s.isBreak);
+                      const classIdx = classSlots.findIndex(s => s.id === slot.id);
+                      slotLabel = classIdx < 6 ? `M${classIdx + 1}` : `T${classIdx - 5}`;
+                    }
+                    return (
+                    <div key={`${slot.id}-${idx}`} className={`grid grid-cols-[auto_1fr_auto_1fr_auto] gap-2 items-center ${isBreak ? "bg-amber-50 dark:bg-amber-900/10 rounded-md px-1 py-0.5 border border-amber-200/50 dark:border-amber-800/30" : ""}`}>
+                      <span className={`text-sm font-medium w-20 flex items-center gap-1 ${isBreak ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} data-testid={`text-slot-label-${dayKey}-${slot.id}`}>
+                        {isBreak && <Coffee className="w-3 h-3" />}
+                        {isBreak ? (
+                          <Input
+                            value={slot.label || "Recreo"}
+                            onChange={e => {
+                              const updated = { ...timeSlots };
+                              updated[dayKey] = [...updated[dayKey]];
+                              updated[dayKey][idx] = { ...slot, label: e.target.value };
+                              setTimeSlots(updated);
+                            }}
+                            className="h-6 text-xs w-16 px-1 border-amber-300 dark:border-amber-700"
+                            data-testid={`input-break-label-${dayKey}-${slot.id}`}
+                          />
+                        ) : slotLabel}
                       </span>
                       <Input
                         type="time"
@@ -226,7 +250,7 @@ export default function SettingsPage() {
                           updated[dayKey][idx] = { ...slot, start: e.target.value };
                           setTimeSlots(updated);
                         }}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${isBreak ? "border-amber-300 dark:border-amber-700" : ""}`}
                         data-testid={`input-slot-start-${dayKey}-${slot.id}`}
                       />
                       <span className="text-muted-foreground text-sm w-4 text-center">—</span>
@@ -239,13 +263,53 @@ export default function SettingsPage() {
                           updated[dayKey][idx] = { ...slot, end: e.target.value };
                           setTimeSlots(updated);
                         }}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${isBreak ? "border-amber-300 dark:border-amber-700" : ""}`}
                         data-testid={`input-slot-end-${dayKey}-${slot.id}`}
                       />
+                      {isBreak ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => {
+                            const updated = { ...timeSlots };
+                            updated[dayKey] = updated[dayKey].filter((_, i) => i !== idx);
+                            setTimeSlots(updated);
+                          }}
+                          data-testid={`button-remove-break-${dayKey}-${slot.id}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      ) : <span className="w-8" />}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex flex-wrap items-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const updated = { ...timeSlots };
+                      const slots = updated[dayKey] || [];
+                      const maxBreakId = slots.reduce((max, s) => s.isBreak && s.id > max ? s.id : max, 99);
+                      const newBreak: TimeSlotConfig = {
+                        id: maxBreakId + 1,
+                        start: "10:00",
+                        end: "10:20",
+                        isBreak: true,
+                        label: "Recreo",
+                      };
+                      const lastNonBreak = slots.reduce((last, s, i) => !s.isBreak ? i : last, -1);
+                      const insertIdx = Math.min(lastNonBreak + 1, slots.length);
+                      updated[dayKey] = [...slots.slice(0, insertIdx), newBreak, ...slots.slice(insertIdx)];
+                      setTimeSlots(updated);
+                    }}
+                    data-testid={`button-add-break-${dayKey}`}
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Añadir recreo
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -281,7 +345,7 @@ export default function SettingsPage() {
             ))}
           </Tabs>
           <p className="text-xs text-muted-foreground mt-4">
-            M = tramo de mañana, T = tramo de tarde. Recuerda pulsar "Guardar configuración" abajo del todo para aplicar los cambios.
+            M = tramo de mañana, T = tramo de tarde. ☕ = recreo (no se permite salida). Puedes añadir, editar o eliminar recreos. Recuerda pulsar "Guardar configuración" abajo del todo para aplicar los cambios.
           </p>
         </CardContent>
       </Card>
