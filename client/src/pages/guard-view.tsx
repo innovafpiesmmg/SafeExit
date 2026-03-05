@@ -13,9 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { playSuccessSound, playErrorSound } from "@/lib/sounds";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle,
-  RotateCcw, Send, LogOut, Wifi, WifiOff, Settings, ArrowLeft,
+  RotateCcw, Send, LogOut, Wifi, WifiOff, Settings, ArrowLeft, SwitchCamera, XCircle,
 } from "lucide-react";
 
 function useCurrentTime() {
@@ -58,6 +59,8 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const [incidentOpen, setIncidentOpen] = useState(false);
   const [incidentNote, setIncidentNote] = useState("");
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<any>(null);
   const videoRef = useRef<HTMLDivElement>(null);
@@ -144,15 +147,18 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (cameraId?: string) => {
     setScanning(true);
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
       if (videoRef.current) {
         const scanner = new Html5Qrcode("guard-qr-reader");
         scannerRef.current = scanner;
+        const cameraConfig = cameraId || selectedCameraId
+          ? { deviceId: { exact: cameraId || selectedCameraId } }
+          : { facingMode: "environment" };
         await scanner.start(
-          { facingMode: "environment" },
+          cameraConfig as any,
           { fps: 10, qrbox: { width: 280, height: 280 } },
           (decodedText) => {
             verifyMutation.mutate(decodedText);
@@ -165,6 +171,16 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     } catch {
       toast({ title: "No se pudo acceder a la cámara", variant: "destructive" });
       setScanning(false);
+    }
+  };
+
+  const switchCamera = async (newCameraId: string) => {
+    setSelectedCameraId(newCameraId);
+    if (scanning && scannerRef.current) {
+      await scannerRef.current.stop().catch(() => {});
+      scannerRef.current = null;
+      setScanning(false);
+      setTimeout(() => startCamera(newCameraId), 300);
     }
   };
 
@@ -185,6 +201,23 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   };
 
   useEffect(() => {
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices.length > 0) {
+          setCameras(devices.map((d, i) => ({
+            id: d.id,
+            label: d.label || `Cámara ${i + 1}`,
+          })));
+          const backCam = devices.find(d =>
+            d.label.toLowerCase().includes("back") ||
+            d.label.toLowerCase().includes("trasera") ||
+            d.label.toLowerCase().includes("rear") ||
+            d.label.toLowerCase().includes("environment")
+          );
+          setSelectedCameraId(backCam?.id || devices[devices.length - 1].id);
+        }
+      }).catch(() => {});
+    });
     return () => {
       if (scannerRef.current) scannerRef.current.stop().catch(() => {});
       if (countdownRef.current) clearInterval(countdownRef.current);
@@ -232,11 +265,9 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-white">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 text-white">
           {scanResult.student?.photoUrl ? (
-            <div className={`w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden mb-5 border-4 ${
-              isAuthorized ? "border-white/40" : "border-white/40"
-            } shadow-2xl`}>
+            <div className="w-44 h-44 sm:w-52 sm:h-52 md:w-60 md:h-60 rounded-2xl overflow-hidden mb-4 border-4 border-white/50 shadow-2xl">
               <img
                 src={scanResult.student.photoUrl}
                 alt={`${scanResult.student.firstName} ${scanResult.student.lastName}`}
@@ -245,7 +276,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
               />
             </div>
           ) : (
-            <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full flex items-center justify-center mb-5 bg-white/20`}>
+            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl flex items-center justify-center mb-4 bg-white/20">
               {isAuthorized
                 ? <ShieldCheck className="w-20 h-20 sm:w-24 sm:h-24" />
                 : <ShieldX className="w-20 h-20 sm:w-24 sm:h-24" />
@@ -253,58 +284,55 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
             </div>
           )}
 
+          {scanResult.student && (
+            <p className="font-bold text-2xl sm:text-3xl leading-tight text-center mb-1" data-testid="text-guard-student-name">
+              {scanResult.student.firstName} {scanResult.student.lastName}
+            </p>
+          )}
+
+          {scanResult.student && (
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="text-white/70 text-base">{scanResult.student.course}</span>
+              <Badge className="bg-white/20 text-white border-white/30 text-sm">
+                {scanResult.student.age} años
+              </Badge>
+              {scanResult.student.age >= 18 && (
+                <Badge className="bg-white/30 text-white border-white/40 text-sm">+18</Badge>
+              )}
+            </div>
+          )}
+
           <h1
-            className="text-6xl sm:text-8xl md:text-9xl font-black tracking-tight text-center leading-none"
+            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight text-center leading-none"
             data-testid="text-guard-result"
           >
             {scanResult.result}
           </h1>
 
-          <p className="text-xl sm:text-2xl mt-4 text-white/80 text-center font-medium" data-testid="text-guard-reason">
+          <p className="text-lg sm:text-xl mt-2 text-white/80 text-center font-medium" data-testid="text-guard-reason">
             {scanResult.reason}
           </p>
 
-          {scanResult.student && (
-            <div className="flex items-center gap-5 mt-6 p-5 rounded-2xl bg-white/15 backdrop-blur-sm max-w-lg w-full">
-              <div className="flex-1 text-center">
-                <p className="font-bold text-2xl sm:text-3xl leading-tight" data-testid="text-guard-student-name">
-                  {scanResult.student.firstName} {scanResult.student.lastName}
-                </p>
-                <p className="text-lg text-white/70 mt-1">{scanResult.student.course}</p>
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <Badge className="bg-white/20 text-white border-white/30 text-sm">
-                    {scanResult.student.age} años
-                  </Badge>
-                  {scanResult.student.age >= 18 && (
-                    <Badge className="bg-white/30 text-white border-white/40 text-sm">+18</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3 mt-8 w-full max-w-lg">
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 w-full max-w-lg">
             <Button
               onClick={(e) => { e.stopPropagation(); resetScan(); }}
-              className="flex-1 h-16 text-lg font-bold bg-white/20 hover:bg-white/30 text-white border border-white/30"
+              className="flex-1 h-14 text-base font-bold bg-white/20 hover:bg-white/30 text-white border border-white/30"
               variant="ghost"
               data-testid="button-guard-new-scan"
             >
-              <RotateCcw className="w-6 h-6 mr-2" />
+              <RotateCcw className="w-5 h-5 mr-2" />
               Nueva Verificación
             </Button>
 
-            {isAuthorized && (
-              <Button
-                variant="ghost"
-                onClick={(e) => { e.stopPropagation(); pauseAutoReturn(); setIncidentOpen(true); }}
-                className="flex-1 h-16 text-lg font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20"
-                data-testid="button-guard-incident"
-              >
-                <AlertTriangle className="w-6 h-6 mr-2" />
-                Incidencia
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); pauseAutoReturn(); setIncidentOpen(true); }}
+              className="flex-1 h-14 text-base font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20"
+              data-testid="button-guard-incident"
+            >
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Incidencia
+            </Button>
           </div>
 
           {countdown !== null && (
@@ -389,15 +417,43 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
               {scanning ? (
                 <div className="space-y-3">
                   <div id="guard-qr-reader" ref={videoRef} className="rounded-lg overflow-hidden" />
+                  {cameras.length > 1 && (
+                    <Select value={selectedCameraId} onValueChange={switchCamera}>
+                      <SelectTrigger className="h-10" data-testid="select-camera-embedded">
+                        <SwitchCamera className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <SelectValue placeholder="Seleccionar cámara" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cameras.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Button onClick={stopCamera} variant="destructive" className="w-full h-14 text-base font-semibold" data-testid="button-guard-stop-camera">
                     Detener Cámara
                   </Button>
                 </div>
               ) : (
-                <Button onClick={startCamera} variant="secondary" className="w-full h-14 text-base font-semibold" data-testid="button-guard-start-camera">
-                  <Camera className="w-5 h-5 mr-2" />
-                  Activar Cámara
-                </Button>
+                <div className="space-y-3">
+                  {cameras.length > 1 && (
+                    <Select value={selectedCameraId} onValueChange={setSelectedCameraId}>
+                      <SelectTrigger className="h-10" data-testid="select-camera-embedded-idle">
+                        <SwitchCamera className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <SelectValue placeholder="Seleccionar cámara" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cameras.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button onClick={() => startCamera()} variant="secondary" className="w-full h-14 text-base font-semibold" data-testid="button-guard-start-camera">
+                    <Camera className="w-5 h-5 mr-2" />
+                    Activar Cámara
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -541,15 +597,43 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
               {scanning ? (
                 <div className="space-y-3">
                   <div id="guard-qr-reader" ref={videoRef} className="rounded-lg overflow-hidden" />
+                  {cameras.length > 1 && (
+                    <Select value={selectedCameraId} onValueChange={switchCamera}>
+                      <SelectTrigger className="h-10" data-testid="select-camera-standalone">
+                        <SwitchCamera className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <SelectValue placeholder="Seleccionar cámara" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cameras.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Button onClick={stopCamera} variant="destructive" className="w-full h-14 text-base font-semibold" data-testid="button-guard-stop-camera">
                     Detener Cámara
                   </Button>
                 </div>
               ) : (
-                <Button onClick={startCamera} variant="secondary" className="w-full h-14 text-base font-semibold" data-testid="button-guard-start-camera">
-                  <Camera className="w-5 h-5 mr-2" />
-                  Activar Cámara
-                </Button>
+                <div className="space-y-3">
+                  {cameras.length > 1 && (
+                    <Select value={selectedCameraId} onValueChange={setSelectedCameraId}>
+                      <SelectTrigger className="h-10" data-testid="select-camera-standalone-idle">
+                        <SwitchCamera className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <SelectValue placeholder="Seleccionar cámara" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cameras.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button onClick={() => startCamera()} variant="secondary" className="w-full h-14 text-base font-semibold" data-testid="button-guard-start-camera">
+                    <Camera className="w-5 h-5 mr-2" />
+                    Activar Cámara
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
