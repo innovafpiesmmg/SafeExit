@@ -38,7 +38,7 @@ export default function HistoryPage() {
 
   const handleExport = () => {
     const exportParams = new URLSearchParams(queryParams);
-    window.open(`/api/exit-logs/export?${exportParams.toString()}`, "_blank");
+    window.open(`/api/exit-logs/export?${exportParams.toString()}&format=xlsx`, "_blank");
   };
 
   return (
@@ -48,9 +48,9 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-history-title">Historial de Salidas</h1>
           <p className="text-muted-foreground text-sm mt-1">{logs?.length || 0} registros encontrados</p>
         </div>
-        <Button onClick={handleExport} variant="secondary" data-testid="button-export-csv">
+        <Button onClick={handleExport} variant="secondary" data-testid="button-export-excel">
           <Download className="w-4 h-4 mr-2" />
-          Exportar CSV
+          Exportar Excel
         </Button>
       </div>
 

@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, Share2, Copy, Check, QrCode, Mail } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserPlus, GraduationCap, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, Share2, Copy, Check, QrCode, Mail, UserCheck, Loader2, XCircle } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
@@ -28,6 +28,9 @@ export default function StudentsPage() {
   const [importing, setImporting] = useState(false);
   const [shareStudent, setShareStudent] = useState<Student | null>(null);
   const [shareQrUrl, setShareQrUrl] = useState<string>("");
+  const [pickupStudent, setPickupStudent] = useState<Student | null>(null);
+  const [pickupList, setPickupList] = useState<{ firstName: string; lastName: string; documentId: string }[]>([]);
+  const [savingPickups, setSavingPickups] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,6 +130,51 @@ export default function StudentsPage() {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const openPickupDialog = async (student: Student) => {
+    setPickupStudent(student);
+    try {
+      const res = await fetch(`/api/students/${student.id}/authorized-pickups`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setPickupList(data.map((p: any) => ({ firstName: p.firstName, lastName: p.lastName, documentId: p.documentId })));
+      } else {
+        setPickupList([]);
+      }
+    } catch {
+      setPickupList([]);
+    }
+  };
+
+  const savePickups = async () => {
+    if (!pickupStudent) return;
+    setSavingPickups(true);
+    try {
+      await apiRequest("PUT", `/api/students/${pickupStudent.id}/authorized-pickups`, { pickups: pickupList });
+      toast({ title: "Personas autorizadas guardadas" });
+      setPickupStudent(null);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingPickups(false);
+    }
+  };
+
+  const addPickupRow = () => {
+    if (pickupList.length >= 10) {
+      toast({ title: "Máximo 10 personas autorizadas", variant: "destructive" });
+      return;
+    }
+    setPickupList([...pickupList, { firstName: "", lastName: "", documentId: "" }]);
+  };
+
+  const removePickupRow = (index: number) => {
+    setPickupList(pickupList.filter((_, i) => i !== index));
+  };
+
+  const updatePickupRow = (index: number, field: string, value: string) => {
+    setPickupList(pickupList.map((p, i) => i === index ? { ...p, [field]: value } : p));
   };
 
   const handleShare = async (student: Student) => {
@@ -307,6 +355,9 @@ export default function StudentsPage() {
                     <Button size="sm" variant="secondary" data-testid={`button-edit-student-${student.id}`} onClick={() => handleEdit(student)} className="flex-1">
                       <Pencil className="w-3 h-3 mr-1" /> Editar
                     </Button>
+                    <Button size="sm" variant="outline" data-testid={`button-pickups-student-${student.id}`} onClick={() => openPickupDialog(student)} className="flex-1">
+                      <UserCheck className="w-3 h-3 mr-1" /> Autorizados
+                    </Button>
                     {student.carnetToken && (
                       <Button size="sm" variant="outline" data-testid={`button-share-student-${student.id}`} onClick={() => handleShare(student)} className="flex-1">
                         <Share2 className="w-3 h-3 mr-1" /> Carnet
@@ -434,6 +485,77 @@ export default function StudentsPage() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pickupStudent} onOpenChange={(open) => { if (!open) setPickupStudent(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5" />
+              Personas Autorizadas para Recogida
+            </DialogTitle>
+          </DialogHeader>
+          {pickupStudent && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                <Avatar className="w-8 h-8">
+                  <AvatarImage src={pickupStudent.photoUrl || undefined} />
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    {pickupStudent.firstName[0]}{pickupStudent.lastName[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{pickupStudent.firstName} {pickupStudent.lastName}</p>
+                  <p className="text-xs text-muted-foreground">{pickupStudent.course}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Personas autorizadas a recoger a este alumno (máximo 10). El guardia verificará el DNI/NIE al recoger.
+              </p>
+
+              <div className="space-y-2">
+                {pickupList.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2" data-testid={`row-pickup-${i}`}>
+                    <Input
+                      placeholder="Nombre"
+                      value={p.firstName}
+                      onChange={e => updatePickupRow(i, "firstName", e.target.value)}
+                      className="text-sm h-9"
+                      data-testid={`input-pickup-firstname-${i}`}
+                    />
+                    <Input
+                      placeholder="Apellido"
+                      value={p.lastName}
+                      onChange={e => updatePickupRow(i, "lastName", e.target.value)}
+                      className="text-sm h-9"
+                      data-testid={`input-pickup-lastname-${i}`}
+                    />
+                    <Input
+                      placeholder="DNI/NIE"
+                      value={p.documentId}
+                      onChange={e => updatePickupRow(i, "documentId", e.target.value)}
+                      className="text-sm h-9 w-32 flex-shrink-0"
+                      data-testid={`input-pickup-document-${i}`}
+                    />
+                    <Button size="icon" variant="ghost" onClick={() => removePickupRow(i)} className="h-9 w-9 flex-shrink-0" data-testid={`button-remove-pickup-${i}`}>
+                      <XCircle className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <Button variant="outline" onClick={addPickupRow} className="w-full" data-testid="button-add-pickup" disabled={pickupList.length >= 10}>
+                <Plus className="w-4 h-4 mr-2" />
+                Añadir persona ({pickupList.length}/10)
+              </Button>
+
+              <Button onClick={savePickups} disabled={savingPickups} className="w-full" data-testid="button-save-pickups">
+                {savingPickups ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</> : "Guardar personas autorizadas"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

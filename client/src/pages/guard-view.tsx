@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Camera, QrCode, ShieldCheck, ShieldX, AlertTriangle,
   RotateCcw, Send, LogOut, Wifi, WifiOff, Settings, ArrowLeft, SwitchCamera, XCircle,
-  Search, Users,
+  Search, Users, UserCheck, CreditCard, Loader2, CheckCircle2,
 } from "lucide-react";
 import type { Student, Group } from "@shared/schema";
 
@@ -67,6 +67,14 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const [guardTab, setGuardTab] = useState("qr");
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [searchStudent, setSearchStudent] = useState("");
+  const [accompGroupId, setAccompGroupId] = useState("");
+  const [accompSearchStudent, setAccompSearchStudent] = useState("");
+  const [accompSelectedStudent, setAccompSelectedStudent] = useState<Student | null>(null);
+  const [accompDni, setAccompDni] = useState("");
+  const [accompResult, setAccompResult] = useState<any>(null);
+  const [accompScanning, setAccompScanning] = useState(false);
+  const accompScannerRef = useRef<any>(null);
+  const accompVideoRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<any>(null);
   const videoRef = useRef<HTMLDivElement>(null);
@@ -95,8 +103,90 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchStudent.toLowerCase())
   ) || [];
 
+  const { data: accompGroupStudents, isLoading: loadingAccompStudents } = useQuery<Student[]>({
+    queryKey: [`/api/groups/${accompGroupId}/students`],
+    enabled: !!accompGroupId,
+  });
+
+  const filteredAccompStudents = accompGroupStudents?.filter(s =>
+    `${s.firstName} ${s.lastName}`.toLowerCase().includes(accompSearchStudent.toLowerCase())
+  ) || [];
+
   const handleStudentVerify = (student: Student) => {
     verifyMutation.mutate(student.qrCode);
+  };
+
+  const accompaniedMutation = useMutation({
+    mutationFn: async (data: { studentId: number; documentId: string }) => {
+      const res = await apiRequest("POST", "/api/accompanied-exit", data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setAccompResult(data);
+      if (data.result === "AUTORIZADO") {
+        playSuccessSound();
+      } else {
+        playErrorSound();
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/exit-stats"] });
+    },
+    onError: (e: any) => {
+      playErrorSound();
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const handleAccompaniedVerify = () => {
+    if (!accompSelectedStudent || !accompDni.trim()) return;
+    accompaniedMutation.mutate({ studentId: accompSelectedStudent.id, documentId: accompDni.trim() });
+  };
+
+  const resetAccompanied = () => {
+    setAccompResult(null);
+    setAccompDni("");
+    setAccompSelectedStudent(null);
+    stopAccompCamera();
+  };
+
+  const startAccompCamera = async () => {
+    setAccompScanning(true);
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      if (accompVideoRef.current) {
+        const scanner = new Html5Qrcode("accomp-dni-reader");
+        accompScannerRef.current = scanner;
+        const cameraConfig = selectedCameraId
+          ? { deviceId: { exact: selectedCameraId } }
+          : { facingMode: "environment" };
+        await scanner.start(
+          cameraConfig as any,
+          {
+            fps: 10,
+            qrbox: { width: 280, height: 100 },
+            formatsToSupport: [0, 2, 3, 4, 7, 8, 10],
+          },
+          (decodedText) => {
+            const dniMatch = decodedText.match(/[0-9]{8}[A-Z]/i) || decodedText.match(/[XYZ][0-9]{7}[A-Z]/i);
+            const result = dniMatch ? dniMatch[0] : decodedText;
+            setAccompDni(result);
+            scanner.stop().catch(() => {});
+            setAccompScanning(false);
+          },
+          () => {}
+        );
+      }
+    } catch {
+      toast({ title: "No se pudo acceder a la cámara", variant: "destructive" });
+      setAccompScanning(false);
+    }
+  };
+
+  const stopAccompCamera = () => {
+    if (accompScannerRef.current) {
+      accompScannerRef.current.stop().catch(() => {});
+      accompScannerRef.current = null;
+    }
+    setAccompScanning(false);
   };
 
   const resetScan = useCallback(() => {
@@ -240,6 +330,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     });
     return () => {
       if (scannerRef.current) scannerRef.current.stop().catch(() => {});
+      if (accompScannerRef.current) accompScannerRef.current.stop().catch(() => {});
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, []);
@@ -461,6 +552,171 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     </div>
   );
 
+  const accompaniedPanel = (isEmbedded: boolean) => (
+    <div className="space-y-3">
+      {accompResult ? (
+        <div className={`rounded-xl p-4 text-center ${accompResult.result === "AUTORIZADO" ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-red-500/10 border border-red-500/30"}`}>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {accompResult.result === "AUTORIZADO" ? (
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            ) : (
+              <ShieldX className="w-8 h-8 text-red-600" />
+            )}
+          </div>
+          <p className={`text-lg font-bold ${accompResult.result === "AUTORIZADO" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`} data-testid="text-accomp-result">
+            {accompResult.result}
+          </p>
+          <p className="text-sm font-medium mt-1" data-testid="text-accomp-student-name">
+            {accompResult.student?.firstName} {accompResult.student?.lastName}
+          </p>
+          <p className="text-xs text-muted-foreground">{accompResult.student?.course}</p>
+          <p className="text-sm mt-2" data-testid="text-accomp-reason">{accompResult.reason}</p>
+          {accompResult.incidentCreated && (
+            <Badge variant="destructive" className="mt-2 text-xs">Incidencia registrada automáticamente</Badge>
+          )}
+          <Button onClick={resetAccompanied} variant="outline" className="w-full mt-3" data-testid="button-accomp-reset">
+            <RotateCcw className="w-4 h-4 mr-2" /> Nueva verificación
+          </Button>
+        </div>
+      ) : !accompSelectedStudent ? (
+        <>
+          <Select value={accompGroupId} onValueChange={setAccompGroupId}>
+            <SelectTrigger className={isEmbedded ? "h-10 text-sm" : "h-12"} data-testid="select-group-accomp">
+              <SelectValue placeholder="Seleccionar grupo..." />
+            </SelectTrigger>
+            <SelectContent>
+              {groups?.map(g => (
+                <SelectItem key={g.id} value={String(g.id)}>{g.name} ({g.course})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {accompGroupId && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                className={`pl-9 ${isEmbedded ? "h-10 text-sm" : "h-12"}`}
+                placeholder="Buscar alumno..."
+                value={accompSearchStudent}
+                onChange={e => setAccompSearchStudent(e.target.value)}
+                data-testid="input-search-student-accomp"
+              />
+            </div>
+          )}
+
+          {accompGroupId && loadingAccompStudents ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-sm">Cargando alumnos...</p>
+            </div>
+          ) : accompGroupId && filteredAccompStudents.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">{accompSearchStudent ? "No se encontraron alumnos" : "No hay alumnos en este grupo"}</p>
+            </div>
+          ) : accompGroupId ? (
+            <div className={`space-y-1.5 overflow-y-auto ${isEmbedded ? "max-h-[calc(100dvh-300px)]" : "max-h-[300px]"}`}>
+              {filteredAccompStudents.map(student => (
+                <button
+                  key={student.id}
+                  onClick={() => { setAccompSelectedStudent(student); setAccompDni(""); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border hover:bg-accent transition-colors text-left"
+                  data-testid={`button-accomp-student-${student.id}`}
+                >
+                  <Avatar className={isEmbedded ? "w-9 h-9" : "w-10 h-10"}>
+                    <AvatarImage src={student.photoUrl || undefined} />
+                    <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                      {student.firstName[0]}{student.lastName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{student.firstName} {student.lastName}</p>
+                    <p className="text-xs text-muted-foreground">{student.course}</p>
+                  </div>
+                  <UserCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Selecciona un grupo para ver los alumnos</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+            <Avatar className="w-12 h-12">
+              <AvatarImage src={accompSelectedStudent.photoUrl || undefined} />
+              <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                {accompSelectedStudent.firstName[0]}{accompSelectedStudent.lastName[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <p className="font-semibold" data-testid="text-accomp-selected-student">
+                {accompSelectedStudent.firstName} {accompSelectedStudent.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">{accompSelectedStudent.course}</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setAccompSelectedStudent(null)} data-testid="button-accomp-change-student">
+              <XCircle className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">DNI/NIE de la persona que recoge:</p>
+            <div className="flex gap-2">
+              <Input
+                value={accompDni}
+                onChange={e => setAccompDni(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleAccompaniedVerify(); }}
+                placeholder="12345678A o X1234567A"
+                className={isEmbedded ? "text-base h-10" : "text-lg h-14"}
+                data-testid="input-accomp-dni"
+                autoFocus
+              />
+              <Button
+                onClick={handleAccompaniedVerify}
+                disabled={!accompDni.trim() || accompaniedMutation.isPending}
+                className={isEmbedded ? "min-w-[48px] h-10" : "min-w-[60px] h-14"}
+                data-testid="button-accomp-verify"
+              >
+                {accompaniedMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className={isEmbedded ? "w-5 h-5" : "w-6 h-6"} />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">o escanea el DNI/NIE</span>
+            </div>
+          </div>
+
+          {accompScanning ? (
+            <div className="space-y-2">
+              <div
+                id="accomp-dni-reader"
+                ref={accompVideoRef}
+                className="rounded-lg overflow-hidden"
+                style={isEmbedded ? { maxHeight: "180px" } : undefined}
+              />
+              <Button onClick={stopAccompCamera} variant="destructive" className="w-full text-sm font-semibold h-10" data-testid="button-accomp-stop-camera">
+                Detener Cámara
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={startAccompCamera} variant="secondary" className="w-full text-sm font-semibold h-10" data-testid="button-accomp-start-camera">
+              <CreditCard className="w-4 h-4 mr-2" />
+              Escanear DNI/NIE
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const qrScanPanel = (isEmbedded: boolean) => (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -541,13 +797,16 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   );
 
   const guardTabs = (isEmbedded: boolean) => (
-    <Tabs value={guardTab} onValueChange={setGuardTab}>
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="qr" data-testid="tab-guard-qr">
-          <QrCode className="w-4 h-4 mr-1.5" /> Escanear QR
+    <Tabs value={guardTab} onValueChange={(v) => { setGuardTab(v); if (v !== "accomp") stopAccompCamera(); }}>
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="qr" data-testid="tab-guard-qr" className="text-xs sm:text-sm">
+          <QrCode className="w-3.5 h-3.5 mr-1" /> QR
         </TabsTrigger>
-        <TabsTrigger value="search" data-testid="tab-guard-search">
-          <Search className="w-4 h-4 mr-1.5" /> Buscar alumno
+        <TabsTrigger value="search" data-testid="tab-guard-search" className="text-xs sm:text-sm">
+          <Search className="w-3.5 h-3.5 mr-1" /> Buscar
+        </TabsTrigger>
+        <TabsTrigger value="accomp" data-testid="tab-guard-accomp" className="text-xs sm:text-sm">
+          <UserCheck className="w-3.5 h-3.5 mr-1" /> Acompañada
         </TabsTrigger>
       </TabsList>
       <TabsContent value="qr" className="mt-3">
@@ -555,6 +814,9 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
       </TabsContent>
       <TabsContent value="search" className="mt-3">
         {studentSearchPanel}
+      </TabsContent>
+      <TabsContent value="accomp" className="mt-3">
+        {accompaniedPanel(isEmbedded)}
       </TabsContent>
     </Tabs>
   );

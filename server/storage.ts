@@ -1,7 +1,7 @@
 import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals,
+  users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -9,6 +9,7 @@ import {
   type ExitLog, type InsertExitLog,
   type Incident, type InsertIncident,
   type LateArrival, type InsertLateArrival,
+  type AuthorizedPickup, type InsertAuthorizedPickup,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -62,6 +63,10 @@ export interface IStorage {
   createLateArrival(data: InsertLateArrival): Promise<LateArrival>;
   getLateArrivals(filters?: { dateFrom?: string; dateTo?: string; groupId?: number; studentName?: string }): Promise<any[]>;
   getTodayLateArrivals(): Promise<any[]>;
+
+  getAuthorizedPickups(studentId: number): Promise<AuthorizedPickup[]>;
+  setAuthorizedPickups(studentId: number, pickups: InsertAuthorizedPickup[]): Promise<AuthorizedPickup[]>;
+  verifyPickupAuthorization(studentId: number, documentId: string): Promise<AuthorizedPickup | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -316,6 +321,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(incidents);
     await db.delete(exitLogs);
     await db.delete(lateArrivals);
+    await db.delete(authorizedPickups);
     await db.delete(groupSchedules);
     await db.delete(students);
     await db.delete(groups);
@@ -373,6 +379,24 @@ export class DatabaseStorage implements IStorage {
   async getTodayLateArrivals(): Promise<any[]> {
     const today = new Date();
     return this.getLateArrivals({ dateFrom: today.toISOString().split("T")[0], dateTo: today.toISOString().split("T")[0] });
+  }
+
+  async getAuthorizedPickups(studentId: number): Promise<AuthorizedPickup[]> {
+    return db.select().from(authorizedPickups).where(eq(authorizedPickups.studentId, studentId));
+  }
+
+  async setAuthorizedPickups(studentId: number, pickups: InsertAuthorizedPickup[]): Promise<AuthorizedPickup[]> {
+    await db.delete(authorizedPickups).where(eq(authorizedPickups.studentId, studentId));
+    if (pickups.length === 0) return [];
+    const toInsert = pickups.map(p => ({ ...p, studentId }));
+    return db.insert(authorizedPickups).values(toInsert).returning();
+  }
+
+  async verifyPickupAuthorization(studentId: number, documentId: string): Promise<AuthorizedPickup | null> {
+    const normalized = documentId.replace(/[\s.-]/g, "").toUpperCase();
+    const pickups = await this.getAuthorizedPickups(studentId);
+    const match = pickups.find(p => p.documentId.replace(/[\s.-]/g, "").toUpperCase() === normalized);
+    return match || null;
   }
 }
 

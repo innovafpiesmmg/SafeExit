@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -27,6 +27,7 @@ export default function SettingsPage() {
     secure: false,
   });
   const [schoolName, setSchoolName] = useState("");
+  const [accompaniedExitEmailEnabled, setAccompaniedExitEmailEnabled] = useState(false);
   const [academicYear, setAcademicYear] = useState(() => {
     const now = new Date();
     const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -46,6 +47,7 @@ export default function SettingsPage() {
         secure: settings.smtpSecure === "true",
       });
       setSchoolName(settings.schoolName || "");
+      setAccompaniedExitEmailEnabled(settings.accompaniedExitEmailEnabled === "true");
       if (settings.academicYear) {
         setAcademicYear(settings.academicYear);
       }
@@ -63,6 +65,7 @@ export default function SettingsPage() {
         smtpSecure: smtp.secure ? "true" : "false",
         schoolName,
         academicYear,
+        accompaniedExitEmailEnabled: accompaniedExitEmailEnabled ? "true" : "false",
       };
       for (const [key, value] of Object.entries(entries)) {
         await apiRequest("PUT", "/api/settings", { key, value });
@@ -265,6 +268,29 @@ export default function SettingsPage() {
                 <><Send className="w-4 h-4 mr-2" /> Probar conexión</>
               )}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <UserCheck className="w-5 h-5" />
+            Salida Acompañada
+          </CardTitle>
+          <CardDescription>Opciones para la recogida de alumnos por personas autorizadas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Enviar correo en salida acompañada</Label>
+              <p className="text-xs text-muted-foreground">Notificar por email cuando un alumno sale acompañado por una persona autorizada</p>
+            </div>
+            <Switch
+              checked={accompaniedExitEmailEnabled}
+              onCheckedChange={setAccompaniedExitEmailEnabled}
+              data-testid="switch-accompanied-email"
+            />
           </div>
         </CardContent>
       </Card>

@@ -136,6 +136,18 @@ export const insertLateArrivalSchema = createInsertSchema(lateArrivals).omit({ i
 export type InsertLateArrival = z.infer<typeof insertLateArrivalSchema>;
 export type LateArrival = typeof lateArrivals.$inferSelect;
 
+export const authorizedPickups = pgTable("authorized_pickups", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  documentId: text("document_id").notNull(),
+});
+
+export const insertAuthorizedPickupSchema = createInsertSchema(authorizedPickups).omit({ id: true });
+export type InsertAuthorizedPickup = z.infer<typeof insertAuthorizedPickupSchema>;
+export type AuthorizedPickup = typeof authorizedPickups.$inferSelect;
+
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

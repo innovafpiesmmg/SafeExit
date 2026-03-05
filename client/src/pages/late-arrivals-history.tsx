@@ -41,7 +41,7 @@ export default function LateArrivalsHistoryPage() {
   });
 
   const handleExport = () => {
-    window.open(`/api/late-arrivals/export?${queryParams.toString()}`, "_blank");
+    window.open(`/api/late-arrivals/export?${queryParams.toString()}&format=xlsx`, "_blank");
   };
 
   return (
@@ -51,9 +51,9 @@ export default function LateArrivalsHistoryPage() {
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-late-history-title">Historial de Entradas Tardías</h1>
           <p className="text-muted-foreground text-sm mt-1">{arrivals?.length || 0} registros encontrados</p>
         </div>
-        <Button onClick={handleExport} variant="secondary" data-testid="button-export-late-csv">
+        <Button onClick={handleExport} variant="secondary" data-testid="button-export-late-excel">
           <Download className="w-4 h-4 mr-2" />
-          Exportar CSV
+          Exportar Excel
         </Button>
       </div>
 

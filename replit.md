@@ -18,7 +18,8 @@ A PWA web application for managing student departures from a school using QR cod
 - `exit_logs` - Audit log of all QR scan events
 - `incidents` - Incident reports tied to exit logs
 - `late_arrivals` - Late arrival records with optional email notification
-- `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config)
+- `authorized_pickups` - Authorized persons to pick up students (name, DNI/NIE, linked to student)
+- `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle)
 
 ## Key Features
 - **Student Management**: CRUD with photo upload, parental/bus authorization toggles, email field
@@ -31,7 +32,8 @@ A PWA web application for managing student departures from a school using QR cod
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
 - **Late Arrivals**: Register student late arrivals via QR scan or manual group/student selection. Optional email notification to student's email. Today's arrivals sidebar.
 - **SMTP Email**: Configurable SMTP settings in admin panel. Test connection button. Used for late arrival notifications and authorized minor exit notifications.
-- **Audit History**: Filterable exit log table with CSV export
+- **Accompanied Exit (Salida Acompañada)**: Guard tab to verify pickup persons by DNI/NIE. Admin manages authorized persons per student (up to 10). DNI/NIE can be scanned via camera (PDF417 barcode) or typed manually. Creates exit log + auto-incident if unauthorized. Optional email notification (admin toggle).
+- **Audit History**: Filterable exit log table with Excel (.xlsx) export
 - **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. Shows school name and academic year.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) with blue header (school name + academic year + "SafeExit"), photo, avatar with group badge, QR code (22mm/68px)
 - **Sound Feedback**: Beep for authorized, alert for denied

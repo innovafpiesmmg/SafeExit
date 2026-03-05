@@ -758,6 +758,7 @@ export async function registerRoutes(
 
   app.get("/api/exit-logs/export", requireAuth, requireAdmin, async (req, res) => {
     const { dateFrom, dateTo, groupId, studentName } = req.query;
+    const format = (req.query.format as string) || "xlsx";
     const logs = await storage.getExitLogs({
       dateFrom: dateFrom as string,
       dateTo: dateTo as string,
@@ -765,15 +766,36 @@ export async function registerRoutes(
       studentName: studentName as string,
     });
 
-    const csvHeader = "ID,Alumno,Grupo,Fecha,Hora,Resultado,Motivo,Verificado por\n";
-    const csvRows = logs.map(log => {
+    const rows = logs.map(log => {
       const date = new Date(log.timestamp);
-      return `${log.id},"${log.studentName}","${log.groupName}","${date.toLocaleDateString("es-ES")}","${date.toLocaleTimeString("es-ES")}","${log.result}","${log.reason}","${log.verifierName}"`;
-    }).join("\n");
+      return {
+        "ID": log.id,
+        "Alumno": log.studentName,
+        "Grupo": log.groupName,
+        "Fecha": date.toLocaleDateString("es-ES"),
+        "Hora": date.toLocaleTimeString("es-ES"),
+        "Resultado": log.result,
+        "Motivo": log.reason,
+        "Verificado por": log.verifierName,
+      };
+    });
 
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="salidas_${new Date().toISOString().split("T")[0]}.csv"`);
-    res.send("\uFEFF" + csvHeader + csvRows);
+    if (format === "csv") {
+      const csvHeader = "ID,Alumno,Grupo,Fecha,Hora,Resultado,Motivo,Verificado por\n";
+      const csvRows = rows.map(r => `${r.ID},"${r.Alumno}","${r.Grupo}","${r.Fecha}","${r.Hora}","${r.Resultado}","${r.Motivo}","${r["Verificado por"]}"`).join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="salidas_${new Date().toISOString().split("T")[0]}.csv"`);
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } else {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Salidas");
+      ws["!cols"] = [{ wch: 6 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 20 }];
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="salidas_${new Date().toISOString().split("T")[0]}.xlsx"`);
+      res.send(buf);
+    }
   });
 
   app.get("/api/carnet/:token", async (req, res) => {
@@ -902,17 +924,40 @@ export async function registerRoutes(
       if (req.query.dateTo) filters.dateTo = req.query.dateTo;
       if (req.query.groupId) filters.groupId = parseInt(req.query.groupId as string);
       if (req.query.studentName) filters.studentName = req.query.studentName;
+      const format = (req.query.format as string) || "xlsx";
       const arrivals = await storage.getLateArrivals(filters);
 
-      const csvHeader = "ID,Alumno,Grupo,Curso,Fecha,Hora,Registrado por,Email enviado,Notas\n";
-      const csvRows = arrivals.map((a: any) => {
+      const rows = arrivals.map((a: any) => {
         const date = new Date(a.timestamp);
-        return `${a.id},"${a.studentName}","${a.groupName}","${a.course}","${date.toLocaleDateString("es-ES")}","${date.toLocaleTimeString("es-ES")}","${a.registrarName}","${a.emailSent ? "Sí" : "No"}","${(a.notes || "").replace(/"/g, '""')}"`;
-      }).join("\n");
+        return {
+          "ID": a.id,
+          "Alumno": a.studentName,
+          "Grupo": a.groupName,
+          "Curso": a.course,
+          "Fecha": date.toLocaleDateString("es-ES"),
+          "Hora": date.toLocaleTimeString("es-ES"),
+          "Registrado por": a.registrarName,
+          "Email enviado": a.emailSent ? "Sí" : "No",
+          "Notas": a.notes || "",
+        };
+      });
 
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="entradas_tardias_${new Date().toISOString().split("T")[0]}.csv"`);
-      res.send("\uFEFF" + csvHeader + csvRows);
+      if (format === "csv") {
+        const csvHeader = "ID,Alumno,Grupo,Curso,Fecha,Hora,Registrado por,Email enviado,Notas\n";
+        const csvRows = rows.map(r => `${r.ID},"${r.Alumno}","${r.Grupo}","${r.Curso}","${r.Fecha}","${r.Hora}","${r["Registrado por"]}","${r["Email enviado"]}","${(r.Notas || "").replace(/"/g, '""')}"`).join("\n");
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="entradas_tardias_${new Date().toISOString().split("T")[0]}.csv"`);
+        res.send("\uFEFF" + csvHeader + csvRows);
+      } else {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Entradas Tardías");
+        ws["!cols"] = [{ wch: 6 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 30 }];
+        const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename="entradas_tardias_${new Date().toISOString().split("T")[0]}.xlsx"`);
+        res.send(buf);
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -924,6 +969,123 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get("/api/students/:id/authorized-pickups", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const pickups = await storage.getAuthorizedPickups(id);
+      res.json(pickups);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/students/:id/authorized-pickups", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const student = await storage.getStudent(id);
+      if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
+      const { pickups } = req.body;
+      if (!Array.isArray(pickups)) return res.status(400).json({ message: "Formato inválido" });
+      if (pickups.length > 10) return res.status(400).json({ message: "Máximo 10 personas autorizadas" });
+      for (const p of pickups) {
+        if (!p.firstName?.trim() || !p.lastName?.trim() || !p.documentId?.trim()) {
+          return res.status(400).json({ message: "Nombre, apellido y DNI/NIE son obligatorios" });
+        }
+      }
+      const result = await storage.setAuthorizedPickups(id, pickups.map((p: any) => ({
+        studentId: id,
+        firstName: p.firstName.trim(),
+        lastName: p.lastName.trim(),
+        documentId: p.documentId.trim(),
+      })));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/accompanied-exit", requireAuth, async (req, res) => {
+    try {
+      const { studentId, documentId } = req.body;
+      const userId = (req.session as any).userId;
+      if (!studentId || !documentId) {
+        return res.status(400).json({ message: "Alumno y DNI/NIE son obligatorios" });
+      }
+      const id = parseInt(studentId);
+      if (isNaN(id)) return res.status(400).json({ message: "ID de alumno inválido" });
+      const student = await storage.getStudent(id);
+      if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
+
+      const group = await storage.getGroup(student.groupId);
+      const age = Math.floor((Date.now() - new Date(student.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+      const authorizedPerson = await storage.verifyPickupAuthorization(id, documentId.trim());
+
+      if (authorizedPerson) {
+        const exitLog = await storage.createExitLog({
+          studentId: student.id,
+          result: "AUTORIZADO",
+          reason: `Salida acompañada por ${authorizedPerson.firstName} ${authorizedPerson.lastName} (${authorizedPerson.documentId})`,
+          verifiedBy: userId,
+        });
+
+        const accompaniedEmailEnabled = await storage.getSetting("accompaniedExitEmailEnabled");
+        if (student.email && accompaniedEmailEnabled === "true") {
+          sendEarlyExitEmail(student, `Salida acompañada por ${authorizedPerson.firstName} ${authorizedPerson.lastName}`, new Date()).catch(() => {});
+        }
+
+        res.json({
+          result: "AUTORIZADO",
+          reason: `Persona autorizada: ${authorizedPerson.firstName} ${authorizedPerson.lastName}`,
+          student: {
+            firstName: student.firstName,
+            lastName: student.lastName,
+            course: student.course,
+            photoUrl: student.photoUrl,
+            age,
+          },
+          authorizedPerson: {
+            firstName: authorizedPerson.firstName,
+            lastName: authorizedPerson.lastName,
+            documentId: authorizedPerson.documentId,
+          },
+          logId: exitLog.id,
+        });
+      } else {
+        const exitLog = await storage.createExitLog({
+          studentId: student.id,
+          result: "DENEGADO",
+          reason: `Salida acompañada denegada - DNI/NIE ${documentId.trim()} no autorizado`,
+          verifiedBy: userId,
+        });
+
+        await storage.createIncident({
+          exitLogId: exitLog.id,
+          note: `Intento de recogida no autorizada. DNI/NIE presentado: ${documentId.trim()}. Alumno: ${student.firstName} ${student.lastName}.`,
+          createdBy: userId,
+        });
+
+        res.json({
+          result: "DENEGADO",
+          reason: `DNI/NIE ${documentId.trim()} no está autorizado para recoger a este alumno`,
+          student: {
+            firstName: student.firstName,
+            lastName: student.lastName,
+            course: student.course,
+            photoUrl: student.photoUrl,
+            age,
+          },
+          logId: exitLog.id,
+          incidentCreated: true,
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
