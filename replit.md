@@ -26,7 +26,8 @@ A PWA web application for managing student departures from a school using QR cod
 - **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation (includes Email column)
 - **Group Management**: Create/edit groups with course assignment and schedule type (morning/afternoon/full). Schedule determines which time slots appear in the calendar.
 - **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns)
-- **Academic Year Reset**: Deletes all data except admin user (requires typing "NUEVO CURSO" to confirm) — located in Settings page
+- **Academic Year Archive & Reset**: Two options in Settings: 1) "Archivar y Comenzar Nuevo Curso" — saves all data as JSON archive, then clears DB (requires "ARCHIVAR CURSO" confirmation). 2) "Eliminar sin archivar" — deletes all without saving (requires "NUEVO CURSO" confirmation). Archives browsable from /archives page.
+- **Archived Courses**: Admin-only page (/archives) to browse archived academic years. Shows summary stats (students, groups, exits, etc.). Click "Consultar" to view full data with tabbed interface (Alumnos, Grupos, Salidas, Tardías, Incidencias) + search filter. Can permanently delete archives.
 - **Calendar System**: Date-based calendar — select a specific date, configure 12 time slots for exit permissions per group. Green dots indicate dates with permissions. Weekends disabled.
 - **Time Slots Config**: Per-day-of-week time slot configuration (12 slots: M1-M6 morning, T1-T6 afternoon) stored as JSON in appSettings (key: "timeSlots"). Configurable from Settings page with day tabs, time inputs, "apply to all days" and "restore defaults" buttons. Backend uses it for verify logic.
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
@@ -83,7 +84,8 @@ A PWA web application for managing student departures from a school using QR cod
 - `client/src/pages/guards.tsx` - Guard/teacher/tutor management with role toggle, group assignment, Excel import
 - `client/src/pages/late-arrivals.tsx` - Late arrival registration (QR scan + manual selection)
 - `client/src/pages/tutor-records.tsx` - Tutor records view (exit logs + late arrivals for their group)
-- `client/src/pages/settings.tsx` - Admin settings (school name, academic year, SMTP config, accompanied exit email, reset)
+- `client/src/pages/settings.tsx` - Admin settings (school name, academic year, time slots, SMTP config, accompanied exit email, archive/reset)
+- `client/src/pages/archives.tsx` - Archived academic years browser (list + detail viewer with tabs)
 - `client/src/pages/calendar.tsx` - Date-based exit permission calendar
 - `client/src/pages/` - Other page components (login, dashboard, students, groups, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)

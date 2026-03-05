@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive } from "lucide-react";
 import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -37,6 +37,9 @@ export default function SettingsPage() {
     return `${y}-${y + 1}`;
   });
   const [timeSlots, setTimeSlots] = useState<TimeSlotsConfig>(getDefaultTimeSlotsConfig());
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveConfirmation, setArchiveConfirmation] = useState("");
+  const [archiveYearName, setArchiveYearName] = useState("");
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
 
@@ -96,6 +99,18 @@ export default function SettingsPage() {
       } else {
         toast({ title: "Error de conexión", description: data.message, variant: "destructive" });
       }
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/archive-academic-year", { confirmation: archiveConfirmation, yearName: archiveYearName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({ title: "Curso archivado correctamente", description: `Los datos de "${archiveYearName}" se han guardado. Puedes consultarlos en "Cursos Archivados".` });
+      setArchiveDialogOpen(false);
+      setArchiveConfirmation("");
+      setArchiveYearName("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -416,38 +431,105 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <Card className="border-destructive/30">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2 text-destructive">
-            <AlertTriangle className="w-5 h-5" />
+          <CardTitle className="text-base flex items-center gap-2">
+            <Archive className="w-5 h-5" />
             Nuevo Curso Académico
           </CardTitle>
           <CardDescription>
-            Elimina todos los datos (alumnos, grupos, horarios, historial, profesores y ajustes) excepto tu usuario administrador. Esta acción es irreversible.
+            Archiva los datos del curso actual para consultarlos en el futuro, y comienza un nuevo curso con datos limpios.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Button
-            variant="destructive"
-            onClick={() => setResetDialogOpen(true)}
-            data-testid="button-reset-year"
+            onClick={() => { setArchiveYearName(academicYear); setArchiveDialogOpen(true); }}
+            data-testid="button-archive-year"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Iniciar Nuevo Curso
+            <Archive className="w-4 h-4 mr-2" />
+            Archivar y Comenzar Nuevo Curso
           </Button>
+          <div className="border-t pt-3">
+            <p className="text-xs text-muted-foreground mb-2">Si prefieres eliminar todos los datos sin archivar:</p>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setResetDialogOpen(true)}
+              data-testid="button-reset-year"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Eliminar sin archivar
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={archiveDialogOpen} onOpenChange={o => { if (!o) { setArchiveConfirmation(""); setArchiveYearName(""); } setArchiveDialogOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="w-5 h-5" />
+              Archivar Curso Académico
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">
+                Se guardarán todos los datos actuales en un archivo consultable y luego se limpiará la base de datos para el nuevo curso.
+              </span>
+              <span className="block text-sm">
+                Se archivará: alumnos, grupos, horarios, historial de salidas, entradas tardías, profesores, incidencias y ajustes.
+              </span>
+              <span className="block font-medium text-foreground">
+                Podrás consultar los datos archivados desde "Cursos Archivados" en el menú lateral.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Nombre del curso a archivar:</Label>
+              <Input
+                value={archiveYearName}
+                onChange={e => setArchiveYearName(e.target.value)}
+                placeholder="2024-2025"
+                data-testid="input-archive-year-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Escribe <span className="font-bold">ARCHIVAR CURSO</span> para confirmar:</Label>
+              <Input
+                value={archiveConfirmation}
+                onChange={e => setArchiveConfirmation(e.target.value)}
+                placeholder="ARCHIVAR CURSO"
+                data-testid="input-archive-confirmation"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-archive">Cancelar</AlertDialogCancel>
+            <Button
+              disabled={archiveConfirmation !== "ARCHIVAR CURSO" || !archiveYearName.trim() || archiveMutation.isPending}
+              onClick={() => archiveMutation.mutate()}
+              data-testid="button-confirm-archive"
+            >
+              {archiveMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Archivando...</>
+              ) : (
+                <><Archive className="w-4 h-4 mr-2" /> Archivar y Limpiar</>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-5 h-5" />
-              Confirmar Nuevo Curso Académico
+              Eliminar Datos sin Archivar
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <span className="block">
-                Esta acción eliminará permanentemente:
+                Esta acción eliminará permanentemente todos los datos SIN crear archivo:
               </span>
               <span className="block text-sm">
                 - Todos los alumnos y sus datos
@@ -459,7 +541,7 @@ export default function SettingsPage() {
                 <br />- Todas las incidencias
               </span>
               <span className="block font-medium text-foreground">
-                Solo se conservará tu usuario administrador.
+                Solo se conservará tu usuario administrador. Los datos NO se podrán recuperar.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

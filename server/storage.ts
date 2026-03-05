@@ -1,7 +1,7 @@
 import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups,
+  users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -10,6 +10,7 @@ import {
   type Incident, type InsertIncident,
   type LateArrival, type InsertLateArrival,
   type AuthorizedPickup, type InsertAuthorizedPickup,
+  type AcademicArchive,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -58,7 +59,11 @@ export interface IStorage {
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: number): Promise<void>;
   updateAllGuardPasswords(hashedPassword: string): Promise<void>;
+  archiveAcademicYear(adminUserId: number, yearName: string): Promise<AcademicArchive>;
   resetAcademicYear(adminUserId: number): Promise<void>;
+  getAcademicArchives(): Promise<AcademicArchive[]>;
+  getAcademicArchive(id: number): Promise<AcademicArchive | undefined>;
+  deleteAcademicArchive(id: number): Promise<void>;
 
   createLateArrival(data: InsertLateArrival): Promise<LateArrival>;
   getLateArrivals(filters?: { dateFrom?: string; dateTo?: string; groupId?: number; studentName?: string }): Promise<any[]>;
@@ -317,6 +322,39 @@ export class DatabaseStorage implements IStorage {
     await db.update(users).set({ password: hashedPassword }).where(or(eq(users.role, "guard"), eq(users.role, "tutor")));
   }
 
+  async archiveAcademicYear(adminUserId: number, yearName: string): Promise<AcademicArchive> {
+    const allStudents = await db.select().from(students);
+    const allGroups = await db.select().from(groups);
+    const allExitLogs = await db.select().from(exitLogs);
+    const allIncidents = await db.select().from(incidents);
+    const allLateArrivals = await db.select().from(lateArrivals);
+    const allSchedules = await db.select().from(groupSchedules);
+    const allUsers = await db.select().from(users);
+    const allPickups = await db.select().from(authorizedPickups);
+    const allSettings = await db.select().from(appSettings);
+
+    const data = {
+      students: allStudents,
+      groups: allGroups,
+      exitLogs: allExitLogs,
+      incidents: allIncidents,
+      lateArrivals: allLateArrivals,
+      groupSchedules: allSchedules,
+      users: allUsers.filter(u => u.id !== adminUserId),
+      authorizedPickups: allPickups,
+      settings: allSettings,
+    };
+
+    const [archive] = await db.insert(academicArchives).values({
+      yearName,
+      data,
+    }).returning();
+
+    await this.resetAcademicYear(adminUserId);
+
+    return archive;
+  }
+
   async resetAcademicYear(adminUserId: number): Promise<void> {
     await db.delete(incidents);
     await db.delete(exitLogs);
@@ -327,6 +365,24 @@ export class DatabaseStorage implements IStorage {
     await db.delete(groups);
     await db.delete(users).where(ne(users.id, adminUserId));
     await db.delete(appSettings);
+  }
+
+  async getAcademicArchives(): Promise<AcademicArchive[]> {
+    return db.select({
+      id: academicArchives.id,
+      yearName: academicArchives.yearName,
+      archivedAt: academicArchives.archivedAt,
+      data: academicArchives.data,
+    }).from(academicArchives).orderBy(desc(academicArchives.archivedAt));
+  }
+
+  async getAcademicArchive(id: number): Promise<AcademicArchive | undefined> {
+    const [archive] = await db.select().from(academicArchives).where(eq(academicArchives.id, id));
+    return archive;
+  }
+
+  async deleteAcademicArchive(id: number): Promise<void> {
+    await db.delete(academicArchives).where(eq(academicArchives.id, id));
   }
 
   async createLateArrival(data: InsertLateArrival): Promise<LateArrival> {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, serial, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -82,6 +82,15 @@ export const incidents = pgTable("incidents", {
 export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: true, createdAt: true });
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Incident = typeof incidents.$inferSelect;
+
+export const academicArchives = pgTable("academic_archives", {
+  id: serial("id").primaryKey(),
+  yearName: text("year_name").notNull(),
+  archivedAt: timestamp("archived_at").notNull().defaultNow(),
+  data: jsonb("data").notNull(),
+});
+
+export type AcademicArchive = typeof academicArchives.$inferSelect;
 
 export interface TimeSlotConfig {
   id: number;

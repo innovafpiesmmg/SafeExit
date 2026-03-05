@@ -884,6 +884,23 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/archive-academic-year", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { confirmation, yearName } = req.body;
+      if (confirmation !== "ARCHIVAR CURSO") {
+        return res.status(400).json({ message: "Confirmación incorrecta. Escribe 'ARCHIVAR CURSO' para continuar." });
+      }
+      if (!yearName || typeof yearName !== "string" || yearName.trim().length === 0) {
+        return res.status(400).json({ message: "Debes indicar el nombre del curso académico a archivar." });
+      }
+      const adminUserId = (req.session as any).userId;
+      const archive = await storage.archiveAcademicYear(adminUserId, yearName.trim());
+      res.json({ message: `Curso "${yearName}" archivado correctamente.`, archiveId: archive.id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/admin/reset-academic-year", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { confirmation } = req.body;
@@ -893,6 +910,51 @@ export async function registerRoutes(
       const adminUserId = (req.session as any).userId;
       await storage.resetAcademicYear(adminUserId);
       res.json({ message: "Curso académico reiniciado correctamente. Todos los datos han sido eliminados." });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/archives", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      const archives = await storage.getAcademicArchives();
+      const summary = archives.map(a => ({
+        id: a.id,
+        yearName: a.yearName,
+        archivedAt: a.archivedAt,
+        stats: {
+          students: (a.data as any)?.students?.length || 0,
+          groups: (a.data as any)?.groups?.length || 0,
+          exitLogs: (a.data as any)?.exitLogs?.length || 0,
+          lateArrivals: (a.data as any)?.lateArrivals?.length || 0,
+          incidents: (a.data as any)?.incidents?.length || 0,
+          users: (a.data as any)?.users?.length || 0,
+        },
+      }));
+      res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/archives/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const archive = await storage.getAcademicArchive(id);
+      if (!archive) return res.status(404).json({ message: "Archivo no encontrado" });
+      res.json(archive);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/archives/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      await storage.deleteAcademicArchive(id);
+      res.json({ message: "Archivo eliminado permanentemente" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

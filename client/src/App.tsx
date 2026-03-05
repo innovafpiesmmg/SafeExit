@@ -21,6 +21,7 @@ import StaffView from "@/pages/staff-view";
 import LateArrivalsPage from "@/pages/late-arrivals";
 import LateArrivalsHistoryPage from "@/pages/late-arrivals-history";
 import SettingsPage from "@/pages/settings";
+import ArchivesPage from "@/pages/archives";
 import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
@@ -38,6 +39,7 @@ function AdminRouter() {
       <Route path="/history" component={HistoryPage} />
       <Route path="/print" component={PrintPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/archives" component={ArchivesPage} />
       <Route component={NotFound} />
     </Switch>
   );
