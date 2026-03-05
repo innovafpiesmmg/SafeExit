@@ -327,14 +327,22 @@ export async function registerRoutes(
   app.get("/api/students/template", requireAuth, requireAdmin, (_req, res) => {
     const wb = XLSX.utils.book_new();
     const headers = [
-      ["Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua", "Email"],
-      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO", "familia.garcia@ejemplo.com"],
-      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI", ""],
+      [
+        "Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua", "Email",
+        "Autorizado1_Nombre", "Autorizado1_Apellidos", "Autorizado1_DNI",
+        "Autorizado2_Nombre", "Autorizado2_Apellidos", "Autorizado2_DNI",
+        "Autorizado3_Nombre", "Autorizado3_Apellidos", "Autorizado3_DNI",
+      ],
+      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO", "familia.garcia@ejemplo.com", "Ana", "Fernández López", "12345678A", "Pedro", "García Ruiz", "87654321B", "", "", ""],
+      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI", "", "", "", "", "", "", "", "", "", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     ws["!cols"] = [
       { wch: 15 }, { wch: 25 }, { wch: 18 },
       { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 30 },
+      { wch: 18 }, { wch: 22 }, { wch: 15 },
+      { wch: 18 }, { wch: 22 }, { wch: 15 },
+      { wch: 18 }, { wch: 22 }, { wch: 15 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Alumnos");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
@@ -430,6 +438,20 @@ export async function registerRoutes(
             busAuthorization: busAuth === "SI" || busAuth === "SÍ" || busAuth === "TRUE" || busAuth === "1",
             email,
           });
+
+          const pickups: { studentId: number; firstName: string; lastName: string; documentId: string }[] = [];
+          for (let p = 1; p <= 10; p++) {
+            const pName = String(row[`Autorizado${p}_Nombre`] || "").trim();
+            const pLast = String(row[`Autorizado${p}_Apellidos`] || "").trim();
+            const pDoc = String(row[`Autorizado${p}_DNI`] || "").trim();
+            if (pName && pLast && pDoc) {
+              pickups.push({ studentId: student.id, firstName: pName, lastName: pLast, documentId: pDoc });
+            }
+          }
+          if (pickups.length > 0) {
+            await storage.setAuthorizedPickups(student.id, pickups);
+          }
+
           created.push(student);
         } catch (err: any) {
           errors.push(`Fila ${rowNum}: ${err.message}`);
