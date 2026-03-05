@@ -39,7 +39,13 @@ function useOnlineStatus() {
   return online;
 }
 
-export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
+interface GuardViewProps {
+  tutorMode?: boolean;
+  embedded?: boolean;
+  onFullscreenChange?: (fullscreen: boolean) => void;
+}
+
+export default function GuardView({ tutorMode, embedded, onFullscreenChange }: GuardViewProps = {}) {
   const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -191,6 +197,10 @@ export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
     }
   }, [scanResult]);
 
+  useEffect(() => {
+    onFullscreenChange?.(!!scanResult);
+  }, [scanResult, onFullscreenChange]);
+
   const isAuthorized = scanResult?.result === "AUTORIZADO";
 
   const timeStr = now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -199,7 +209,7 @@ export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
   if (scanResult) {
     return (
       <div
-        className={`min-h-[100dvh] flex flex-col ${
+        className={`${embedded ? "fixed inset-0 z-[60]" : "min-h-[100dvh]"} flex flex-col ${
           isAuthorized
             ? "bg-emerald-500 dark:bg-emerald-600"
             : "bg-red-500 dark:bg-red-600"
@@ -301,6 +311,119 @@ export default function GuardView({ tutorMode }: { tutorMode?: boolean } = {}) {
             <p className="text-white/60 text-sm mt-4" data-testid="text-auto-return">
               Vuelve automáticamente en {countdown}s — toca para volver ahora
             </p>
+          )}
+        </div>
+
+        <Dialog open={incidentOpen} onOpenChange={(open) => { setIncidentOpen(open); if (!open && autoReturnEnabled) startAutoReturn(); }}>
+          <DialogContent onClick={e => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>Registrar Incidencia</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                data-testid="textarea-guard-incident"
+                placeholder="Describe la incidencia..."
+                value={incidentNote}
+                onChange={e => setIncidentNote(e.target.value)}
+                rows={4}
+                className="text-base"
+              />
+              <Button
+                onClick={() => incidentMutation.mutate({ exitLogId: scanResult?.logId, note: incidentNote })}
+                disabled={!incidentNote.trim() || incidentMutation.isPending}
+                className="w-full h-14 text-base font-semibold"
+                data-testid="button-guard-submit-incident"
+              >
+                <Send className="w-5 h-5 mr-2" />
+                Enviar Incidencia
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  if (embedded) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-xl mx-auto w-full">
+        <div className="w-full space-y-5">
+          <div className="text-center">
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <QrCode className="w-10 h-10 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold" data-testid="text-guard-title">Verificación de Salida</h1>
+            <p className="text-muted-foreground text-sm mt-1">Escanea o introduce el código QR del carnet</p>
+          </div>
+
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  data-testid="input-guard-qr"
+                  placeholder="Código QR..."
+                  value={qrInput}
+                  onChange={e => setQrInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="text-lg h-14"
+                  autoFocus
+                />
+                <Button
+                  onClick={handleManualScan}
+                  data-testid="button-guard-verify"
+                  disabled={verifyMutation.isPending || !qrInput.trim()}
+                  className="min-w-[60px] h-14"
+                >
+                  <ShieldCheck className="w-6 h-6" />
+                </Button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">o usa la cámara</span>
+                </div>
+              </div>
+
+              {scanning ? (
+                <div className="space-y-3">
+                  <div id="guard-qr-reader" ref={videoRef} className="rounded-lg overflow-hidden" />
+                  <Button onClick={stopCamera} variant="destructive" className="w-full h-14 text-base font-semibold" data-testid="button-guard-stop-camera">
+                    Detener Cámara
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={startCamera} variant="secondary" className="w-full h-14 text-base font-semibold" data-testid="button-guard-start-camera">
+                  <Camera className="w-5 h-5 mr-2" />
+                  Activar Cámara
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {verifyMutation.isPending && (
+            <div className="text-center py-4">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+              <p className="text-sm text-muted-foreground mt-2">Verificando...</p>
+            </div>
+          )}
+
+          {stats && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <p className="text-2xl font-bold" data-testid="text-guard-stat-total">{stats.today || 0}</p>
+                <p className="text-xs text-muted-foreground">Hoy</p>
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+                <p className="text-2xl font-bold text-emerald-600" data-testid="text-guard-stat-ok">{stats.authorized || 0}</p>
+                <p className="text-xs text-muted-foreground">Permitidas</p>
+              </div>
+              <div className="rounded-xl bg-red-500/10 p-3 text-center">
+                <p className="text-2xl font-bold text-red-600" data-testid="text-guard-stat-denied">{stats.denied || 0}</p>
+                <p className="text-xs text-muted-foreground">Denegadas</p>
+              </div>
+            </div>
           )}
         </div>
 

@@ -20,7 +20,7 @@ import {
 import { Html5Qrcode } from "html5-qrcode";
 import type { Student, Group } from "@shared/schema";
 
-export default function LateArrivalsPage() {
+export default function LateArrivalsPage({ embedded }: { embedded?: boolean } = {}) {
   const { toast } = useToast();
   const [tab, setTab] = useState("scan");
   const [qrInput, setQrInput] = useState("");
@@ -117,14 +117,16 @@ export default function LateArrivalsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-late-arrivals-title">Entradas Tardías</h1>
-        <p className="text-muted-foreground text-sm mt-1">Registra las llegadas tarde de los alumnos</p>
-      </div>
+    <div className={embedded ? "px-4 py-4 space-y-4" : "space-y-6"}>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-late-arrivals-title">Entradas Tardías</h1>
+          <p className="text-muted-foreground text-sm mt-1">Registra las llegadas tarde de los alumnos</p>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      <div className={embedded ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
+        <div className={embedded ? "space-y-4" : "lg:col-span-2 space-y-4"}>
           {result && (
             <Card className="border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20">
               <CardContent className="p-4">

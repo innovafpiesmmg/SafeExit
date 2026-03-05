@@ -16,9 +16,8 @@ import CalendarPage from "@/pages/calendar";
 import ScannerPage from "@/pages/scanner";
 import HistoryPage from "@/pages/history";
 import PrintPage from "@/pages/print";
-import GuardView from "@/pages/guard-view";
 import GuardsPage from "@/pages/guards";
-import TutorView from "@/pages/tutor-view";
+import StaffView from "@/pages/staff-view";
 import LateArrivalsPage from "@/pages/late-arrivals";
 import LateArrivalsHistoryPage from "@/pages/late-arrivals-history";
 import SettingsPage from "@/pages/settings";
@@ -86,19 +85,19 @@ function AppLayout() {
   const viewMode = sessionStorage.getItem("safeexit_view_mode");
 
   if (user.role === "guard") {
-    return <GuardView />;
+    return <StaffView showGroupTab={false} />;
+  }
+
+  if (user.role === "tutor") {
+    return <StaffView showGroupTab={true} />;
   }
 
   if (viewMode === "guard") {
-    return <GuardView tutorMode />;
-  }
-
-  if (user.role === "tutor" && viewMode !== "guard") {
-    return <TutorView />;
+    return <StaffView showGroupTab={false} showBackToAdmin />;
   }
 
   if (viewMode === "tutor") {
-    return <TutorView />;
+    return <StaffView showGroupTab={true} showBackToAdmin />;
   }
 
   const style = {

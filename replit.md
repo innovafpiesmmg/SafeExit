@@ -50,9 +50,10 @@ A PWA web application for managing student departures from a school using QR cod
 8. Otherwise → DENIED
 
 ## Roles & Views
-- **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings)
-- **guard**: Dedicated full-screen view (guard-view.tsx) — no sidebar, tablet-optimized with large touch targets, live clock, WiFi status, daily stats
-- **tutor**: Mobile-optimized view (tutor-view.tsx) — assigned to a group, sees own students, can upload photos and share digital carnets. Shield button to switch to guard mode.
+- **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings). Can enter guard/tutor mode via QR URLs (?mode=guard or ?mode=tutor), with back-to-admin button.
+- **guard**: StaffView with bottom tab navigation — 2 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals registration). No sidebar, mobile/tablet optimized.
+- **tutor**: StaffView with bottom tab navigation — 3 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals). No sidebar, mobile optimized.
+- **StaffView** (staff-view.tsx): Unified wrapper for guard/tutor roles with shared header (app name, user, WiFi, logout) and bottom tab bar. GuardView and TutorView accept `embedded` prop to strip their headers. Guard fullscreen result overlays tabs using fixed positioning.
 
 ## Default Credentials (dev only)
 - Admin: `admin` / `admin123` (env ADMIN_USER/ADMIN_PASS override in production)
@@ -74,8 +75,9 @@ A PWA web application for managing student departures from a school using QR cod
 - `server/static.ts` - Production static file serving (includes uploads)
 - `server/db.ts` - Database connection
 - `client/src/pages/landing.tsx` - Public landing page with stock images
-- `client/src/pages/guard-view.tsx` - Dedicated guard/tablet view (full-screen, no sidebar)
-- `client/src/pages/tutor-view.tsx` - Dedicated tutor/mobile view (group students, photos, carnet sharing)
+- `client/src/pages/staff-view.tsx` - Unified wrapper for guard/tutor with bottom tab navigation
+- `client/src/pages/guard-view.tsx` - Guard QR scanner content (supports embedded mode for StaffView)
+- `client/src/pages/tutor-view.tsx` - Tutor group management (supports embedded mode for StaffView)
 - `client/src/pages/guards.tsx` - Guard/teacher/tutor management with role toggle, group assignment, Excel import
 - `client/src/pages/late-arrivals.tsx` - Late arrival registration (QR scan + manual selection)
 - `client/src/pages/settings.tsx` - Admin settings (school name, academic year, SMTP config, reset)

@@ -20,7 +20,7 @@ import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import type { Student, Group } from "@shared/schema";
 
-export default function TutorView() {
+export default function TutorView({ embedded }: { embedded?: boolean } = {}) {
   const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -127,172 +127,136 @@ export default function TutorView() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-primary" />
-            <div>
-              <span className="font-bold text-sm">{group?.name || "Mi Grupo"}</span>
-              <span className="text-xs text-muted-foreground ml-2">{user?.fullName}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem("safeexit_view_mode", "guard"); setLocation("/guard"); }} data-testid="button-tutor-guard-mode">
-              <ShieldCheck className="w-4 h-4" />
-            </Button>
-            {isAdmin && (
-              <Button variant="ghost" size="sm" onClick={() => { sessionStorage.removeItem("safeexit_view_mode"); setLocation("/"); }} data-testid="button-back-admin">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+  const renderGroupSelector = () => (
+    <>
+      {isAdmin && allGroups && allGroups.length > 0 && (
+        <Select value={selectedGroupId} onValueChange={setSelectedGroupId} data-testid="select-tutor-group">
+          <SelectTrigger className="h-9" data-testid="select-tutor-group-trigger">
+            <SelectValue placeholder="Seleccionar grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            {allGroups.map(g => (
+              <SelectItem key={g.id} value={String(g.id)}>{g.name} — {g.course}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </>
+  );
 
-      <PwaInstallBanner />
-
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 space-y-4">
-        {isAdmin && allGroups && allGroups.length > 0 && (
-          <Select value={selectedGroupId} onValueChange={setSelectedGroupId} data-testid="select-tutor-group">
-            <SelectTrigger className="h-9" data-testid="select-tutor-group-trigger">
-              <SelectValue placeholder="Seleccionar grupo" />
-            </SelectTrigger>
-            <SelectContent>
-              {allGroups.map(g => (
-                <SelectItem key={g.id} value={String(g.id)}>{g.name} — {g.course}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  const renderStudentList = () => (
+    <>
+      <div className="flex items-center gap-3">
+        <Badge variant="secondary" className="text-xs">
+          <Users className="w-3 h-3 mr-1" />
+          {students.length} alumnos
+        </Badge>
+        {group && (
+          <Badge variant="outline" className="text-xs">{group.course}</Badge>
         )}
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-xs">
-            <Users className="w-3 h-3 mr-1" />
-            {students.length} alumnos
-          </Badge>
-          {group && (
-            <Badge variant="outline" className="text-xs">{group.course}</Badge>
-          )}
-        </div>
+      </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar alumno..."
-            className="pl-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            data-testid="input-tutor-search"
-          />
-        </div>
-
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar alumno..."
+          className="pl-9"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          data-testid="input-tutor-search"
         />
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
+      </div>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
-          </div>
-        ) : isError ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30 text-destructive" />
-              <p className="font-medium">Error al cargar los datos</p>
-              <p className="text-sm mt-1">Comprueba tu conexión e inténtalo de nuevo.</p>
-            </CardContent>
-          </Card>
-        ) : !group ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">No tienes un grupo asignado</p>
-              <p className="text-sm mt-1">Contacta con el administrador para que te asigne un grupo.</p>
-            </CardContent>
-          </Card>
-        ) : filtered.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">{search ? "No se encontraron alumnos" : "No hay alumnos en este grupo"}</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(student => {
-              const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
-              return (
-                <Card key={student.id} data-testid={`card-tutor-student-${student.id}`}>
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="w-14 h-14">
-                          <AvatarImage src={student.photoUrl || undefined} />
-                          <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                            {student.firstName[0]}{student.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <button
-                          onClick={() => handlePhoto(student.id)}
-                          className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md"
-                          data-testid={`button-photo-${student.id}`}
-                          disabled={uploading === student.id}
-                        >
-                          {uploading === student.id ? (
-                            <div className="w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Camera className="w-3 h-3" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate" data-testid={`text-tutor-student-${student.id}`}>
-                          {student.firstName} {student.lastName}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs text-muted-foreground">{age} años</span>
-                          {age >= 18 && <Badge className="text-[10px] px-1 py-0">+18</Badge>}
-                        </div>
-                      </div>
-
-                      {student.carnetToken && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleShare(student)}
-                          data-testid={`button-share-tutor-${student.id}`}
-                          className="flex-shrink-0"
-                        >
-                          <QrCode className="w-4 h-4 mr-1" />
-                          Carnet
-                        </Button>
-                      )}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30 text-destructive" />
+            <p className="font-medium">Error al cargar los datos</p>
+            <p className="text-sm mt-1">Comprueba tu conexión e inténtalo de nuevo.</p>
+          </CardContent>
+        </Card>
+      ) : !group ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="font-medium">{isAdmin ? "Selecciona un grupo" : "No tienes un grupo asignado"}</p>
+            <p className="text-sm mt-1">{isAdmin ? "Usa el selector de arriba para elegir un grupo." : "Contacta con el administrador para que te asigne un grupo."}</p>
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="font-medium">{search ? "No se encontraron alumnos" : "No hay alumnos en este grupo"}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(student => {
+            const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
+            return (
+              <Card key={student.id} data-testid={`card-tutor-student-${student.id}`}>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="w-14 h-14">
+                        <AvatarImage src={student.photoUrl || undefined} />
+                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                          {student.firstName[0]}{student.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <button
+                        onClick={() => handlePhoto(student.id)}
+                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md"
+                        data-testid={`button-photo-${student.id}`}
+                        disabled={uploading === student.id}
+                      >
+                        {uploading === student.id ? (
+                          <div className="w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Camera className="w-3 h-3" />
+                        )}
+                      </button>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </main>
 
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate" data-testid={`text-tutor-student-${student.id}`}>
+                        {student.firstName} {student.lastName}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{age} años</span>
+                        {age >= 18 && <Badge className="text-[10px] px-1 py-0">+18</Badge>}
+                      </div>
+                    </div>
+
+                    {student.carnetToken && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleShare(student)}
+                        data-testid={`button-share-tutor-${student.id}`}
+                        className="flex-shrink-0"
+                      >
+                        <QrCode className="w-4 h-4 mr-1" />
+                        Carnet
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
+  const renderDialogs = () => (
+    <>
       <Dialog open={photoDialogOpen} onOpenChange={(open) => { if (!open) { setPhotoDialogOpen(false); setPhotoTargetId(null); } }}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
@@ -368,6 +332,65 @@ export default function TutorView() {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  const hiddenInputs = (
+    <>
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 space-y-4">
+          {renderGroupSelector()}
+          {renderStudentList()}
+        </main>
+        {hiddenInputs}
+        {renderDialogs()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            <div>
+              <span className="font-bold text-sm">{group?.name || "Mi Grupo"}</span>
+              <span className="text-xs text-muted-foreground ml-2">{user?.fullName}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem("safeexit_view_mode", "guard"); setLocation("/guard"); }} data-testid="button-tutor-guard-mode">
+              <ShieldCheck className="w-4 h-4" />
+            </Button>
+            {isAdmin && (
+              <Button variant="ghost" size="sm" onClick={() => { sessionStorage.removeItem("safeexit_view_mode"); setLocation("/"); }} data-testid="button-back-admin">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={logout} data-testid="button-tutor-logout">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <PwaInstallBanner />
+
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 space-y-4">
+        {renderGroupSelector()}
+        {renderStudentList()}
+      </main>
+
+      {hiddenInputs}
+      {renderDialogs()}
     </div>
   );
 }
