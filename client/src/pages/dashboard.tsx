@@ -86,9 +86,8 @@ function GuardPwaCard() {
                 </Button>
               </div>
             </div>
-            <div className="rounded-lg bg-muted/50 p-3 space-y-1">
-              <p className="text-xs font-medium">Credenciales del profesor de guardia:</p>
-              <p className="text-xs text-muted-foreground font-mono">Usuario: <strong>profesor1</strong> — Contraseña: <strong>guard123</strong></p>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Las credenciales de acceso se gestionan en la sección de <strong>Profesores</strong>.</p>
             </div>
           </div>
         </div>
