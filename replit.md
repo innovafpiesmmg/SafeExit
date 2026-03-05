@@ -28,7 +28,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns)
 - **Academic Year Reset**: Deletes all data except admin user (requires typing "NUEVO CURSO" to confirm) — located in Settings page
 - **Calendar System**: Date-based calendar — select a specific date, configure 12 time slots for exit permissions per group. Green dots indicate dates with permissions. Weekends disabled.
-- **Time Slots Config**: Per-day-of-week time slot configuration stored as JSON in appSettings (key: "timeSlots"). Backend uses it for verify logic. UI pending.
+- **Time Slots Config**: Per-day-of-week time slot configuration (12 slots: M1-M6 morning, T1-T6 afternoon) stored as JSON in appSettings (key: "timeSlots"). Configurable from Settings page with day tabs, time inputs, "apply to all days" and "restore defaults" buttons. Backend uses it for verify logic.
 - **QR Verification**: Camera-based scanning or manual code input with age/authorization/schedule algorithm
 - **Late Arrivals**: Register student late arrivals via QR scan or manual group/student selection. Optional email notification to student's email. Today's arrivals sidebar.
 - **SMTP Email**: Configurable SMTP settings in admin panel. Test connection button. Used for late arrival notifications and authorized minor exit notifications.

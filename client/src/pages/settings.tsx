@@ -12,7 +12,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock } from "lucide-react";
+import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -33,6 +36,7 @@ export default function SettingsPage() {
     const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
     return `${y}-${y + 1}`;
   });
+  const [timeSlots, setTimeSlots] = useState<TimeSlotsConfig>(getDefaultTimeSlotsConfig());
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
 
@@ -51,6 +55,11 @@ export default function SettingsPage() {
       if (settings.academicYear) {
         setAcademicYear(settings.academicYear);
       }
+      if (settings.timeSlots) {
+        try {
+          setTimeSlots(JSON.parse(settings.timeSlots));
+        } catch {}
+      }
     }
   }, [settings]);
 
@@ -66,6 +75,7 @@ export default function SettingsPage() {
         schoolName,
         academicYear,
         accompaniedExitEmailEnabled: accompaniedExitEmailEnabled ? "true" : "false",
+        timeSlots: JSON.stringify(timeSlots),
       };
       for (const [key, value] of Object.entries(entries)) {
         await apiRequest("PUT", "/api/settings", { key, value });
@@ -151,6 +161,113 @@ export default function SettingsPage() {
             placeholder="2025-2026"
             data-testid="input-academic-year"
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Clock className="w-5 h-5" />
+            Tramos Horarios
+          </CardTitle>
+          <CardDescription>Define las horas de inicio y fin de cada tramo para cada día de la semana</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="1">
+            <TabsList className="w-full grid grid-cols-5" data-testid="tabs-timeslots-days">
+              {[
+                { key: "1", label: "Lunes" },
+                { key: "2", label: "Martes" },
+                { key: "3", label: "Miércoles" },
+                { key: "4", label: "Jueves" },
+                { key: "5", label: "Viernes" },
+              ].map(day => (
+                <TabsTrigger key={day.key} value={day.key} data-testid={`tab-day-${day.key}`}>
+                  <span className="hidden sm:inline">{day.label}</span>
+                  <span className="sm:hidden">{day.label.slice(0, 3)}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {["1", "2", "3", "4", "5"].map(dayKey => (
+              <TabsContent key={dayKey} value={dayKey} className="mt-4">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center text-xs font-medium text-muted-foreground px-1">
+                    <span className="w-16">Tramo</span>
+                    <span>Inicio</span>
+                    <span className="w-4" />
+                    <span>Fin</span>
+                  </div>
+                  {(timeSlots[dayKey] || []).map((slot: TimeSlotConfig, idx: number) => (
+                    <div key={slot.id} className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                      <span className="text-sm font-medium w-16 text-muted-foreground" data-testid={`text-slot-label-${dayKey}-${slot.id}`}>
+                        {slot.id <= 6 ? `M${slot.id}` : `T${slot.id - 6}`}
+                      </span>
+                      <Input
+                        type="time"
+                        value={slot.start}
+                        onChange={e => {
+                          const updated = { ...timeSlots };
+                          updated[dayKey] = [...updated[dayKey]];
+                          updated[dayKey][idx] = { ...slot, start: e.target.value };
+                          setTimeSlots(updated);
+                        }}
+                        className="h-8 text-sm"
+                        data-testid={`input-slot-start-${dayKey}-${slot.id}`}
+                      />
+                      <span className="text-muted-foreground text-sm w-4 text-center">—</span>
+                      <Input
+                        type="time"
+                        value={slot.end}
+                        onChange={e => {
+                          const updated = { ...timeSlots };
+                          updated[dayKey] = [...updated[dayKey]];
+                          updated[dayKey][idx] = { ...slot, end: e.target.value };
+                          setTimeSlots(updated);
+                        }}
+                        className="h-8 text-sm"
+                        data-testid={`input-slot-end-${dayKey}-${slot.id}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const updated = { ...timeSlots };
+                      const defaultConfig = getDefaultTimeSlotsConfig();
+                      updated[dayKey] = defaultConfig[dayKey].map(s => ({ ...s }));
+                      setTimeSlots(updated);
+                      toast({ title: `Tramos del ${["", "lunes", "martes", "miércoles", "jueves", "viernes"][Number(dayKey)]} restaurados a valores por defecto` });
+                    }}
+                    data-testid={`button-reset-slots-${dayKey}`}
+                  >
+                    Restaurar por defecto
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const source = timeSlots[dayKey];
+                      const updated = { ...timeSlots };
+                      for (let d = 1; d <= 5; d++) {
+                        updated[String(d)] = source.map(s => ({ ...s }));
+                      }
+                      setTimeSlots(updated);
+                      toast({ title: "Horario aplicado a todos los días de la semana" });
+                    }}
+                    data-testid={`button-apply-all-days-${dayKey}`}
+                  >
+                    Aplicar a todos los días
+                  </Button>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+          <p className="text-xs text-muted-foreground mt-4">
+            M = tramo de mañana, T = tramo de tarde. Recuerda pulsar "Guardar configuración" abajo del todo para aplicar los cambios.
+          </p>
         </CardContent>
       </Card>
 
@@ -244,18 +361,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              data-testid="button-save-settings"
-            >
-              {saveMutation.isPending ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</>
-              ) : (
-                "Guardar configuración"
-              )}
-            </Button>
+          <div className="pt-2">
             <Button
               variant="outline"
               onClick={() => testMutation.mutate()}
@@ -294,6 +400,21 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex justify-end">
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+          size="lg"
+          data-testid="button-save-settings"
+        >
+          {saveMutation.isPending ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</>
+          ) : (
+            "Guardar configuración"
+          )}
+        </Button>
+      </div>
 
       <Card className="border-destructive/30">
         <CardHeader className="pb-3">
