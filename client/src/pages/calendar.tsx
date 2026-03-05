@@ -9,6 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Save, CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { TIME_SLOTS, type Group, type GroupSchedule } from "@shared/schema";
+
+function getFilteredSlots(group: Group | undefined) {
+  if (!group || group.schedule === "full") return TIME_SLOTS;
+  if (group.schedule === "afternoon") return TIME_SLOTS.filter(s => s.id > 6);
+  return TIME_SLOTS.filter(s => s.id <= 6);
+}
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -68,7 +74,7 @@ export default function CalendarPage() {
 
   const handleSave = () => {
     if (!selectedGroup || !selectedDate) return;
-    const schedulesList = TIME_SLOTS.map(slot => ({
+    const schedulesList = filteredSlots.map(slot => ({
       groupId: parseInt(selectedGroup),
       date: selectedDate,
       timeSlot: slot.id,
@@ -85,6 +91,8 @@ export default function CalendarPage() {
 
   const datesWithPermissions = new Set(scheduleDates || []);
 
+  const selectedGroupObj = groups?.find(g => String(g.id) === selectedGroup);
+  const filteredSlots = getFilteredSlots(selectedGroupObj);
   const hasAnySlotEnabled = Object.values(slots).some(v => v);
 
   return (
@@ -99,7 +107,10 @@ export default function CalendarPage() {
             <SelectValue placeholder="Seleccionar grupo" />
           </SelectTrigger>
           <SelectContent>
-            {groups?.map(g => <SelectItem key={g.id} value={String(g.id)}>{g.name} - {g.course}</SelectItem>)}
+            {groups?.map(g => {
+              const scheduleLabel = g.schedule === "afternoon" ? "🌙 Tarde" : g.schedule === "full" ? "☀️ Completo" : "☀️ Mañana";
+              return <SelectItem key={g.id} value={String(g.id)}>{g.name} - {g.course} ({scheduleLabel})</SelectItem>;
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -197,14 +208,17 @@ export default function CalendarPage() {
                       </div>
                     ) : (
                       <>
-                        {TIME_SLOTS.map((slot, idx) => (
+                        {filteredSlots.map((slot, idx) => {
+                          const showMorningLabel = idx === 0 && slot.id <= 6;
+                          const showAfternoonLabel = (idx === 0 && slot.id > 6) || (idx > 0 && slot.id === 7);
+                          return (
                           <div key={slot.id}>
-                            {idx === 6 && (
-                              <div className="border-t border-dashed my-2 pt-1">
+                            {showAfternoonLabel && (
+                              <div className={`${idx > 0 ? "border-t border-dashed my-2 pt-1" : ""}`}>
                                 <p className="text-[10px] text-muted-foreground text-center mb-1">Tarde</p>
                               </div>
                             )}
-                            {idx === 0 && (
+                            {showMorningLabel && (
                               <p className="text-[10px] text-muted-foreground text-center mb-1">Mañana</p>
                             )}
                             <button
@@ -220,7 +234,8 @@ export default function CalendarPage() {
                               {slots[slot.id] && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Permitido</Badge>}
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                         <Button
                           className="w-full mt-3"
                           onClick={handleSave}

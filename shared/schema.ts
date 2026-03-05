@@ -20,6 +20,7 @@ export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   course: text("course").notNull(),
+  schedule: text("schedule").notNull().default("morning"),
 });
 
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true });

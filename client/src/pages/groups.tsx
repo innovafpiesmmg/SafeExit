@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Users, Sun, Moon } from "lucide-react";
 import type { Group } from "@shared/schema";
 
 export default function GroupsPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Group | null>(null);
-  const [form, setForm] = useState({ name: "", course: "" });
+  const [form, setForm] = useState({ name: "", course: "", schedule: "morning" });
 
   const { data: groups, isLoading } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
   const { data: students } = useQuery<any[]>({ queryKey: ["/api/students"] });
@@ -47,9 +49,9 @@ export default function GroupsPage() {
     },
   });
 
-  const resetForm = () => { setForm({ name: "", course: "" }); setEditing(null); setDialogOpen(false); };
+  const resetForm = () => { setForm({ name: "", course: "", schedule: "morning" }); setEditing(null); setDialogOpen(false); };
 
-  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course }); setDialogOpen(true); };
+  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course, schedule: g.schedule || "morning" }); setDialogOpen(true); };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +82,19 @@ export default function GroupsPage() {
               <div className="space-y-1.5">
                 <Label>Curso</Label>
                 <Input data-testid="input-group-course" value={form.course} onChange={e => setForm(f => ({ ...f, course: e.target.value }))} placeholder="Ej: 1 ESO" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Horario</Label>
+                <Select value={form.schedule} onValueChange={v => setForm(f => ({ ...f, schedule: v }))}>
+                  <SelectTrigger data-testid="select-group-schedule">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="morning"><span className="flex items-center gap-2"><Sun className="w-4 h-4 text-amber-500" /> Mañana (tramos 1-6)</span></SelectItem>
+                    <SelectItem value="afternoon"><span className="flex items-center gap-2"><Moon className="w-4 h-4 text-indigo-500" /> Tarde (tramos 7-12)</span></SelectItem>
+                    <SelectItem value="full"><span className="flex items-center gap-2"><Sun className="w-4 h-4 text-amber-500" /> Completo (tramos 1-12)</span></SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="secondary" onClick={resetForm} className="flex-1">Cancelar</Button>
@@ -112,7 +127,14 @@ export default function GroupsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-lg font-bold" data-testid={`text-group-name-${group.id}`}>{group.name}</p>
-                      <p className="text-sm text-muted-foreground">{group.course}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">{group.course}</p>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0" data-testid={`badge-schedule-${group.id}`}>
+                          {group.schedule === "morning" ? <><Sun className="w-3 h-3 mr-0.5 text-amber-500" />Mañana</> :
+                           group.schedule === "afternoon" ? <><Moon className="w-3 h-3 mr-0.5 text-indigo-500" />Tarde</> :
+                           <><Sun className="w-3 h-3 mr-0.5 text-amber-500" />Completo</>}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Users className="w-4 h-4" />
