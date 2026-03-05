@@ -15,10 +15,19 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Gestión de grupos y horarios
 - Creación y edición de grupos (1A, 2B, 1 BACH A, etc.)
-- Calendario visual de salidas: 12 tramos horarios configurables por día de la semana
+- Cada grupo tiene un **tipo de horario**: Mañana (tramos 1-6), Tarde (tramos 7-12) o Completo (tramos 1-12)
+- El calendario muestra automáticamente solo los tramos correspondientes al horario del grupo
 - Configuración de permisos de salida por grupo en fechas concretas
 - Indicadores visuales (puntos verdes) en días con permisos configurados
 - Fines de semana deshabilitados automáticamente
+
+### Configuración de tramos horarios
+- 12 tramos definibles por día de la semana (lunes a viernes)
+- Nomenclatura: M1-M6 (mañana) y T1-T6 (tarde)
+- Cada tramo tiene hora de inicio y fin configurables desde el panel de Ajustes
+- Botón "Aplicar a todos los días" para copiar el horario de un día al resto
+- Botón "Restaurar por defecto" para volver a los valores originales
+- Los tramos se usan para la verificación automática de salidas
 
 ### Verificación de salida (QR)
 - Tres pestañas en la vista del guardia: **QR**, **Buscar** y **Acompañada**
@@ -87,6 +96,22 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Filtros por fecha y nombre de alumno
 - Datos automáticamente limitados al grupo asignado del tutor (sin acceso a otros grupos)
 
+### Archivo de cursos académicos
+- Al finalizar un curso, el administrador puede **archivar** todos los datos antes de empezar el nuevo
+- El archivo guarda una copia completa de: alumnos, grupos, horarios, historial de salidas, entradas tardías, profesores, incidencias y ajustes
+- Tras archivar, la base de datos se limpia automáticamente para el nuevo curso
+- Opción alternativa de eliminar datos sin archivar (para casos excepcionales)
+- Archivado requiere confirmación escribiendo "ARCHIVAR CURSO"
+- Eliminación sin archivar requiere confirmación escribiendo "NUEVO CURSO"
+
+### Consulta de cursos archivados
+- Página "Cursos Archivados" en el menú lateral del administrador
+- Lista de todos los cursos archivados con fecha y estadísticas resumidas (alumnos, grupos, salidas, tardías, incidencias)
+- Visor completo de cada archivo con pestañas: **Alumnos**, **Grupos**, **Salidas**, **Tardías** e **Incidencias**
+- Buscador por nombre dentro de cada archivo
+- Posibilidad de eliminar permanentemente un archivo (requiere escribir "ELIMINAR")
+- Solo accesible para el administrador
+
 ### Impresión de carnets
 - Generación de PDF con carnets en formato 2x5 (85x55mm por tarjeta)
 - Cada carnet incluye: cabecera azul con nombre del centro, curso académico y "SafeExit", foto del alumno, nombre, apellidos, curso, grupo y código QR
@@ -120,15 +145,21 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 ### Configuración y ajustes (admin)
 - Nombre del centro educativo (usado en emails y carnets)
 - Curso académico (mostrado en carnets)
+- Configuración de tramos horarios por día de la semana (12 tramos con hora de inicio y fin)
 - Configuración completa del servidor SMTP (host, puerto, usuario, contraseña, dirección de envío, SSL/TLS)
 - Toggle para activar/desactivar el correo en salida acompañada
-- Función "Nuevo Curso Académico": elimina todos los datos excepto el usuario admin (requiere escribir "NUEVO CURSO" para confirmar)
+- Archivar curso académico o eliminar datos sin archivar
 
 ### PWA (Progressive Web App)
 - Instalable en tablets y móviles como aplicación nativa
 - Service worker para caché de recursos
 - Iconos y manifest configurados
 - Banner de instalación automático
+
+### DNS local
+- El instalador configura automáticamente `dnsmasq` para resolver `safeexit.local` a la IP del servidor
+- Acceso a la aplicación mediante `http://safeexit.local` desde cualquier dispositivo de la red
+- Compatible con servidores DNS locales como Umbrella o Pi-hole
 
 ### Landing page
 - Página de presentación con fotos de stock
@@ -140,7 +171,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 | Rol | Acceso | Dispositivo |
 |-----|--------|-------------|
-| **Admin** | Panel completo: alumnos, grupos, profesores, calendario, historial, impresión, escáner, entradas tardías, ajustes | PC |
+| **Admin** | Panel completo: alumnos, grupos, profesores, calendario, historial, impresión, escáner, entradas tardías, cursos archivados, ajustes | PC |
 | **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías | Tablet |
 | **Tutor** | Gestión de su grupo + verificación + tardías + historial de registros de su grupo | Móvil |
 
@@ -158,7 +189,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ## Instalación automática
 
-El instalador configura automáticamente todo lo necesario: actualiza el sistema operativo, instala Node.js 20.x, PostgreSQL, Nginx, crea la base de datos, compila la aplicación y configura los servicios del sistema.
+El instalador configura automáticamente todo lo necesario: actualiza el sistema operativo, instala Node.js 20.x, PostgreSQL, Nginx, dnsmasq, crea la base de datos, compila la aplicación y configura los servicios del sistema.
 
 ### Paso 1: Preparar el servidor
 
@@ -272,6 +303,7 @@ sudo systemctl restart safeexit
 /etc/safeexit/env           # Configuración (credenciales, BD)
 /etc/systemd/system/safeexit.service  # Servicio systemd
 /etc/nginx/sites-available/safeexit   # Configuración Nginx
+/etc/dnsmasq.d/safeexit.conf          # DNS local (safeexit.local)
 ```
 
 ---
@@ -303,6 +335,7 @@ Archivo: `/etc/safeexit/env`
 - **PDF**: jsPDF (impresión de carnets)
 - **Excel**: xlsx (importación y exportación .xlsx)
 - **Email**: nodemailer (notificaciones SMTP)
+- **DNS**: dnsmasq (resolución local safeexit.local)
 - **Proxy**: Nginx
 - **Proceso**: systemd
 - **Tunnel**: Cloudflare (opcional)
@@ -321,6 +354,7 @@ Archivo: `/etc/safeexit/env`
 | Fotos no se ven | Uploads sin permisos | `sudo chown safeexit:safeexit /var/www/safeexit/uploads` |
 | La cámara no funciona | HTTPS necesario para cámara | Configurar Cloudflare Tunnel o certificado SSL |
 | No se escanea el DNI | Código de barras no enfocado | Acercar/alejar la cámara, buena iluminación |
+| safeexit.local no resuelve | DNS no configurado | Configurar DNS del router o usar IP directamente |
 
 ---
 
