@@ -54,7 +54,7 @@ A PWA web application for managing student departures from a school using QR cod
 ## Roles & Views
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings). Can enter guard/tutor mode via QR URLs (?mode=guard or ?mode=tutor), with back-to-admin button.
 - **guard**: StaffView with bottom tab navigation — 2 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals registration). No sidebar, mobile/tablet optimized.
-- **tutor**: StaffView with bottom tab navigation — 3 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals). No sidebar, mobile optimized.
+- **tutor**: StaffView with bottom tab navigation — 4 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals) + "Registros" (exit logs and late arrivals history for their group). No sidebar, mobile optimized.
 - **StaffView** (staff-view.tsx): Unified wrapper for guard/tutor roles with shared header (app name, user, WiFi, logout) and bottom tab bar. GuardView and TutorView accept `embedded` prop to strip their headers. Guard fullscreen result overlays tabs using fixed positioning.
 
 ## Default Credentials (dev only)
@@ -82,7 +82,8 @@ A PWA web application for managing student departures from a school using QR cod
 - `client/src/pages/tutor-view.tsx` - Tutor group management (supports embedded mode for StaffView)
 - `client/src/pages/guards.tsx` - Guard/teacher/tutor management with role toggle, group assignment, Excel import
 - `client/src/pages/late-arrivals.tsx` - Late arrival registration (QR scan + manual selection)
-- `client/src/pages/settings.tsx` - Admin settings (school name, academic year, SMTP config, reset)
+- `client/src/pages/tutor-records.tsx` - Tutor records view (exit logs + late arrivals for their group)
+- `client/src/pages/settings.tsx` - Admin settings (school name, academic year, SMTP config, accompanied exit email, reset)
 - `client/src/pages/calendar.tsx` - Date-based exit permission calendar
 - `client/src/pages/` - Other page components (login, dashboard, students, groups, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)

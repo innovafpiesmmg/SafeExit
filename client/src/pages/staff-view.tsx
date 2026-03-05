@@ -3,14 +3,15 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
-  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff,
+  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText,
 } from "lucide-react";
 import GuardView from "./guard-view";
 import TutorView from "./tutor-view";
 import LateArrivalsPage from "./late-arrivals";
+import TutorRecords from "./tutor-records";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
-type TabId = "group" | "guard" | "late";
+type TabId = "group" | "guard" | "late" | "records";
 
 interface StaffViewProps {
   showGroupTab: boolean;
@@ -47,6 +48,9 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   }
   tabs.push({ id: "guard", label: "Guardia", icon: ShieldCheck });
   tabs.push({ id: "late", label: "Tardías", icon: Clock });
+  if (showGroupTab) {
+    tabs.push({ id: "records", label: "Registros", icon: FileText });
+  }
 
   const handleBackToAdmin = () => {
     sessionStorage.removeItem("safeexit_view_mode");
@@ -103,6 +107,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
           <GuardView embedded onFullscreenChange={setGuardFullscreen} />
         )}
         {activeTab === "late" && <LateArrivalsPage embedded />}
+        {activeTab === "records" && <TutorRecords embedded />}
       </div>
 
       {!guardFullscreen && (

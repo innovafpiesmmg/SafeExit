@@ -715,6 +715,60 @@ export async function registerRoutes(
     res.json(logs);
   });
 
+  app.get("/api/tutor/exit-logs", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser((req.session as any).userId);
+      if (!user) return res.status(403).json({ message: "Usuario no encontrado" });
+
+      let groupId: number | null = null;
+      if (user.role === "admin") {
+        groupId = req.query.groupId ? parseInt(req.query.groupId as string) : null;
+      } else if (user.role === "tutor" && user.groupId) {
+        groupId = user.groupId;
+      } else {
+        return res.status(403).json({ message: "No tienes un grupo asignado" });
+      }
+
+      if (!groupId) return res.json([]);
+      const logs = await storage.getExitLogs({
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+        groupId,
+        studentName: req.query.studentName as string,
+      });
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/tutor/late-arrivals", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser((req.session as any).userId);
+      if (!user) return res.status(403).json({ message: "Usuario no encontrado" });
+
+      let groupId: number | null = null;
+      if (user.role === "admin") {
+        groupId = req.query.groupId ? parseInt(req.query.groupId as string) : null;
+      } else if (user.role === "tutor" && user.groupId) {
+        groupId = user.groupId;
+      } else {
+        return res.status(403).json({ message: "No tienes un grupo asignado" });
+      }
+
+      if (!groupId) return res.json([]);
+      const arrivals = await storage.getLateArrivals({
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+        groupId,
+        studentName: req.query.studentName as string,
+      });
+      res.json(arrivals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/exit-stats", requireAuth, async (_req, res) => {
     const stats = await storage.getExitStats();
     res.json(stats);
