@@ -290,6 +290,17 @@ export default function PrintPage() {
       doc.setFont("helvetica", "normal");
       doc.text(student.course, textX, contentY + 10);
 
+      const barcodeDataUrl = generateBarcodeDataUrl(student.qrCode, { width: 1, height: 18, displayValue: false });
+      if (barcodeDataUrl) {
+        const bcW = 25;
+        const bcH = 6;
+        doc.addImage(barcodeDataUrl, "PNG", textX, contentY + 12, bcW, bcH);
+      }
+
+      doc.setFontSize(5);
+      doc.setTextColor(160);
+      doc.text(`ID: ${student.id}`, textX, contentY + 22);
+
       if (qrUrls[student.id]) {
         const qrSize = 22;
         const qrX = x + cardWidth - qrSize - 3;
@@ -300,17 +311,6 @@ export default function PrintPage() {
         doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 1, 1, "FD");
         doc.addImage(qrUrls[student.id], "PNG", qrX, qrY, qrSize, qrSize);
       }
-
-      const barcodeDataUrl = generateBarcodeDataUrl(student.qrCode, { width: 1, height: 18, displayValue: false });
-      if (barcodeDataUrl) {
-        const bcW = 28;
-        const bcH = 7;
-        doc.addImage(barcodeDataUrl, "PNG", textX, y + cardHeight - bcH - 5, bcW, bcH);
-      }
-
-      doc.setFontSize(5);
-      doc.setTextColor(160);
-      doc.text(`ID: ${student.id}`, textX, y + cardHeight - 3);
     }
 
     doc.save("carnets_safeexit.pdf");
