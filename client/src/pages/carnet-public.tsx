@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Shield, GraduationCap, Download, Bookmark } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
+import JsBarcode from "jsbarcode";
 
 interface CarnetData {
   firstName: string;
@@ -51,6 +52,7 @@ export default function CarnetPublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string>("");
 
   useEffect(() => {
     if (!token) {
@@ -65,6 +67,17 @@ export default function CarnetPublicPage() {
       })
       .then((d: CarnetData) => {
         setData(d);
+        const canvas = document.createElement("canvas");
+        try {
+          JsBarcode(canvas, d.qrCode, {
+            format: "CODE128",
+            width: 2,
+            height: 40,
+            displayValue: false,
+            margin: 4,
+          });
+          setBarcodeDataUrl(canvas.toDataURL("image/png"));
+        } catch { }
         return QRCode.toDataURL(d.qrCode, { width: 300, margin: 2 });
       })
       .then(url => setQrDataUrl(url))
@@ -155,8 +168,16 @@ export default function CarnetPublicPage() {
               )}
             </div>
 
+            {barcodeDataUrl && (
+              <div className="flex justify-center">
+                <div className="bg-white px-3 py-1.5 rounded-lg shadow-inner border" data-testid="img-carnet-barcode">
+                  <img src={barcodeDataUrl} alt="Código de barras" className="h-10 w-auto" />
+                </div>
+              </div>
+            )}
+
             <p className="text-[10px] text-center text-muted-foreground leading-relaxed">
-              Presenta este código QR al profesor de guardia para verificar tu salida del centro.
+              Presenta este código QR o de barras al profesor de guardia para verificar tu salida del centro.
             </p>
           </div>
         </CardContent>

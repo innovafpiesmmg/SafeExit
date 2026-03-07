@@ -10,9 +10,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Printer, FileDown, GraduationCap, Smartphone, ShieldCheck } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
+import JsBarcode from "jsbarcode";
 import type { Student, Group } from "@shared/schema";
 
-function StudentCard({ student, group, qrDataUrl, schoolName, academicYear }: { student: Student; group?: Group; qrDataUrl: string; schoolName: string; academicYear: string }) {
+function generateBarcodeDataUrl(value: string, options?: { width?: number; height?: number; displayValue?: boolean }): string {
+  const canvas = document.createElement("canvas");
+  try {
+    JsBarcode(canvas, value, {
+      format: "CODE128",
+      width: options?.width ?? 2,
+      height: options?.height ?? 30,
+      displayValue: options?.displayValue ?? false,
+      margin: 2,
+    });
+    return canvas.toDataURL("image/png");
+  } catch {
+    return "";
+  }
+}
+
+function StudentCard({ student, group, qrDataUrl, barcodeDataUrl, schoolName, academicYear }: { student: Student; group?: Group; qrDataUrl: string; barcodeDataUrl: string; schoolName: string; academicYear: string }) {
   const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
   const isAdult = age >= 18;
 
@@ -67,7 +84,12 @@ function StudentCard({ student, group, qrDataUrl, schoolName, academicYear }: { 
               <p className="text-[8px] text-muted-foreground mt-0.5">{student.course}</p>
             </div>
             <div className="flex items-end justify-between">
-              <p className="text-[6px] text-muted-foreground">ID: {student.id}</p>
+              <div className="flex flex-col gap-1">
+                <p className="text-[6px] text-muted-foreground">ID: {student.id}</p>
+                {barcodeDataUrl && (
+                  <img src={barcodeDataUrl} alt="Código de barras" className="h-[14px] w-auto" />
+                )}
+              </div>
               {qrDataUrl && (
                 <div className="bg-white p-0.5 rounded border shadow-inner">
                   <img src={qrDataUrl} alt="QR" className="w-[68px] h-[68px]" />
@@ -85,6 +107,7 @@ export default function PrintPage() {
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
   const [qrUrls, setQrUrls] = useState<Record<number, string>>({});
+  const [barcodeUrls, setBarcodeUrls] = useState<Record<number, string>>({});
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
@@ -98,15 +121,18 @@ export default function PrintPage() {
     : students?.filter(s => s.groupId === parseInt(selectedGroup)) || [];
 
   useEffect(() => {
-    const generateQRs = async () => {
+    const generateCodes = async () => {
       if (!students) return;
-      const urls: Record<number, string> = {};
+      const qrs: Record<number, string> = {};
+      const barcodes: Record<number, string> = {};
       for (const s of students) {
-        urls[s.id] = await QRCode.toDataURL(s.qrCode, { width: 120, margin: 1 });
+        qrs[s.id] = await QRCode.toDataURL(s.qrCode, { width: 120, margin: 1 });
+        barcodes[s.id] = generateBarcodeDataUrl(s.qrCode, { width: 1, height: 25, displayValue: false });
       }
-      setQrUrls(urls);
+      setQrUrls(qrs);
+      setBarcodeUrls(barcodes);
     };
-    generateQRs();
+    generateCodes();
   }, [students]);
 
   const toggleStudent = (id: number) => {
@@ -268,6 +294,13 @@ export default function PrintPage() {
       doc.setTextColor(160);
       doc.text(`ID: ${student.id}`, textX, y + cardHeight - 3);
 
+      const barcodeDataUrl = generateBarcodeDataUrl(student.qrCode, { width: 2, height: 20, displayValue: false });
+      if (barcodeDataUrl) {
+        const bcW = 30;
+        const bcH = 8;
+        doc.addImage(barcodeDataUrl, "PNG", textX, contentY + 13, bcW, bcH);
+      }
+
       if (qrUrls[student.id]) {
         const qrSize = 22;
         const qrX = x + cardWidth - qrSize - 3;
@@ -409,7 +442,7 @@ export default function PrintPage() {
                   className="mt-5"
                   data-testid={`checkbox-student-${student.id}`}
                 />
-                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} schoolName={schoolName} academicYear={academicYear} />
+                <StudentCard student={student} group={group} qrDataUrl={qrUrls[student.id] || ""} barcodeDataUrl={barcodeUrls[student.id] || ""} schoolName={schoolName} academicYear={academicYear} />
               </div>
             );
           })}
