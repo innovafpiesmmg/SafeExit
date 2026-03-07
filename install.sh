@@ -135,6 +135,8 @@ git config --global --add safe.directory "$APP_DIR"
 if [ -d "$APP_DIR/.git" ]; then
     print_status "Actualizando código desde GitHub..."
     cd "$APP_DIR"
+    git checkout -- . 2>/dev/null || true
+    git clean -fd 2>/dev/null || true
     sudo -u "$APP_USER" git pull origin main || git pull origin main
 else
     print_status "Clonando repositorio..."
