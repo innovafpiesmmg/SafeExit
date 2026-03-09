@@ -66,17 +66,17 @@ export default function GuardDutySignIn() {
     },
   });
 
-  const classSlots = (timeSlotsData || DEFAULT_TIME_SLOTS).filter(s => !s.isBreak);
+  const allSlots = timeSlotsData || DEFAULT_TIME_SLOTS;
 
   const currentSlot = useMemo(() => {
-    return classSlots.find(s => {
+    return allSlots.find(s => {
       const [sh, sm] = s.start.split(":").map(Number);
       const [eh, em] = s.end.split(":").map(Number);
       const start = sh * 60 + sm;
       const end = eh * 60 + em;
       return currentMinutes >= start && currentMinutes <= end + 5;
     });
-  }, [classSlots, currentMinutes]);
+  }, [allSlots, currentMinutes]);
 
   const currentSlotAssignments = currentSlot
     ? assignments.filter(a => a.timeSlotId === currentSlot.id)
@@ -161,7 +161,9 @@ export default function GuardDutySignIn() {
               <span className="text-sm">Periodo actual:</span>
             </div>
             {currentSlot ? (
-              <Badge data-testid="badge-current-slot">{currentSlot.start} - {currentSlot.end}</Badge>
+              <Badge data-testid="badge-current-slot" className={currentSlot.isBreak ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : ""}>
+                {currentSlot.isBreak ? `☕ ${currentSlot.label || "Recreo"} (${currentSlot.start}-${currentSlot.end})` : `${currentSlot.start} - ${currentSlot.end}`}
+              </Badge>
             ) : (
               <Badge variant="outline" data-testid="badge-no-slot">Sin periodo activo</Badge>
             )}
@@ -256,7 +258,7 @@ export default function GuardDutySignIn() {
               <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
                 <p><strong>Profesor:</strong> {uniqueTeachers.find(t => t.id === selectedUserId)?.name}</p>
                 <p><strong>Zona:</strong> {availableZones.find(z => z.zoneId === selectedZoneId)?.zoneName} (Ed. {availableZones.find(z => z.zoneId === selectedZoneId)?.buildingNumber})</p>
-                <p><strong>Periodo:</strong> {currentSlot.start} - {currentSlot.end}</p>
+                <p><strong>Periodo:</strong> {currentSlot.isBreak ? `☕ ${currentSlot.label || "Recreo"} (${currentSlot.start}-${currentSlot.end})` : `${currentSlot.start} - ${currentSlot.end}`}</p>
               </div>
 
               <SignaturePad
@@ -290,7 +292,7 @@ export default function GuardDutySignIn() {
           <CardContent>
             <div className="space-y-2">
               {todayRegistrations.map((reg: any) => {
-                const slot = classSlots.find(s => s.id === reg.timeSlotId);
+                const slot = allSlots.find(s => s.id === reg.timeSlotId);
                 return (
                   <div key={reg.id} className="flex items-center justify-between text-sm p-2 rounded border" data-testid={`registration-item-${reg.id}`}>
                     <div>
@@ -299,8 +301,8 @@ export default function GuardDutySignIn() {
                         {reg.zoneName} (Ed. {reg.buildingNumber})
                       </span>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {slot ? `${slot.start}-${slot.end}` : `P${reg.timeSlotId}`}
+                    <Badge variant="outline" className={`text-xs ${slot?.isBreak ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : ""}`}>
+                      {slot ? (slot.isBreak ? `☕ ${slot.label || "Recreo"}` : `${slot.start}-${slot.end}`) : `P${reg.timeSlotId}`}
                     </Badge>
                   </div>
                 );

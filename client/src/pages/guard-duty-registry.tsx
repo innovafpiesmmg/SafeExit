@@ -60,11 +60,12 @@ export default function GuardDutyRegistryPage() {
     },
   });
 
-  const classSlots = (timeSlotsData || DEFAULT_TIME_SLOTS).filter(s => !s.isBreak);
+  const allSlots = timeSlotsData || DEFAULT_TIME_SLOTS;
 
   const getSlotLabel = (slotId: number) => {
-    const slot = classSlots.find(s => s.id === slotId);
-    return slot ? `${slot.start}-${slot.end}` : `P${slotId}`;
+    const slot = allSlots.find(s => s.id === slotId);
+    if (!slot) return `P${slotId}`;
+    return slot.isBreak ? `☕ ${slot.label || "Recreo"}` : `${slot.start}-${slot.end}`;
   };
 
   const filteredZones = filterBuilding !== "all"

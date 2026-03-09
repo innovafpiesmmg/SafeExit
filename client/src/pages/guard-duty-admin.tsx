@@ -212,7 +212,7 @@ function AssignmentManagement() {
     },
   });
 
-  const classSlots = (timeSlotsData?.slots || DEFAULT_TIME_SLOTS).filter(s => !s.isBreak);
+  const allSlots = timeSlotsData?.slots || DEFAULT_TIME_SLOTS;
 
   const addAssignment = useMutation({
     mutationFn: async (data: { userId: number; timeSlotId: number; zoneId: number }) => {
@@ -298,10 +298,15 @@ function AssignmentManagement() {
               </tr>
             </thead>
             <tbody>
-              {classSlots.map(slot => (
-                <tr key={slot.id} className="border-b hover:bg-muted/50">
+              {allSlots.map(slot => (
+                <tr key={slot.id} className={`border-b hover:bg-muted/50 ${slot.isBreak ? "bg-amber-50 dark:bg-amber-950/30" : ""}`}>
                   <td className="p-2">
-                    <div className="text-xs font-medium">{slot.start}-{slot.end}</div>
+                    <div className={`text-xs font-medium ${slot.isBreak ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                      {slot.isBreak ? `☕ ${slot.label || "Recreo"}` : `${slot.start}-${slot.end}`}
+                    </div>
+                    {slot.isBreak && (
+                      <div className="text-[10px] text-amber-600 dark:text-amber-500">{slot.start}-{slot.end}</div>
+                    )}
                   </td>
                   {zones.map(zone => {
                     const cellAssignments = assignments.filter(
