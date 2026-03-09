@@ -417,6 +417,12 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
                 data-testid="img-guard-student-photo"
               />
             </div>
+          ) : scanResult.student ? (
+            <div className="w-44 h-44 sm:w-52 sm:h-52 md:w-60 md:h-60 rounded-2xl flex items-center justify-center mb-4 border-4 border-white/50 shadow-2xl bg-white/20" data-testid="avatar-guard-student-fallback">
+              <span className="text-6xl sm:text-7xl md:text-8xl font-bold text-white/90">
+                {scanResult.student.firstName[0]}{scanResult.student.lastName[0]}
+              </span>
+            </div>
           ) : (
             <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl flex items-center justify-center mb-4 bg-white/20">
               {isAuthorized
@@ -587,6 +593,16 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     <div className="space-y-3">
       {accompResult ? (
         <div className={`rounded-xl p-4 text-center ${accompResult.result === "AUTORIZADO" ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-red-500/10 border border-red-500/30"}`}>
+          {accompResult.student && (
+            <div className="flex justify-center mb-3">
+              <Avatar className="w-20 h-20 border-2 border-white/50 shadow-lg" data-testid="avatar-accomp-student">
+                <AvatarImage src={accompResult.student.photoUrl || undefined} />
+                <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                  {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          )}
           <div className="flex items-center justify-center gap-2 mb-2">
             {accompResult.result === "AUTORIZADO" ? (
               <CheckCircle2 className="w-8 h-8 text-emerald-600" />
