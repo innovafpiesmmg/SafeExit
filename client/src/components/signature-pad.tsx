@@ -114,7 +114,7 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
   }, []);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="text-center">
         <p className="text-sm font-medium text-muted-foreground">
           {signerName ? `Firma de ${signerName}` : "Firma del acompañante"}
@@ -124,8 +124,7 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
       <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl overflow-hidden bg-white relative">
         <canvas
           ref={canvasRef}
-          className="w-full touch-none cursor-crosshair"
-          style={{ height: "200px" }}
+          className="w-full touch-none cursor-crosshair h-[200px] landscape:h-[140px]"
           onMouseDown={startDraw}
           onMouseMove={draw}
           onMouseUp={endDraw}
@@ -147,7 +146,7 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
           variant="outline"
           onClick={clear}
           disabled={!hasSignature || saving}
-          className="flex-1 h-12"
+          className="flex-1 h-10 landscape:h-9"
           data-testid="button-signature-clear"
         >
           <Eraser className="w-4 h-4 mr-2" />
@@ -156,7 +155,7 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
         <Button
           onClick={handleSave}
           disabled={!hasSignature || saving}
-          className="flex-1 h-12"
+          className="flex-1 h-10 landscape:h-9"
           data-testid="button-signature-save"
         >
           {saving ? (

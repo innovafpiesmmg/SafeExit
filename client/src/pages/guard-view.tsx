@@ -602,127 +602,142 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     <div className="space-y-3">
       {accompResult ? (
         accompSignaturePending && accompResult.result === "AUTORIZADO" ? (
-          <div className="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-3">
-            {accompResult.student && (
-              <div className="flex items-center gap-3 mb-2">
-                <Avatar className="w-14 h-14 border-2 border-emerald-300 shadow" data-testid="avatar-accomp-sign-student">
-                  <AvatarImage src={accompResult.student.photoUrl || undefined} />
-                  <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-                    {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-left">
-                  <p className="font-semibold text-sm">{accompResult.student.firstName} {accompResult.student.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{accompResult.student.course}</p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">{accompResult.reason}</p>
-                </div>
+          <div className="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30">
+            <div className="flex flex-col landscape:flex-row landscape:items-start landscape:gap-4">
+              <div className="landscape:flex-shrink-0 landscape:w-48">
+                {accompResult.student && (
+                  <div className="flex items-center gap-3 mb-3 landscape:mb-0 landscape:flex-col landscape:text-center">
+                    <Avatar className="w-14 h-14 border-2 border-emerald-300 shadow" data-testid="avatar-accomp-sign-student">
+                      <AvatarImage src={accompResult.student.photoUrl || undefined} />
+                      <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
+                        {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-left landscape:text-center">
+                      <p className="font-semibold text-sm">{accompResult.student.firstName} {accompResult.student.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{accompResult.student.course}</p>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">{accompResult.reason}</p>
+                    </div>
+                  </div>
+                )}
+                <Button onClick={() => setAccompSignaturePending(false)} variant="ghost" size="sm" className="w-full text-xs text-muted-foreground mt-2" data-testid="button-skip-signature">
+                  Omitir firma
+                </Button>
               </div>
-            )}
-            <SignaturePad
-              onSave={(dataUrl) => signatureMutation.mutate({ logId: accompResult.logId, signatureData: dataUrl })}
-              saving={signatureMutation.isPending}
-              signerName={accompResult.authorizedPerson ? `${accompResult.authorizedPerson.firstName} ${accompResult.authorizedPerson.lastName}` : undefined}
-            />
-            <Button onClick={() => setAccompSignaturePending(false)} variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" data-testid="button-skip-signature">
-              Omitir firma
-            </Button>
+              <div className="landscape:flex-1 landscape:min-w-0">
+                <SignaturePad
+                  onSave={(dataUrl) => signatureMutation.mutate({ logId: accompResult.logId, signatureData: dataUrl })}
+                  saving={signatureMutation.isPending}
+                  signerName={accompResult.authorizedPerson ? `${accompResult.authorizedPerson.firstName} ${accompResult.authorizedPerson.lastName}` : undefined}
+                />
+              </div>
+            </div>
           </div>
         ) : (
-        <div className={`rounded-xl p-4 text-center ${accompResult.result === "AUTORIZADO" ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-red-500/10 border border-red-500/30"}`}>
-          {accompResult.student && (
-            <div className="flex justify-center mb-3">
-              <Avatar className="w-20 h-20 border-2 border-white/50 shadow-lg" data-testid="avatar-accomp-student">
-                <AvatarImage src={accompResult.student.photoUrl || undefined} />
-                <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                  {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
-                </AvatarFallback>
-              </Avatar>
+        <div className={`rounded-xl p-4 ${accompResult.result === "AUTORIZADO" ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-red-500/10 border border-red-500/30"}`}>
+          <div className={`flex flex-col landscape:flex-row landscape:items-start landscape:gap-4 ${showExtraordinaryForm ? "" : "text-center landscape:text-left"}`}>
+            <div className={`landscape:flex-shrink-0 ${showExtraordinaryForm ? "landscape:w-48" : "landscape:w-56"}`}>
+              <div className="flex flex-col items-center landscape:items-start">
+                {accompResult.student && (
+                  <div className="flex flex-col items-center landscape:flex-row landscape:items-center landscape:gap-3 mb-2">
+                    <Avatar className="w-16 h-16 landscape:w-14 landscape:h-14 border-2 border-white/50 shadow-lg mb-2 landscape:mb-0" data-testid="avatar-accomp-student">
+                      <AvatarImage src={accompResult.student.photoUrl || undefined} />
+                      <AvatarFallback className="text-xl landscape:text-lg font-bold bg-primary/10 text-primary">
+                        {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium" data-testid="text-accomp-student-name">
+                        {accompResult.student.firstName} {accompResult.student.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{accompResult.student.course}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-1">
+                  {accompResult.result === "AUTORIZADO" ? (
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                  ) : (
+                    <ShieldX className="w-6 h-6 text-red-600" />
+                  )}
+                  <p className={`text-lg font-bold ${accompResult.result === "AUTORIZADO" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`} data-testid="text-accomp-result">
+                    {accompResult.result}
+                  </p>
+                </div>
+                <p className="text-xs mt-1" data-testid="text-accomp-reason">{accompResult.reason}</p>
+                {accompResult.extraordinary && (
+                  <Badge variant="secondary" className="mt-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Autorización extraordinaria</Badge>
+                )}
+                <Button onClick={resetAccompanied} variant="outline" size="sm" className="w-full mt-3" data-testid="button-accomp-reset">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Nueva verificación
+                </Button>
+              </div>
             </div>
-          )}
-          <div className="flex items-center justify-center gap-2 mb-2">
-            {accompResult.result === "AUTORIZADO" ? (
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-            ) : (
-              <ShieldX className="w-8 h-8 text-red-600" />
-            )}
+
+            <div className="landscape:flex-1 landscape:min-w-0">
+              {accompResult.result === "DENEGADO" && !showExtraordinaryForm && (
+                <div className="mt-3 pt-3 border-t landscape:mt-0 landscape:pt-0 landscape:border-t-0 landscape:border-l landscape:pl-4">
+                  <Button
+                    onClick={() => setShowExtraordinaryForm(true)}
+                    variant="outline"
+                    className="w-full border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30 h-12"
+                    data-testid="button-extraordinary-open"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Autorización extraordinaria
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground mt-1.5 text-center">Usar solo si los padres/tutores han confirmado por teléfono o email</p>
+                </div>
+              )}
+
+              {showExtraordinaryForm && (
+                <div className="mt-3 pt-3 border-t landscape:mt-0 landscape:pt-0 landscape:border-t-0 landscape:border-l landscape:pl-4 space-y-2 text-left">
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 mb-1">
+                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Quedará registrada como incidencia
+                    </p>
+                  </div>
+                  <Input
+                    value={extraName}
+                    onChange={e => setExtraName(e.target.value)}
+                    placeholder="Nombre completo del acompañante"
+                    className="h-10"
+                    data-testid="input-extraordinary-name"
+                  />
+                  <Select value={extraReason} onValueChange={setExtraReason}>
+                    <SelectTrigger className="h-10" data-testid="select-extraordinary-reason">
+                      <SelectValue placeholder="Medio de confirmación..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Confirmado por teléfono por los padres/tutores">Confirmado por teléfono</SelectItem>
+                      <SelectItem value="Confirmado por email por los padres/tutores">Confirmado por email</SelectItem>
+                      <SelectItem value="Confirmado presencialmente por los padres/tutores">Confirmado presencialmente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setShowExtraordinaryForm(false); setExtraName(""); setExtraReason(""); }}
+                      className="flex-1 h-10"
+                      data-testid="button-extraordinary-cancel"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleExtraordinaryExit}
+                      disabled={!extraName.trim() || !extraReason || accompaniedMutation.isPending}
+                      className="flex-1 h-10 bg-amber-600 hover:bg-amber-700 text-white"
+                      data-testid="button-extraordinary-confirm"
+                    >
+                      {accompaniedMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-1.5" />}
+                      Autorizar salida
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <p className={`text-lg font-bold ${accompResult.result === "AUTORIZADO" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`} data-testid="text-accomp-result">
-            {accompResult.result}
-          </p>
-          <p className="text-sm font-medium mt-1" data-testid="text-accomp-student-name">
-            {accompResult.student?.firstName} {accompResult.student?.lastName}
-          </p>
-          <p className="text-xs text-muted-foreground">{accompResult.student?.course}</p>
-          <p className="text-sm mt-2" data-testid="text-accomp-reason">{accompResult.reason}</p>
-          {accompResult.extraordinary && (
-            <Badge variant="secondary" className="mt-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Autorización extraordinaria</Badge>
-          )}
-
-          {accompResult.result === "DENEGADO" && !showExtraordinaryForm && (
-            <div className="mt-3 pt-3 border-t">
-              <Button
-                onClick={() => setShowExtraordinaryForm(true)}
-                variant="outline"
-                className="w-full border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
-                data-testid="button-extraordinary-open"
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Autorización extraordinaria
-              </Button>
-              <p className="text-[11px] text-muted-foreground mt-1.5">Usar solo si los padres/tutores han confirmado por teléfono o email</p>
-            </div>
-          )}
-
-          {showExtraordinaryForm && (
-            <div className="mt-3 pt-3 border-t space-y-2 text-left">
-              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 mb-2">
-                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                  Autorización extraordinaria — quedará registrada como incidencia
-                </p>
-              </div>
-              <Input
-                value={extraName}
-                onChange={e => setExtraName(e.target.value)}
-                placeholder="Nombre completo del acompañante"
-                className="h-10"
-                data-testid="input-extraordinary-name"
-              />
-              <Select value={extraReason} onValueChange={setExtraReason}>
-                <SelectTrigger className="h-10" data-testid="select-extraordinary-reason">
-                  <SelectValue placeholder="Medio de confirmación..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Confirmado por teléfono por los padres/tutores">Confirmado por teléfono</SelectItem>
-                  <SelectItem value="Confirmado por email por los padres/tutores">Confirmado por email</SelectItem>
-                  <SelectItem value="Confirmado presencialmente por los padres/tutores">Confirmado presencialmente</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2 mt-1">
-                <Button
-                  variant="outline"
-                  onClick={() => { setShowExtraordinaryForm(false); setExtraName(""); setExtraReason(""); }}
-                  className="flex-1 h-10"
-                  data-testid="button-extraordinary-cancel"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleExtraordinaryExit}
-                  disabled={!extraName.trim() || !extraReason || accompaniedMutation.isPending}
-                  className="flex-1 h-10 bg-amber-600 hover:bg-amber-700 text-white"
-                  data-testid="button-extraordinary-confirm"
-                >
-                  {accompaniedMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-1.5" />}
-                  Autorizar salida
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <Button onClick={resetAccompanied} variant="outline" className="w-full mt-3" data-testid="button-accomp-reset">
-            <RotateCcw className="w-4 h-4 mr-2" /> Nueva verificación
-          </Button>
         </div>
         )
       ) : !accompSelectedStudent ? (
