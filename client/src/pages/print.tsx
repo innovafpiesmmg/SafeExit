@@ -176,14 +176,36 @@ export default function PrintPage() {
       const group = groups?.find(g => g.id === student.groupId);
       const age = differenceInYears(new Date(), new Date(student.dateOfBirth));
 
-      doc.setDrawColor(210);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(x, y, cardWidth, cardHeight, 2.5, 2.5);
-
       const actualHeaderH = schoolName ? headerH + 4 : headerH;
+      const r = 2.5;
 
       doc.setFillColor(primaryR, primaryG, primaryB);
-      doc.rect(x + 0.15, y + 0.15, cardWidth - 0.3, actualHeaderH, "F");
+      doc.roundedRect(x, y, cardWidth, cardHeight, r, r, "F");
+
+      doc.setFillColor(255, 255, 255);
+      doc.rect(x, y + actualHeaderH, cardWidth, cardHeight - actualHeaderH - r, "F");
+      doc.roundedRect(x, y + cardHeight - r * 2 - 2, cardWidth, r * 2 + 2, r, r, "F");
+
+      doc.setDrawColor(210);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, y, cardWidth, cardHeight, r, r);
+
+      const drawShield = (sx: number, sy: number, size: number) => {
+        doc.setFillColor(255, 255, 255);
+        const w = size * 0.8;
+        const h = size;
+        doc.roundedRect(sx - w / 2, sy - h * 0.1, w, h * 0.55, w * 0.15, w * 0.15, "F");
+        doc.triangle(
+          sx - w / 2, sy + h * 0.4,
+          sx + w / 2, sy + h * 0.4,
+          sx, sy + h * 0.85,
+          "F"
+        );
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.3);
+        doc.line(sx, sy + h * 0.05, sx, sy + h * 0.65);
+        doc.line(sx - w * 0.2, sy + h * 0.35, sx, sy + h * 0.55);
+      };
 
       let headerTextY = y + 3;
       if (schoolName) {
@@ -195,10 +217,12 @@ export default function PrintPage() {
         headerTextY += 4;
       }
 
+      drawShield(x + 5, headerTextY - 0.5, 4);
+
       doc.setFontSize(7);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.text("SafeExit", x + 4, headerTextY + 2.5);
+      doc.text("SafeExit", x + 8, headerTextY + 2.5);
 
       doc.setFontSize(5);
       doc.setFont("helvetica", "normal");
@@ -211,7 +235,7 @@ export default function PrintPage() {
       const contentH = cardHeight - actualHeaderH - 2;
 
       doc.setFillColor(248, 250, 252);
-      doc.rect(x + 0.15, y + actualHeaderH, photoSectionW - 0.15, contentH + 2 - 0.15, "F");
+      doc.rect(x, y + actualHeaderH, photoSectionW, contentH + 2, "F");
 
       const photoCenterX = x + photoSectionW / 2;
       const photoCenterY = contentY + contentH / 2 - 4;
