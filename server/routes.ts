@@ -330,13 +330,13 @@ export async function registerRoutes(
     const wb = XLSX.utils.book_new();
     const headers = [
       [
-        "Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua", "Email",
+        "Nombre", "Apellidos", "Fecha_Nacimiento", "Curso", "Grupo", "Autorizacion_Paterna", "Autorizacion_Guagua", "Minutos_Guagua", "Email",
         "Autorizado1_Nombre", "Autorizado1_Apellidos", "Autorizado1_DNI",
         "Autorizado2_Nombre", "Autorizado2_Apellidos", "Autorizado2_DNI",
         "Autorizado3_Nombre", "Autorizado3_Apellidos", "Autorizado3_DNI",
       ],
-      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO", "familia.garcia@ejemplo.com", "Ana", "Fernández López", "12345678A", "Pedro", "García Ruiz", "87654321B", "", "", ""],
-      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI", "", "", "", "", "", "", "", "", "", ""],
+      ["María", "García Fernández", "2010-03-15", "1 ESO", "1A", "SI", "NO", "", "familia.garcia@ejemplo.com", "Ana", "Fernández López", "12345678A", "Pedro", "García Ruiz", "87654321B", "", "", ""],
+      ["Carlos", "López Martín", "2005-07-22", "2 BACH", "2 BACH B", "SI", "SI", "10", "", "", "", "", "", "", "", "", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     ws["!cols"] = [
@@ -403,6 +403,8 @@ export async function registerRoutes(
         const groupName = String(row["Grupo"] || "").trim();
         const parentalAuth = String(row["Autorizacion_Paterna"] || "").trim().toUpperCase();
         const busAuth = String(row["Autorizacion_Guagua"] || "").trim().toUpperCase();
+        const busMinutesRaw = row["Minutos_Guagua"];
+        const busExitMinutes = Math.max(5, Math.min(30, busMinutesRaw ? parseInt(String(busMinutesRaw).trim()) || 5 : 5));
         const email = String(row["Email"] || "").trim() || null;
 
         if (!firstName || !lastName) {
@@ -438,6 +440,7 @@ export async function registerRoutes(
             photoUrl: null,
             parentalAuthorization: parentalAuth === "SI" || parentalAuth === "SÍ" || parentalAuth === "TRUE" || parentalAuth === "1",
             busAuthorization: busAuth === "SI" || busAuth === "SÍ" || busAuth === "TRUE" || busAuth === "1",
+            busExitMinutes,
             email,
           });
 
@@ -482,6 +485,9 @@ export async function registerRoutes(
 
   app.post("/api/students", requireAuth, requireAdmin, async (req, res) => {
     try {
+      if (req.body.busExitMinutes !== undefined) {
+        req.body.busExitMinutes = Math.max(5, Math.min(30, parseInt(req.body.busExitMinutes) || 5));
+      }
       const student = await storage.createStudent(req.body);
       res.json(student);
     } catch (error: any) {
@@ -490,6 +496,9 @@ export async function registerRoutes(
   });
 
   app.patch("/api/students/:id", requireAuth, requireAdmin, async (req, res) => {
+    if (req.body.busExitMinutes !== undefined) {
+      req.body.busExitMinutes = Math.max(5, Math.min(30, parseInt(req.body.busExitMinutes) || 5));
+    }
     const student = await storage.updateStudent(parseInt(req.params.id), req.body);
     if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
     res.json(student);
@@ -657,6 +666,54 @@ export async function registerRoutes(
         });
       }
 
+      if (student.busAuthorization) {
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const busMinutes = student.busExitMinutes || 5;
+
+        const classSlots = slotsForDay.filter(s => !s.isBreak);
+        const morningSlots = classSlots.filter(s => s.id <= 6);
+        const afternoonSlots = classSlots.filter(s => s.id > 6);
+
+        const lastMorning = morningSlots.length > 0 ? morningSlots[morningSlots.length - 1] : null;
+        const lastAfternoon = afternoonSlots.length > 0 ? afternoonSlots[afternoonSlots.length - 1] : null;
+
+        let busAllowed = false;
+        let busLabel = "";
+
+        if (lastMorning) {
+          const morningEnd = timeToMinutes(lastMorning.end);
+          if (currentMinutes >= morningEnd - busMinutes && currentMinutes <= morningEnd) {
+            busAllowed = true;
+            busLabel = `${busMinutes} min antes del fin de mañana (${lastMorning.end})`;
+          }
+        }
+        if (!busAllowed && lastAfternoon) {
+          const afternoonEnd = timeToMinutes(lastAfternoon.end);
+          if (currentMinutes >= afternoonEnd - busMinutes && currentMinutes <= afternoonEnd) {
+            busAllowed = true;
+            busLabel = `${busMinutes} min antes del fin de tarde (${lastAfternoon.end})`;
+          }
+        }
+
+        if (busAllowed) {
+          const reason = `Salida por guagua - ${busLabel}`;
+          const log = await storage.createExitLog({
+            studentId: student.id,
+            result: "AUTORIZADO",
+            reason,
+            verifiedBy: userId,
+          });
+          sendEarlyExitEmail(student, reason, new Date()).catch(() => {});
+          return res.json({
+            result: "AUTORIZADO",
+            reason,
+            student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
+            logId: log.id,
+          });
+        }
+      }
+
       if (timeSlot === -1) {
         const log = await storage.createExitLog({
           studentId: student.id,
@@ -684,25 +741,6 @@ export async function registerRoutes(
         return res.json({
           result: "DENEGADO",
           reason: `${breakLabel} - No se permite salida`,
-          student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
-          logId: log.id,
-        });
-      }
-
-      const BUS_SLOTS = [6, 12];
-      if (BUS_SLOTS.includes(timeSlot) && student.busAuthorization) {
-        const slotLabel = timeSlot === 6 ? "6a hora mañana" : "6a hora tarde";
-        const reason = `Salida por guagua - ${slotLabel}`;
-        const log = await storage.createExitLog({
-          studentId: student.id,
-          result: "AUTORIZADO",
-          reason,
-          verifiedBy: userId,
-        });
-        sendEarlyExitEmail(student, reason, new Date()).catch(() => {});
-        return res.json({
-          result: "AUTORIZADO",
-          reason,
           student: { id: student.id, firstName: student.firstName, lastName: student.lastName, photoUrl: student.photoUrl, course: student.course, groupId: student.groupId, age },
           logId: log.id,
         });

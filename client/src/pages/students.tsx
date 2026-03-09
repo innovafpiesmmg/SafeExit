@@ -36,7 +36,7 @@ export default function StudentsPage() {
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0,
-    parentalAuthorization: false, busAuthorization: false, photoUrl: "", email: "",
+    parentalAuthorization: false, busAuthorization: false, busExitMinutes: 5, photoUrl: "", email: "",
   });
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
@@ -71,7 +71,7 @@ export default function StudentsPage() {
   });
 
   const resetForm = () => {
-    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, busAuthorization: false, photoUrl: "", email: "" });
+    setForm({ firstName: "", lastName: "", dateOfBirth: "", course: "", groupId: 0, parentalAuthorization: false, busAuthorization: false, busExitMinutes: 5, photoUrl: "", email: "" });
     setEditing(null);
     setDialogOpen(false);
   };
@@ -81,7 +81,7 @@ export default function StudentsPage() {
     setForm({
       firstName: s.firstName, lastName: s.lastName, dateOfBirth: s.dateOfBirth,
       course: s.course, groupId: s.groupId, parentalAuthorization: s.parentalAuthorization,
-      busAuthorization: s.busAuthorization, photoUrl: s.photoUrl || "", email: s.email || "",
+      busAuthorization: s.busAuthorization, busExitMinutes: s.busExitMinutes || 5, photoUrl: s.photoUrl || "", email: s.email || "",
     });
     setDialogOpen(true);
   };
@@ -264,9 +264,30 @@ export default function StudentsPage() {
                 <Switch data-testid="switch-parental-auth" checked={form.parentalAuthorization} onCheckedChange={v => setForm(f => ({ ...f, parentalAuthorization: v }))} />
                 <Label>Autorización paterna</Label>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch data-testid="switch-bus-auth" checked={form.busAuthorization} onCheckedChange={v => setForm(f => ({ ...f, busAuthorization: v }))} />
-                <Label>Autorización salida por guagua (6a hora)</Label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Switch data-testid="switch-bus-auth" checked={form.busAuthorization} onCheckedChange={v => setForm(f => ({ ...f, busAuthorization: v }))} />
+                  <Label>Autorización salida por guagua</Label>
+                </div>
+                {form.busAuthorization && (
+                  <div className="ml-10 flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Sale</Label>
+                    <Select value={String(form.busExitMinutes)} onValueChange={v => setForm(f => ({ ...f, busExitMinutes: parseInt(v) }))}>
+                      <SelectTrigger className="w-24 h-8 text-sm" data-testid="select-bus-minutes">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 min</SelectItem>
+                        <SelectItem value="10">10 min</SelectItem>
+                        <SelectItem value="15">15 min</SelectItem>
+                        <SelectItem value="20">20 min</SelectItem>
+                        <SelectItem value="25">25 min</SelectItem>
+                        <SelectItem value="30">30 min</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Label className="text-xs text-muted-foreground whitespace-nowrap">antes del fin de jornada</Label>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="secondary" onClick={resetForm} className="flex-1">Cancelar</Button>
@@ -342,7 +363,7 @@ export default function StudentsPage() {
                           {student.parentalAuthorization ? "Autorizado" : "No autorizado"}
                         </Badge>
                         {student.busAuthorization && (
-                          <Badge variant="secondary" className="text-xs">Guagua</Badge>
+                          <Badge variant="secondary" className="text-xs">Guagua ({student.busExitMinutes || 5} min)</Badge>
                         )}
                         {student.email && (
                           <Badge variant="outline" className="text-xs"><Mail className="w-3 h-3 mr-1" />Email</Badge>

@@ -46,11 +46,12 @@ A PWA web application for managing student departures from a school using QR cod
 1. Age >= 18 → AUTHORIZED (adult)
 2. Minor without parental authorization → DENIED
 3. Weekend → DENIED
-4. Outside configured time slots → DENIED
-5. Bus authorization at slots 6/12 → AUTHORIZED
-6. Minor with authorization → Check group schedule for current date + time slot
-7. Schedule allows exit → AUTHORIZED
-8. Otherwise → DENIED
+4. Bus authorization within configured minutes (5-30, per student) before end of morning/afternoon session → AUTHORIZED
+5. Outside configured time slots → DENIED
+6. Break time → DENIED
+7. Minor with authorization → Check group schedule for current date + time slot
+8. Schedule allows exit → AUTHORIZED
+9. Otherwise → DENIED
 
 ## Roles & Views
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings). Can enter guard/tutor mode via QR URLs (?mode=guard or ?mode=tutor), with back-to-admin button.

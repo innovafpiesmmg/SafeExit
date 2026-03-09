@@ -37,6 +37,7 @@ export const students = pgTable("students", {
   photoUrl: text("photo_url"),
   parentalAuthorization: boolean("parental_authorization").notNull().default(false),
   busAuthorization: boolean("bus_authorization").notNull().default(false),
+  busExitMinutes: integer("bus_exit_minutes").default(5),
   qrCode: text("qr_code").notNull().unique(),
   carnetToken: text("carnet_token").unique(),
   email: text("email"),
