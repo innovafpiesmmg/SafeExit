@@ -124,12 +124,15 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   };
 
   const accompaniedMutation = useMutation({
-    mutationFn: async (data: { studentId: number; documentId: string }) => {
+    mutationFn: async (data: { studentId: number; documentId: string; extraordinary?: boolean; extraordinaryName?: string; extraordinaryReason?: string }) => {
       const res = await apiRequest("POST", "/api/accompanied-exit", data);
       return res.json();
     },
     onSuccess: (data) => {
       setAccompResult(data);
+      setShowExtraordinaryForm(false);
+      setExtraName("");
+      setExtraReason("");
       if (data.result === "AUTORIZADO") {
         setAccompSignaturePending(true);
         playSuccessSound();
@@ -171,7 +174,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
       extraordinary: true,
       extraordinaryName: extraName.trim(),
       extraordinaryReason: extraReason.trim(),
-    } as any);
+    });
   };
 
   const resetAccompanied = () => {
