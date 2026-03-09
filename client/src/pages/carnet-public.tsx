@@ -163,7 +163,7 @@ export default function CarnetPublicPage() {
             <div className="flex justify-center">
               {qrDataUrl && (
                 <div className="bg-white p-3 rounded-xl shadow-inner border" data-testid="img-carnet-qr">
-                  <img src={qrDataUrl} alt="Código QR" className="w-56 h-56" />
+                  <img src={qrDataUrl} alt="Código QR" className="w-36 h-36" />
                 </div>
               )}
             </div>
