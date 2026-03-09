@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, History, Filter } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Download, Search, History, Filter, PenLine } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Group } from "@shared/schema";
@@ -18,6 +19,7 @@ export default function HistoryPage() {
   const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [groupFilter, setGroupFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("");
+  const [signatureView, setSignatureView] = useState<{ open: boolean; data: string; studentName: string; reason: string; date: string } | null>(null);
 
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
 
@@ -112,6 +114,7 @@ export default function HistoryPage() {
                     <TableHead className="text-xs">Resultado</TableHead>
                     <TableHead className="text-xs">Motivo</TableHead>
                     <TableHead className="text-xs">Verificado por</TableHead>
+                    <TableHead className="text-xs text-center">Firma</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -128,6 +131,27 @@ export default function HistoryPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{log.reason}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{log.verifierName}</TableCell>
+                      <TableCell className="text-center">
+                        {log.signatureData ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            data-testid={`button-view-signature-${log.id}`}
+                            onClick={() => setSignatureView({
+                              open: true,
+                              data: log.signatureData,
+                              studentName: log.studentName,
+                              reason: log.reason || "",
+                              date: format(new Date(log.timestamp), "dd/MM/yyyy HH:mm"),
+                            })}
+                          >
+                            <PenLine className="w-4 h-4 text-primary" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/40">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -136,6 +160,49 @@ export default function HistoryPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={signatureView?.open || false} onOpenChange={(open) => !open && setSignatureView(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-signature-view">
+          <DialogHeader>
+            <DialogTitle>Firma del acompañante</DialogTitle>
+          </DialogHeader>
+          {signatureView && (
+            <div className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p><span className="font-medium">Alumno:</span> {signatureView.studentName}</p>
+                <p><span className="font-medium">Fecha:</span> {signatureView.date}</p>
+                {signatureView.reason && (
+                  <p><span className="font-medium">Motivo:</span> {signatureView.reason}</p>
+                )}
+              </div>
+              <div className="border rounded-lg overflow-hidden bg-white p-2">
+                <img
+                  src={signatureView.data}
+                  alt="Firma del acompañante"
+                  className="w-full h-auto"
+                  data-testid="img-signature"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="button-download-signature"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.download = `firma_${signatureView.studentName.replace(/\s/g, "_")}_${signatureView.date.replace(/[\/\s:]/g, "-")}.png`;
+                    link.href = signatureView.data;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
