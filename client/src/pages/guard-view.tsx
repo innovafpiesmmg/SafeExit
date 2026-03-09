@@ -43,6 +43,36 @@ function useOnlineStatus() {
   return online;
 }
 
+function useWakeLock() {
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
+  const requestWakeLock = useCallback(async () => {
+    if (!("wakeLock" in navigator)) return;
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request("screen");
+      wakeLockRef.current.addEventListener("release", () => {
+        wakeLockRef.current = null;
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    requestWakeLock();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      wakeLockRef.current?.release().catch(() => {});
+    };
+  }, [requestWakeLock]);
+}
+
 interface GuardViewProps {
   tutorMode?: boolean;
   embedded?: boolean;
@@ -55,6 +85,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const { toast } = useToast();
   const now = useCurrentTime();
   const online = useOnlineStatus();
+  useWakeLock();
 
   const [qrInput, setQrInput] = useState("");
   const [scanResult, setScanResult] = useState<any>(null);
