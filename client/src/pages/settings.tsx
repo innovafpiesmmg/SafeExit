@@ -31,6 +31,7 @@ export default function SettingsPage() {
   });
   const [schoolName, setSchoolName] = useState("");
   const [accompaniedExitEmailEnabled, setAccompaniedExitEmailEnabled] = useState(false);
+  const [extraordinaryExitEnabled, setExtraordinaryExitEnabled] = useState(false);
   const [academicYear, setAcademicYear] = useState(() => {
     const now = new Date();
     const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -55,6 +56,7 @@ export default function SettingsPage() {
       });
       setSchoolName(settings.schoolName || "");
       setAccompaniedExitEmailEnabled(settings.accompaniedExitEmailEnabled === "true");
+      setExtraordinaryExitEnabled(settings.extraordinaryExitEnabled === "true");
       if (settings.academicYear) {
         setAcademicYear(settings.academicYear);
       }
@@ -78,6 +80,7 @@ export default function SettingsPage() {
         schoolName,
         academicYear,
         accompaniedExitEmailEnabled: accompaniedExitEmailEnabled ? "true" : "false",
+        extraordinaryExitEnabled: extraordinaryExitEnabled ? "true" : "false",
         timeSlots: JSON.stringify(timeSlots),
       };
       for (const [key, value] of Object.entries(entries)) {
@@ -509,6 +512,17 @@ export default function SettingsPage() {
               checked={accompaniedExitEmailEnabled}
               onCheckedChange={setAccompaniedExitEmailEnabled}
               data-testid="switch-accompanied-email"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Permitir autorización extraordinaria</Label>
+              <p className="text-xs text-muted-foreground">Cuando un DNI/NIE no figure como autorizado, el guardia podrá autorizar la salida de forma extraordinaria si los padres/tutores lo han confirmado por teléfono o email</p>
+            </div>
+            <Switch
+              checked={extraordinaryExitEnabled}
+              onCheckedChange={setExtraordinaryExitEnabled}
+              data-testid="switch-extraordinary-exit"
             />
           </div>
         </CardContent>

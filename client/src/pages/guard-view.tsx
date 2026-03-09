@@ -76,6 +76,9 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const [accompDni, setAccompDni] = useState("");
   const [accompResult, setAccompResult] = useState<any>(null);
   const [accompSignaturePending, setAccompSignaturePending] = useState(false);
+  const [showExtraordinaryForm, setShowExtraordinaryForm] = useState(false);
+  const [extraName, setExtraName] = useState("");
+  const [extraReason, setExtraReason] = useState("");
   const [accompScanning, setAccompScanning] = useState(false);
   const accompScannerRef = useRef<any>(null);
   const accompVideoRef = useRef<HTMLDivElement>(null);
@@ -160,9 +163,23 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     accompaniedMutation.mutate({ studentId: accompSelectedStudent.id, documentId: accompDni.trim() });
   };
 
+  const handleExtraordinaryExit = () => {
+    if (!accompSelectedStudent || !extraName.trim() || !extraReason.trim()) return;
+    accompaniedMutation.mutate({
+      studentId: accompSelectedStudent.id,
+      documentId: accompDni || "",
+      extraordinary: true,
+      extraordinaryName: extraName.trim(),
+      extraordinaryReason: extraReason.trim(),
+    } as any);
+  };
+
   const resetAccompanied = () => {
     setAccompResult(null);
     setAccompSignaturePending(false);
+    setShowExtraordinaryForm(false);
+    setExtraName("");
+    setExtraReason("");
     setAccompDni("");
     setAccompSelectedStudent(null);
     stopAccompCamera();
@@ -634,9 +651,72 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
           </p>
           <p className="text-xs text-muted-foreground">{accompResult.student?.course}</p>
           <p className="text-sm mt-2" data-testid="text-accomp-reason">{accompResult.reason}</p>
-          {accompResult.incidentCreated && (
-            <Badge variant="destructive" className="mt-2 text-xs">Incidencia registrada automáticamente</Badge>
+          {accompResult.extraordinary && (
+            <Badge variant="secondary" className="mt-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Autorización extraordinaria</Badge>
           )}
+
+          {accompResult.result === "DENEGADO" && accompResult.extraordinaryAvailable && !showExtraordinaryForm && (
+            <div className="mt-3 pt-3 border-t">
+              <Button
+                onClick={() => setShowExtraordinaryForm(true)}
+                variant="outline"
+                className="w-full border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                data-testid="button-extraordinary-open"
+              >
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Autorización extraordinaria
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-1.5">Usar solo si los padres/tutores han confirmado por teléfono o email</p>
+            </div>
+          )}
+
+          {showExtraordinaryForm && (
+            <div className="mt-3 pt-3 border-t space-y-2 text-left">
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 mb-2">
+                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Autorización extraordinaria — quedará registrada como incidencia
+                </p>
+              </div>
+              <Input
+                value={extraName}
+                onChange={e => setExtraName(e.target.value)}
+                placeholder="Nombre completo del acompañante"
+                className="h-10"
+                data-testid="input-extraordinary-name"
+              />
+              <Select value={extraReason} onValueChange={setExtraReason}>
+                <SelectTrigger className="h-10" data-testid="select-extraordinary-reason">
+                  <SelectValue placeholder="Medio de confirmación..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Confirmado por teléfono por los padres/tutores">Confirmado por teléfono</SelectItem>
+                  <SelectItem value="Confirmado por email por los padres/tutores">Confirmado por email</SelectItem>
+                  <SelectItem value="Confirmado presencialmente por los padres/tutores">Confirmado presencialmente</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowExtraordinaryForm(false); setExtraName(""); setExtraReason(""); }}
+                  className="flex-1 h-10"
+                  data-testid="button-extraordinary-cancel"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleExtraordinaryExit}
+                  disabled={!extraName.trim() || !extraReason || accompaniedMutation.isPending}
+                  className="flex-1 h-10 bg-amber-600 hover:bg-amber-700 text-white"
+                  data-testid="button-extraordinary-confirm"
+                >
+                  {accompaniedMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-1.5" />}
+                  Autorizar salida
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Button onClick={resetAccompanied} variant="outline" className="w-full mt-3" data-testid="button-accomp-reset">
             <RotateCcw className="w-4 h-4 mr-2" /> Nueva verificación
           </Button>

@@ -1170,9 +1170,9 @@ export async function registerRoutes(
 
   app.post("/api/accompanied-exit", requireAuth, async (req, res) => {
     try {
-      const { studentId, documentId } = req.body;
+      const { studentId, documentId, extraordinary, extraordinaryName, extraordinaryReason } = req.body;
       const userId = (req.session as any).userId;
-      if (!studentId || !documentId) {
+      if (!studentId || (!documentId && !extraordinary)) {
         return res.status(400).json({ message: "Alumno y DNI/NIE son obligatorios" });
       }
       const id = parseInt(studentId);
@@ -1182,6 +1182,54 @@ export async function registerRoutes(
 
       const group = await storage.getGroup(student.groupId);
       const age = Math.floor((Date.now() - new Date(student.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+      if (extraordinary) {
+        const extraordinaryEnabled = await storage.getSetting("extraordinaryExitEnabled");
+        if (extraordinaryEnabled !== "true") {
+          return res.status(403).json({ message: "La autorización extraordinaria no está habilitada" });
+        }
+        if (!extraordinaryName || !extraordinaryReason) {
+          return res.status(400).json({ message: "Nombre del acompañante y motivo son obligatorios" });
+        }
+
+        const reasonText = `Salida extraordinaria con ${extraordinaryName} (DNI: ${documentId || "no facilitado"}). Motivo: ${extraordinaryReason}`;
+        const exitLog = await storage.createExitLog({
+          studentId: student.id,
+          result: "AUTORIZADO",
+          reason: reasonText,
+          verifiedBy: userId,
+        });
+
+        await storage.createIncident({
+          exitLogId: exitLog.id,
+          note: `Autorización extraordinaria. Acompañante: ${extraordinaryName}. DNI/NIE: ${documentId || "no facilitado"}. Motivo: ${extraordinaryReason}. Alumno: ${student.firstName} ${student.lastName}.`,
+          createdBy: userId,
+        });
+
+        const accompaniedEmailEnabled = await storage.getSetting("accompaniedExitEmailEnabled");
+        if (student.email && accompaniedEmailEnabled === "true") {
+          sendEarlyExitEmail(student, `Salida extraordinaria con ${extraordinaryName}. Motivo: ${extraordinaryReason}`, new Date()).catch(() => {});
+        }
+
+        return res.json({
+          result: "AUTORIZADO",
+          reason: `Autorización extraordinaria: ${extraordinaryName}`,
+          student: {
+            firstName: student.firstName,
+            lastName: student.lastName,
+            course: student.course,
+            photoUrl: student.photoUrl,
+            age,
+          },
+          authorizedPerson: {
+            firstName: extraordinaryName,
+            lastName: "",
+            documentId: documentId || "",
+          },
+          logId: exitLog.id,
+          extraordinary: true,
+        });
+      }
 
       const authorizedPerson = await storage.verifyPickupAuthorization(id, documentId.trim());
 
@@ -1216,18 +1264,7 @@ export async function registerRoutes(
           logId: exitLog.id,
         });
       } else {
-        const exitLog = await storage.createExitLog({
-          studentId: student.id,
-          result: "DENEGADO",
-          reason: `Salida acompañada denegada - DNI/NIE ${documentId.trim()} no autorizado`,
-          verifiedBy: userId,
-        });
-
-        await storage.createIncident({
-          exitLogId: exitLog.id,
-          note: `DNI/NIE no reconocido como padre, tutor legal o persona autorizada. DNI/NIE presentado: ${documentId.trim()}. Alumno: ${student.firstName} ${student.lastName}.`,
-          createdBy: userId,
-        });
+        const extraordinaryEnabled = await storage.getSetting("extraordinaryExitEnabled");
 
         res.json({
           result: "DENEGADO",
@@ -1239,8 +1276,8 @@ export async function registerRoutes(
             photoUrl: student.photoUrl,
             age,
           },
-          logId: exitLog.id,
-          incidentCreated: true,
+          documentId: documentId.trim(),
+          extraordinaryAvailable: extraordinaryEnabled === "true",
         });
       }
     } catch (error: any) {
