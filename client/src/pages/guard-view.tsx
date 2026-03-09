@@ -94,6 +94,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
 
   const autoReturnEnabled = settings?.autoReturnEnabled === "true";
   const autoReturnSeconds = parseInt(settings?.autoReturnSeconds || "5") || 5;
+  const extraordinaryEnabled = settings?.extraordinaryExitEnabled === "true";
 
   const { data: stats } = useQuery<{ today: number; authorized: number; denied: number }>({
     queryKey: ["/api/exit-stats"],
@@ -675,7 +676,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
             </div>
 
             <div className="landscape:flex-1 landscape:min-w-0">
-              {accompResult.result === "DENEGADO" && !showExtraordinaryForm && (
+              {accompResult.result === "DENEGADO" && extraordinaryEnabled && !showExtraordinaryForm && (
                 <div className="mt-3 pt-3 border-t landscape:mt-0 landscape:pt-0 landscape:border-t-0 landscape:border-l landscape:pl-4">
                   <Button
                     onClick={() => setShowExtraordinaryForm(true)}
