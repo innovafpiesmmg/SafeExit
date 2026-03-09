@@ -65,6 +65,7 @@ export const exitLogs = pgTable("exit_logs", {
   result: text("result").notNull(),
   reason: text("reason").notNull(),
   verifiedBy: integer("verified_by"),
+  signatureData: text("signature_data"),
 });
 
 export const insertExitLogSchema = createInsertSchema(exitLogs).omit({ id: true, timestamp: true });

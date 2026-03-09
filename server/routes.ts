@@ -5,7 +5,9 @@ import { differenceInYears } from "date-fns";
 import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
-import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig } from "@shared/schema";
+import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, exitLogs } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection } from "./email";
 import multer from "multer";
 import path from "path";
@@ -1241,6 +1243,21 @@ export async function registerRoutes(
           incidentCreated: true,
         });
       }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/exit-logs/:id/signature", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const { signatureData } = req.body;
+      if (!signatureData || typeof signatureData !== "string") {
+        return res.status(400).json({ message: "Firma requerida" });
+      }
+      await db.update(exitLogs).set({ signatureData }).where(eq(exitLogs.id, id));
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

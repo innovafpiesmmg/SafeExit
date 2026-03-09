@@ -15,7 +15,7 @@ A PWA web application for managing student departures from a school using QR cod
 - `groups` - School class groups (e.g., "1A", "2B")
 - `students` - Student records with QR codes, photos, parental authorization, email (for notifications)
 - `group_schedules` - Exit permission calendar per specific date (date + timeSlot per group)
-- `exit_logs` - Audit log of all QR scan events
+- `exit_logs` - Audit log of all QR scan events (includes optional `signatureData` for accompanied exit signatures)
 - `incidents` - Incident reports tied to exit logs
 - `late_arrivals` - Late arrival records with optional email notification
 - `authorized_pickups` - Authorized persons to pick up students (name, DNI/NIE, linked to student)

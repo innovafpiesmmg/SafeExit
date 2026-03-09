@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useWakeLock } from "@/hooks/use-wake-lock";
+import { SignaturePad } from "@/components/signature-pad";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -74,6 +75,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const [accompSelectedStudent, setAccompSelectedStudent] = useState<Student | null>(null);
   const [accompDni, setAccompDni] = useState("");
   const [accompResult, setAccompResult] = useState<any>(null);
+  const [accompSignaturePending, setAccompSignaturePending] = useState(false);
   const [accompScanning, setAccompScanning] = useState(false);
   const accompScannerRef = useRef<any>(null);
   const accompVideoRef = useRef<HTMLDivElement>(null);
@@ -126,6 +128,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     onSuccess: (data) => {
       setAccompResult(data);
       if (data.result === "AUTORIZADO") {
+        setAccompSignaturePending(true);
         playSuccessSound();
       } else {
         playErrorSound();
@@ -138,6 +141,20 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
     },
   });
 
+  const signatureMutation = useMutation({
+    mutationFn: async ({ logId, signatureData }: { logId: number; signatureData: string }) => {
+      const res = await apiRequest("PATCH", `/api/exit-logs/${logId}/signature`, { signatureData });
+      return res.json();
+    },
+    onSuccess: () => {
+      setAccompSignaturePending(false);
+      toast({ title: "Firma registrada correctamente" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Error al guardar firma", description: e.message, variant: "destructive" });
+    },
+  });
+
   const handleAccompaniedVerify = () => {
     if (!accompSelectedStudent || !accompDni.trim()) return;
     accompaniedMutation.mutate({ studentId: accompSelectedStudent.id, documentId: accompDni.trim() });
@@ -145,6 +162,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
 
   const resetAccompanied = () => {
     setAccompResult(null);
+    setAccompSignaturePending(false);
     setAccompDni("");
     setAccompSelectedStudent(null);
     stopAccompCamera();
@@ -563,6 +581,33 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const accompaniedPanel = (isEmbedded: boolean) => (
     <div className="space-y-3">
       {accompResult ? (
+        accompSignaturePending && accompResult.result === "AUTORIZADO" ? (
+          <div className="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+            {accompResult.student && (
+              <div className="flex items-center gap-3 mb-2">
+                <Avatar className="w-14 h-14 border-2 border-emerald-300 shadow" data-testid="avatar-accomp-sign-student">
+                  <AvatarImage src={accompResult.student.photoUrl || undefined} />
+                  <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
+                    {accompResult.student.firstName[0]}{accompResult.student.lastName[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-left">
+                  <p className="font-semibold text-sm">{accompResult.student.firstName} {accompResult.student.lastName}</p>
+                  <p className="text-xs text-muted-foreground">{accompResult.student.course}</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">{accompResult.reason}</p>
+                </div>
+              </div>
+            )}
+            <SignaturePad
+              onSave={(dataUrl) => signatureMutation.mutate({ logId: accompResult.logId, signatureData: dataUrl })}
+              saving={signatureMutation.isPending}
+              signerName={accompResult.authorizedPerson ? `${accompResult.authorizedPerson.firstName} ${accompResult.authorizedPerson.lastName}` : undefined}
+            />
+            <Button onClick={() => setAccompSignaturePending(false)} variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" data-testid="button-skip-signature">
+              Omitir firma
+            </Button>
+          </div>
+        ) : (
         <div className={`rounded-xl p-4 text-center ${accompResult.result === "AUTORIZADO" ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-red-500/10 border border-red-500/30"}`}>
           {accompResult.student && (
             <div className="flex justify-center mb-3">
@@ -596,6 +641,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
             <RotateCcw className="w-4 h-4 mr-2" /> Nueva verificación
           </Button>
         </div>
+        )
       ) : !accompSelectedStudent ? (
         <>
           <Select value={accompGroupId} onValueChange={setAccompGroupId}>
