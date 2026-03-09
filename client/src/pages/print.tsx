@@ -167,19 +167,13 @@ export default function PrintPage() {
 
     let logoDataUrl = "";
     try {
-      const logoImg = new Image();
-      logoImg.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
-        logoImg.onload = () => resolve();
-        logoImg.onerror = () => reject();
-        logoImg.src = "/favicon.png";
+      const resp = await fetch("/favicon.png");
+      const blob = await resp.blob();
+      logoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
       });
-      const c = document.createElement("canvas");
-      c.width = logoImg.width;
-      c.height = logoImg.height;
-      const ctx = c.getContext("2d")!;
-      ctx.drawImage(logoImg, 0, 0);
-      logoDataUrl = c.toDataURL("image/png");
     } catch {}
 
     for (let i = 0; i < printStudents.length; i++) {
