@@ -1264,8 +1264,6 @@ export async function registerRoutes(
           logId: exitLog.id,
         });
       } else {
-        const extraordinaryEnabled = await storage.getSetting("extraordinaryExitEnabled");
-
         res.json({
           result: "DENEGADO",
           reason: `DNI/NIE ${documentId.trim()} no figura como padre, tutor legal o persona autorizada`,
@@ -1277,7 +1275,6 @@ export async function registerRoutes(
             age,
           },
           documentId: documentId.trim(),
-          extraordinaryAvailable: extraordinaryEnabled === "true",
         });
       }
     } catch (error: any) {

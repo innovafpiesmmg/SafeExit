@@ -658,7 +658,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
             <Badge variant="secondary" className="mt-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Autorización extraordinaria</Badge>
           )}
 
-          {accompResult.result === "DENEGADO" && accompResult.extraordinaryAvailable && !showExtraordinaryForm && (
+          {accompResult.result === "DENEGADO" && !showExtraordinaryForm && (
             <div className="mt-3 pt-3 border-t">
               <Button
                 onClick={() => setShowExtraordinaryForm(true)}
