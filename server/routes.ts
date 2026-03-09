@@ -5,7 +5,7 @@ import { differenceInYears } from "date-fns";
 import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
-import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, exitLogs, students, groups, users } from "@shared/schema";
+import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, type User, exitLogs, students, groups, users } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection } from "./email";
@@ -1512,6 +1512,356 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== GUARD DUTY ZONES ====================
+
+  app.get("/api/guard-zones", requireAuth, async (_req, res) => {
+    try {
+      const zones = await storage.getAllGuardZones();
+      res.json(zones);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/guard-zones", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { buildingNumber, zoneName, zoneOrder } = req.body;
+      if (!buildingNumber || !zoneName) {
+        return res.status(400).json({ message: "Edificio y nombre de zona requeridos" });
+      }
+      if (buildingNumber < 1 || buildingNumber > 3) {
+        return res.status(400).json({ message: "Edificio debe ser 1, 2 o 3" });
+      }
+      const existing = await storage.getGuardZonesByBuilding(buildingNumber);
+      if (existing.length >= 6) {
+        return res.status(400).json({ message: "Máximo 6 zonas por edificio" });
+      }
+      const zone = await storage.createGuardZone({
+        buildingNumber,
+        zoneName,
+        zoneOrder: zoneOrder ?? existing.length + 1,
+      });
+      res.json(zone);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/guard-zones/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const updated = await storage.updateGuardZone(id, req.body);
+      if (!updated) return res.status(404).json({ message: "Zona no encontrada" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/guard-zones/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      await storage.deleteGuardZone(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== GUARD DUTY ASSIGNMENTS ====================
+
+  app.get("/api/guard-duty-assignments", requireAuth, async (req, res) => {
+    try {
+      const day = req.query.day ? parseInt(req.query.day as string) : undefined;
+      if (day !== undefined) {
+        const assignments = await storage.getGuardDutyAssignments(day);
+        return res.json(assignments);
+      }
+      const all = await storage.getAllGuardDutyAssignments();
+      res.json(all);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/guard-duty-assignments", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId, dayOfWeek, timeSlotId, zoneId } = req.body;
+      if (!userId || !dayOfWeek || !timeSlotId || !zoneId) {
+        return res.status(400).json({ message: "Todos los campos son requeridos" });
+      }
+      const assignment = await storage.createGuardDutyAssignment({ userId, dayOfWeek, timeSlotId, zoneId });
+      res.json(assignment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/guard-duty-assignments/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      await storage.deleteGuardDutyAssignment(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/guard-duty-assignments/day/:day", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const day = parseInt(req.params.day);
+      if (isNaN(day) || day < 1 || day > 5) {
+        return res.status(400).json({ message: "Día inválido (1-5)" });
+      }
+      const { assignments } = req.body;
+      if (!Array.isArray(assignments)) {
+        return res.status(400).json({ message: "Se requiere un array de asignaciones" });
+      }
+      const result = await storage.bulkSetGuardDutyAssignments(day, assignments.map((a: any) => ({
+        userId: a.userId,
+        dayOfWeek: day,
+        timeSlotId: a.timeSlotId,
+        zoneId: a.zoneId,
+      })));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== GUARD DUTY REGISTRATIONS ====================
+
+  app.get("/api/guard-duty-registrations", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const isAdmin = user.role === "admin";
+
+      if (!isAdmin) {
+        const today = new Date().toISOString().split("T")[0];
+        const regs = await storage.getGuardDutyRegistrations({ dateFrom: today, dateTo: today });
+        const sanitized = regs.map(({ signatureData, ...rest }: any) => rest);
+        return res.json(sanitized);
+      }
+
+      const filters: any = {};
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo;
+      if (req.query.buildingNumber) filters.buildingNumber = parseInt(req.query.buildingNumber as string);
+      if (req.query.zoneId) filters.zoneId = parseInt(req.query.zoneId as string);
+      if (req.query.userId) filters.userId = parseInt(req.query.userId as string);
+      const regs = await storage.getGuardDutyRegistrations(filters);
+      res.json(regs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/guard-duty-registrations", requireAuth, async (req, res) => {
+    try {
+      const { userId, zoneId, timeSlotId, signatureData } = req.body;
+      if (!userId || !zoneId || !timeSlotId) {
+        return res.status(400).json({ message: "Usuario, zona y periodo son requeridos" });
+      }
+      if (!signatureData) {
+        return res.status(400).json({ message: "La firma es obligatoria" });
+      }
+
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      const settingsRaw = await storage.getSetting("timeSlots");
+      const timeSlotsConfig: TimeSlotsConfig = settingsRaw ? JSON.parse(settingsRaw) : getDefaultTimeSlotsConfig();
+      const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+      const daySlots = getTimeSlotsForDay(timeSlotsConfig, dayOfWeek);
+      const slot = daySlots.find(s => s.id === timeSlotId);
+
+      if (!slot) {
+        return res.status(400).json({ message: "Periodo no válido" });
+      }
+
+      const dayAssignments = await storage.getGuardDutyAssignments(dayOfWeek);
+      const validAssignment = dayAssignments.find(
+        a => a.userId === userId && a.zoneId === zoneId && a.timeSlotId === timeSlotId
+      );
+      if (!validAssignment) {
+        return res.status(400).json({ message: "Este profesor no está asignado a esta zona/periodo" });
+      }
+
+      const [slotStartH, slotStartM] = slot.start.split(":").map(Number);
+      const [slotEndH, slotEndM] = slot.end.split(":").map(Number);
+      const slotStart = slotStartH * 60 + slotStartM;
+      const slotEnd = slotEndH * 60 + slotEndM;
+
+      if (currentMinutes < slotStart || currentMinutes > slotEnd + 5) {
+        return res.status(400).json({ message: "Solo puede fichar durante el periodo de guardia (con un margen de 5 minutos)" });
+      }
+
+      const existing = await storage.getGuardDutyRegistrationsByUserAndDate(userId, today);
+      if (existing.some(r => r.timeSlotId === timeSlotId)) {
+        return res.status(400).json({ message: "Ya ha fichado para este periodo hoy" });
+      }
+
+      const reg = await storage.createGuardDutyRegistration({
+        userId,
+        zoneId,
+        date: today,
+        timeSlotId,
+        signatureData,
+      });
+      res.json(reg);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/guard-duty/my-assignments", requireAuth, async (req, res) => {
+    try {
+      const now = new Date();
+      const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+      if (dayOfWeek > 5) {
+        return res.json([]);
+      }
+      const assignments = await storage.getGuardDutyAssignments(dayOfWeek);
+      const zones = await storage.getAllGuardZones();
+      const allUsers = await storage.getAllUsers();
+
+      const enriched = assignments.map(a => {
+        const user = allUsers.find(u => u.id === a.userId);
+        const zone = zones.find(z => z.id === a.zoneId);
+        return {
+          ...a,
+          userName: user?.fullName || "Desconocido",
+          zoneName: zone?.zoneName || "Zona eliminada",
+          buildingNumber: zone?.buildingNumber || 0,
+        };
+      });
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/guard-duty-registrations/:id/pdf", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+
+      const allRegs = await storage.getGuardDutyRegistrations();
+      const reg = allRegs.find((r: any) => r.id === id);
+      if (!reg) return res.status(404).json({ message: "Registro no encontrado" });
+
+      const schoolName = (await storage.getSetting("schoolName")) || "Centro Educativo";
+
+      const settingsRaw = await storage.getSetting("timeSlots");
+      const timeSlotsConfig: TimeSlotsConfig = settingsRaw ? JSON.parse(settingsRaw) : getDefaultTimeSlotsConfig();
+      const regDate = new Date(reg.date + "T12:00:00");
+      const regDayOfWeek = regDate.getDay() === 0 ? 7 : regDate.getDay();
+      const daySlots = getTimeSlotsForDay(timeSlotsConfig, regDayOfWeek);
+      const slot = daySlots.find((s: TimeSlotConfig) => s.id === reg.timeSlotId);
+      const slotLabel = slot ? `${slot.start} - ${slot.end}` : `Periodo ${reg.timeSlotId}`;
+
+      const dayNames = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+      const dayName = dayNames[regDayOfWeek] || "";
+
+      const ts = new Date(reg.timestamp);
+      const dateStr = ts.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+      const timeStr = ts.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+      const PDFDocument = (await import("pdfkit")).default;
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="guardia_${id}_${reg.date}.pdf"`);
+      doc.pipe(res);
+
+      const primaryColor = "#4472C4";
+      const textColor = "#1a1a2e";
+
+      doc.rect(0, 0, doc.page.width, 100).fill(primaryColor);
+      doc.fontSize(22).fillColor("#ffffff").text(schoolName, 50, 25, { align: "center" });
+      doc.fontSize(12).text("DECLARACIÓN DE INCORPORACIÓN A GUARDIA", 50, 58, { align: "center" });
+
+      doc.fillColor(textColor);
+      let y = 130;
+
+      doc.fontSize(10).fillColor("#666666").text(`Documento nº: GRD-${String(id).padStart(6, "0")}`, 50, y);
+      doc.text(`Fecha de emisión: ${new Date().toLocaleString("es-ES")}`, 50, y, { align: "right" });
+      y += 30;
+
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 30;
+
+      doc.fontSize(12).fillColor(textColor).text(
+        `D./Dña. ${reg.userName}, profesor/a del ${schoolName}, declara haberse incorporado ` +
+        `a su puesto de guardia según los datos que se detallan a continuación:`,
+        50, y, { width: doc.page.width - 100, align: "justify", lineGap: 4 }
+      );
+      y += 70;
+
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 20;
+
+      doc.fontSize(14).fillColor(primaryColor).text("DATOS DE LA GUARDIA", 50, y);
+      y += 30;
+
+      const labelX = 50;
+      const valueX = 220;
+
+      const addField = (label: string, value: string) => {
+        doc.fontSize(10).fillColor("#666666").text(label, labelX, y);
+        doc.fontSize(11).fillColor(textColor).text(value, valueX, y);
+        y += 24;
+      };
+
+      addField("Fecha:", `${dayName}, ${dateStr}`);
+      addField("Hora de fichaje:", timeStr);
+      addField("Periodo:", slotLabel);
+      addField("Edificio:", `Edificio ${reg.buildingNumber}`);
+      addField("Zona:", reg.zoneName);
+      addField("Profesor/a:", reg.userName);
+
+      if (reg.signatureData) {
+        y += 15;
+        doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+        y += 20;
+
+        doc.fontSize(14).fillColor(primaryColor).text("FIRMA DEL PROFESOR/A", 50, y);
+        y += 25;
+
+        try {
+          const base64Data = reg.signatureData.replace(/^data:image\/\w+;base64,/, "");
+          const imgBuffer = Buffer.from(base64Data, "base64");
+          doc.image(imgBuffer, 50, y, { width: 300, height: 120 });
+          y += 130;
+        } catch {
+          doc.fontSize(10).fillColor("#999999").text("[Firma no disponible]", 50, y);
+          y += 20;
+        }
+      }
+
+      y += 30;
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 15;
+
+      doc.fontSize(8).fillColor("#999999").text(
+        `Este documento ha sido generado automáticamente por ${schoolName} — SafeExit. ` +
+        `Registro ID: GRD-${String(id).padStart(6, "0")}. Fecha de generación: ${new Date().toLocaleString("es-ES")}.`,
+        50, y, { width: doc.page.width - 100, align: "center" }
+      );
+
+      doc.end();
+    } catch (error: any) {
+      console.error("Error generating guard duty PDF:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message });
+      }
     }
   });
 

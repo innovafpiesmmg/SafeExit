@@ -2,6 +2,7 @@ import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
+  guardZones, guardDutyAssignments, guardDutyRegistrations,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -11,6 +12,9 @@ import {
   type LateArrival, type InsertLateArrival,
   type AuthorizedPickup, type InsertAuthorizedPickup,
   type AcademicArchive,
+  type GuardZone, type InsertGuardZone,
+  type GuardDutyAssignment, type InsertGuardDutyAssignment,
+  type GuardDutyRegistration, type InsertGuardDutyRegistration,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -72,6 +76,23 @@ export interface IStorage {
   getAuthorizedPickups(studentId: number): Promise<AuthorizedPickup[]>;
   setAuthorizedPickups(studentId: number, pickups: InsertAuthorizedPickup[]): Promise<AuthorizedPickup[]>;
   verifyPickupAuthorization(studentId: number, documentId: string): Promise<AuthorizedPickup | null>;
+
+  getAllGuardZones(): Promise<GuardZone[]>;
+  getGuardZonesByBuilding(buildingNumber: number): Promise<GuardZone[]>;
+  getGuardZone(id: number): Promise<GuardZone | undefined>;
+  createGuardZone(zone: InsertGuardZone): Promise<GuardZone>;
+  updateGuardZone(id: number, zone: Partial<InsertGuardZone>): Promise<GuardZone | undefined>;
+  deleteGuardZone(id: number): Promise<void>;
+
+  getGuardDutyAssignments(dayOfWeek: number): Promise<GuardDutyAssignment[]>;
+  getAllGuardDutyAssignments(): Promise<GuardDutyAssignment[]>;
+  createGuardDutyAssignment(assignment: InsertGuardDutyAssignment): Promise<GuardDutyAssignment>;
+  deleteGuardDutyAssignment(id: number): Promise<void>;
+  bulkSetGuardDutyAssignments(dayOfWeek: number, assignments: InsertGuardDutyAssignment[]): Promise<GuardDutyAssignment[]>;
+
+  getGuardDutyRegistrations(filters?: { dateFrom?: string; dateTo?: string; buildingNumber?: number; zoneId?: number; userId?: number }): Promise<any[]>;
+  createGuardDutyRegistration(reg: InsertGuardDutyRegistration): Promise<GuardDutyRegistration>;
+  getGuardDutyRegistrationsByUserAndDate(userId: number, date: string): Promise<GuardDutyRegistration[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -357,6 +378,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetAcademicYear(adminUserId: number): Promise<void> {
+    await db.delete(guardDutyRegistrations);
+    await db.delete(guardDutyAssignments);
+    await db.delete(guardZones);
     await db.delete(incidents);
     await db.delete(exitLogs);
     await db.delete(lateArrivals);
@@ -454,6 +478,104 @@ export class DatabaseStorage implements IStorage {
     const pickups = await this.getAuthorizedPickups(studentId);
     const match = pickups.find(p => p.documentId.replace(/[\s.-]/g, "").toUpperCase() === normalized);
     return match || null;
+  }
+
+  async getAllGuardZones(): Promise<GuardZone[]> {
+    return db.select().from(guardZones).orderBy(guardZones.buildingNumber, guardZones.zoneOrder);
+  }
+
+  async getGuardZonesByBuilding(buildingNumber: number): Promise<GuardZone[]> {
+    return db.select().from(guardZones)
+      .where(eq(guardZones.buildingNumber, buildingNumber))
+      .orderBy(guardZones.zoneOrder);
+  }
+
+  async getGuardZone(id: number): Promise<GuardZone | undefined> {
+    const [zone] = await db.select().from(guardZones).where(eq(guardZones.id, id));
+    return zone;
+  }
+
+  async createGuardZone(zone: InsertGuardZone): Promise<GuardZone> {
+    const [created] = await db.insert(guardZones).values(zone).returning();
+    return created;
+  }
+
+  async updateGuardZone(id: number, zone: Partial<InsertGuardZone>): Promise<GuardZone | undefined> {
+    const [updated] = await db.update(guardZones).set(zone).where(eq(guardZones.id, id)).returning();
+    return updated;
+  }
+
+  async deleteGuardZone(id: number): Promise<void> {
+    await db.delete(guardDutyAssignments).where(eq(guardDutyAssignments.zoneId, id));
+    await db.delete(guardZones).where(eq(guardZones.id, id));
+  }
+
+  async getGuardDutyAssignments(dayOfWeek: number): Promise<GuardDutyAssignment[]> {
+    return db.select().from(guardDutyAssignments).where(eq(guardDutyAssignments.dayOfWeek, dayOfWeek));
+  }
+
+  async getAllGuardDutyAssignments(): Promise<GuardDutyAssignment[]> {
+    return db.select().from(guardDutyAssignments);
+  }
+
+  async createGuardDutyAssignment(assignment: InsertGuardDutyAssignment): Promise<GuardDutyAssignment> {
+    const [created] = await db.insert(guardDutyAssignments).values(assignment).returning();
+    return created;
+  }
+
+  async deleteGuardDutyAssignment(id: number): Promise<void> {
+    await db.delete(guardDutyAssignments).where(eq(guardDutyAssignments.id, id));
+  }
+
+  async bulkSetGuardDutyAssignments(dayOfWeek: number, assignments: InsertGuardDutyAssignment[]): Promise<GuardDutyAssignment[]> {
+    await db.delete(guardDutyAssignments).where(eq(guardDutyAssignments.dayOfWeek, dayOfWeek));
+    if (assignments.length === 0) return [];
+    return db.insert(guardDutyAssignments).values(assignments).returning();
+  }
+
+  async getGuardDutyRegistrations(filters?: { dateFrom?: string; dateTo?: string; buildingNumber?: number; zoneId?: number; userId?: number }): Promise<any[]> {
+    const allRegs = await db.select().from(guardDutyRegistrations).orderBy(desc(guardDutyRegistrations.timestamp));
+    const allUsers = await db.select().from(users);
+    const allZones = await db.select().from(guardZones);
+
+    let result = allRegs.map(reg => {
+      const user = allUsers.find(u => u.id === reg.userId);
+      const zone = allZones.find(z => z.id === reg.zoneId);
+      return {
+        ...reg,
+        userName: user?.fullName || "Desconocido",
+        zoneName: zone?.zoneName || "Zona eliminada",
+        buildingNumber: zone?.buildingNumber || 0,
+      };
+    });
+
+    if (filters?.dateFrom) {
+      result = result.filter(r => r.date >= filters.dateFrom!);
+    }
+    if (filters?.dateTo) {
+      result = result.filter(r => r.date <= filters.dateTo!);
+    }
+    if (filters?.buildingNumber) {
+      result = result.filter(r => r.buildingNumber === filters.buildingNumber);
+    }
+    if (filters?.zoneId) {
+      result = result.filter(r => r.zoneId === filters.zoneId);
+    }
+    if (filters?.userId) {
+      result = result.filter(r => r.userId === filters.userId);
+    }
+
+    return result;
+  }
+
+  async createGuardDutyRegistration(reg: InsertGuardDutyRegistration): Promise<GuardDutyRegistration> {
+    const [created] = await db.insert(guardDutyRegistrations).values(reg).returning();
+    return created;
+  }
+
+  async getGuardDutyRegistrationsByUserAndDate(userId: number, date: string): Promise<GuardDutyRegistration[]> {
+    return db.select().from(guardDutyRegistrations)
+      .where(and(eq(guardDutyRegistrations.userId, userId), eq(guardDutyRegistrations.date, date)));
   }
 }
 

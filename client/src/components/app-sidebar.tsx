@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive,
+  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck,
 } from "lucide-react";
 import logoPath from "@assets/escudo_1772663810749.png";
 
@@ -30,6 +30,8 @@ const adminItems = [
   { title: "Entradas Tardías", url: "/late-arrivals", icon: Clock },
   { title: "Historial Salidas", url: "/history", icon: History },
   { title: "Historial Entradas", url: "/late-arrivals-history", icon: ClipboardList },
+  { title: "Guardias Prof.", url: "/guard-duty", icon: Shield },
+  { title: "Reg. Guardias", url: "/guard-duty-registry", icon: ClipboardCheck },
   { title: "Imprimir Carnets", url: "/print", icon: Printer },
   { title: "Cursos Archivados", url: "/archives", icon: Archive },
   { title: "Ajustes", url: "/settings", icon: Settings },

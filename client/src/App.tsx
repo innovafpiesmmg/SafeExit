@@ -22,6 +22,8 @@ import LateArrivalsPage from "@/pages/late-arrivals";
 import LateArrivalsHistoryPage from "@/pages/late-arrivals-history";
 import SettingsPage from "@/pages/settings";
 import ArchivesPage from "@/pages/archives";
+import GuardDutyAdminPage from "@/pages/guard-duty-admin";
+import GuardDutyRegistryPage from "@/pages/guard-duty-registry";
 import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
@@ -39,6 +41,8 @@ function AdminRouter() {
       <Route path="/history" component={HistoryPage} />
       <Route path="/print" component={PrintPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/guard-duty" component={GuardDutyAdminPage} />
+      <Route path="/guard-duty-registry" component={GuardDutyRegistryPage} />
       <Route path="/archives" component={ArchivesPage} />
       <Route component={NotFound} />
     </Switch>

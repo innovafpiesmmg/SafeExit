@@ -19,6 +19,9 @@ A PWA web application for managing student departures from a school using QR cod
 - `incidents` - Incident reports tied to exit logs
 - `late_arrivals` - Late arrival records with optional email notification
 - `authorized_pickups` - Authorized persons to pick up students (name, DNI/NIE, linked to student)
+- `guard_zones` - Guard duty zones per building (buildingNumber 1-3, zoneName, zoneOrder, max 6 per building)
+- `guard_duty_assignments` - Default teacher-to-zone/period assignments per day of week
+- `guard_duty_registrations` - Teacher sign-in records with signature, date, zone, period, timestamp
 - `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle)
 
 ## Key Features
@@ -38,6 +41,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. Shows school name and academic year.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) with blue header (school name + academic year + "SafeExit"), photo, avatar with group badge, QR code (22mm/68px)
 - **Sound Feedback**: Default beep/alert sounds, with optional custom audio upload per result (authorized/denied) from admin settings. MP3/WAV/OGG supported, max 5MB.
+- **Guard Duty Management**: Admin configures buildings (1-3) with up to 6 guard zones each. Assigns teachers to zones/periods per day of week. Teachers sign in ("Fichar Guardia" tab in staff view) during their assigned period (+5 min grace) by selecting name, zone, and signing. Admin views registry (/guard-duty-registry) with filters (date, building, zone, teacher). PDF declaration document downloadable per registration ("DECLARACIÓN DE INCORPORACIÓN A GUARDIA" with teacher name, zone, period, signature). Server validates assignment existence and time window.
 - **Incident Reporting**: Optional note creation on authorized exits
 - **Guard View**: Dedicated full-screen tablet-optimized view for guards (no sidebar, large buttons, live stats, clock, WiFi indicator)
 - **Tutor→Guard Switch**: Tutors have a shield button in header to enter guard scanner mode (/guard route)
@@ -55,8 +59,8 @@ A PWA web application for managing student departures from a school using QR cod
 
 ## Roles & Views
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings). Can enter guard/tutor mode via QR URLs (?mode=guard or ?mode=tutor), with back-to-admin button.
-- **guard**: StaffView with bottom tab navigation — 2 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals registration). No sidebar, mobile/tablet optimized.
-- **tutor**: StaffView with bottom tab navigation — 4 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals) + "Registros" (exit logs and late arrivals history for their group). No sidebar, mobile optimized.
+- **guard**: StaffView with bottom tab navigation — 3 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in). No sidebar, mobile/tablet optimized.
+- **tutor**: StaffView with bottom tab navigation — 5 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in) + "Registros" (exit logs and late arrivals history for their group). No sidebar, mobile optimized.
 - **StaffView** (staff-view.tsx): Unified wrapper for guard/tutor roles with shared header (app name, user, WiFi, logout) and bottom tab bar. GuardView and TutorView accept `embedded` prop to strip their headers. Guard fullscreen result overlays tabs using fixed positioning.
 
 ## Default Credentials (dev only)

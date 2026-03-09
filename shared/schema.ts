@@ -185,6 +185,43 @@ export const appSettings = pgTable("app_settings", {
 
 export type AppSetting = typeof appSettings.$inferSelect;
 
+export const guardZones = pgTable("guard_zones", {
+  id: serial("id").primaryKey(),
+  buildingNumber: integer("building_number").notNull(),
+  zoneName: text("zone_name").notNull(),
+  zoneOrder: integer("zone_order").notNull().default(0),
+});
+
+export const insertGuardZoneSchema = createInsertSchema(guardZones).omit({ id: true });
+export type InsertGuardZone = z.infer<typeof insertGuardZoneSchema>;
+export type GuardZone = typeof guardZones.$inferSelect;
+
+export const guardDutyAssignments = pgTable("guard_duty_assignments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  dayOfWeek: integer("day_of_week").notNull(),
+  timeSlotId: integer("time_slot_id").notNull(),
+  zoneId: integer("zone_id").notNull(),
+});
+
+export const insertGuardDutyAssignmentSchema = createInsertSchema(guardDutyAssignments).omit({ id: true });
+export type InsertGuardDutyAssignment = z.infer<typeof insertGuardDutyAssignmentSchema>;
+export type GuardDutyAssignment = typeof guardDutyAssignments.$inferSelect;
+
+export const guardDutyRegistrations = pgTable("guard_duty_registrations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  zoneId: integer("zone_id").notNull(),
+  date: text("date").notNull(),
+  timeSlotId: integer("time_slot_id").notNull(),
+  signatureData: text("signature_data"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+export const insertGuardDutyRegistrationSchema = createInsertSchema(guardDutyRegistrations).omit({ id: true, timestamp: true });
+export type InsertGuardDutyRegistration = z.infer<typeof insertGuardDutyRegistrationSchema>;
+export type GuardDutyRegistration = typeof guardDutyRegistrations.$inferSelect;
+
 export const DAYS_OF_WEEK = [
   { id: 1, label: "Lunes" },
   { id: 2, label: "Martes" },
