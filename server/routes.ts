@@ -152,6 +152,12 @@ export async function registerRoutes(
     res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl })));
   });
 
+  app.get("/api/staff-list", requireAuth, async (_req, res) => {
+    const allUsers = await storage.getAllUsers();
+    const staff = allUsers.filter(u => u.role !== "admin");
+    res.json(staff.map(g => ({ id: g.id, fullName: g.fullName })));
+  });
+
   app.get("/api/guards/template", requireAuth, requireAdmin, (_req, res) => {
     const wb = XLSX.utils.book_new();
     const headers = [
@@ -1709,7 +1715,7 @@ export async function registerRoutes(
 
   app.post("/api/guard-duty-registrations", requireAuth, async (req, res) => {
     try {
-      const { userId, zoneId, timeSlotId, signatureData } = req.body;
+      const { userId, zoneId, timeSlotId, signatureData, substitutionPlan } = req.body;
       if (!userId || !zoneId || !timeSlotId) {
         return res.status(400).json({ message: "Usuario, zona y periodo son requeridos" });
       }
@@ -1731,12 +1737,28 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Periodo no válido" });
       }
 
+      const isSubstitution = !!substitutionPlan;
+
       const dayAssignments = await storage.getGuardDutyAssignments(dayOfWeek);
-      const validAssignment = dayAssignments.find(
-        a => a.userId === userId && a.zoneId === zoneId && a.timeSlotId === timeSlotId
-      );
-      if (!validAssignment) {
-        return res.status(400).json({ message: "Este profesor no está asignado a esta zona/periodo" });
+
+      if (!isSubstitution) {
+        const validAssignment = dayAssignments.find(
+          a => a.userId === userId && a.zoneId === zoneId && a.timeSlotId === timeSlotId
+        );
+        if (!validAssignment) {
+          return res.status(400).json({ message: "Este profesor no está asignado a esta zona/periodo" });
+        }
+      } else {
+        const trimmed = substitutionPlan.trim();
+        if (trimmed.length < 3) {
+          return res.status(400).json({ message: "El plan de sustitución debe tener al menos 3 caracteres" });
+        }
+        const hasAssignment = dayAssignments.some(
+          a => a.userId === userId && a.timeSlotId === timeSlotId
+        );
+        if (hasAssignment) {
+          return res.status(400).json({ message: "Este profesor ya tiene asignación para este periodo. Use el fichaje normal." });
+        }
       }
 
       const [slotStartH, slotStartM] = slot.start.split(":").map(Number);
@@ -1759,6 +1781,7 @@ export async function registerRoutes(
         date: today,
         timeSlotId,
         signatureData,
+        substitutionPlan: isSubstitution ? substitutionPlan.trim() : null,
       });
       res.json(reg);
     } catch (error: any) {
@@ -1871,6 +1894,15 @@ export async function registerRoutes(
       addField("Edificio:", `Edificio ${reg.buildingNumber}`);
       addField("Zona:", reg.zoneName);
       addField("Profesor/a:", reg.userName);
+
+      if (reg.substitutionPlan) {
+        y += 5;
+        doc.fontSize(10).fillColor("#666666").text("Plan de sustitución:", labelX, y);
+        doc.fontSize(11).fillColor("#2563eb").text(reg.substitutionPlan, valueX, y, {
+          width: doc.page.width - valueX - 50,
+        });
+        y += 30;
+      }
 
       if (reg.signatureData) {
         y += 15;

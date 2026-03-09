@@ -5,10 +5,11 @@ import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/signature-pad";
-import { Shield, Clock, MapPin, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
+import { Shield, Clock, MapPin, CheckCircle2, Loader2, AlertTriangle, UserPlus, ArrowLeft } from "lucide-react";
 import { DEFAULT_TIME_SLOTS, type TimeSlotConfig, type GuardZone } from "@shared/schema";
 
 interface EnrichedAssignment {
@@ -28,6 +29,8 @@ export default function GuardDutySignIn() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [showSignature, setShowSignature] = useState(false);
+  const [substitutionMode, setSubstitutionMode] = useState(false);
+  const [substitutionPlan, setSubstitutionPlan] = useState("");
 
   const now = new Date();
   const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
@@ -41,6 +44,11 @@ export default function GuardDutySignIn() {
 
   const { data: zones = [] } = useQuery<GuardZone[]>({
     queryKey: ["/api/guard-zones"],
+  });
+
+  const { data: allTeachers = [] } = useQuery<{ id: number; fullName: string }[]>({
+    queryKey: ["/api/staff-list"],
+    enabled: substitutionMode,
   });
 
   const { data: todayRegistrations = [] } = useQuery<any[]>({
@@ -90,26 +98,41 @@ export default function GuardDutySignIn() {
 
   const availableZones = useMemo(() => {
     if (!selectedUserId || !currentSlot) return [];
+    if (substitutionMode) {
+      return zones.map(z => ({
+        zoneId: z.id,
+        zoneName: z.zoneName,
+        buildingNumber: z.buildingNumber,
+      }));
+    }
     const userAssignments = currentSlotAssignments.filter(a => a.userId === selectedUserId);
     return userAssignments.map(a => ({
       zoneId: a.zoneId,
       zoneName: a.zoneName,
       buildingNumber: a.buildingNumber,
     }));
-  }, [selectedUserId, currentSlot, currentSlotAssignments]);
+  }, [selectedUserId, currentSlot, currentSlotAssignments, substitutionMode, zones]);
 
   const alreadySigned = (userId: number, slotId: number) => {
     return todayRegistrations.some(r => r.userId === userId && r.timeSlotId === slotId);
   };
 
+  const selectedTeacherName = substitutionMode
+    ? allTeachers.find(t => t.id === selectedUserId)?.fullName
+    : uniqueTeachers.find(t => t.id === selectedUserId)?.name;
+
   const registerMutation = useMutation({
     mutationFn: async (signatureData: string) => {
-      return apiRequest("POST", "/api/guard-duty-registrations", {
+      const body: any = {
         userId: selectedUserId,
         zoneId: selectedZoneId,
         timeSlotId: currentSlot!.id,
         signatureData,
-      });
+      };
+      if (substitutionMode && substitutionPlan.trim()) {
+        body.substitutionPlan = substitutionPlan.trim();
+      }
+      return apiRequest("POST", "/api/guard-duty-registrations", body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/guard-duty-registrations"] });
@@ -117,11 +140,21 @@ export default function GuardDutySignIn() {
       setShowSignature(false);
       setSelectedUserId(null);
       setSelectedZoneId(null);
+      setSubstitutionMode(false);
+      setSubstitutionPlan("");
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+
+  const resetSelection = () => {
+    setShowSignature(false);
+    setSelectedUserId(null);
+    setSelectedZoneId(null);
+    setSubstitutionMode(false);
+    setSubstitutionPlan("");
+  };
 
   if (!isWeekday) {
     return (
@@ -145,6 +178,13 @@ export default function GuardDutySignIn() {
     );
   }
 
+  const slotLabel = (slot: TimeSlotConfig) =>
+    slot.isBreak ? `☕ ${slot.label || "Recreo"} (${slot.start}-${slot.end})` : `${slot.start} - ${slot.end}`;
+
+  const canProceedToSign = substitutionMode
+    ? selectedUserId && selectedZoneId && substitutionPlan.trim().length >= 3 && currentSlot && !alreadySigned(selectedUserId, currentSlot.id)
+    : selectedUserId && selectedZoneId && currentSlot && !alreadySigned(selectedUserId, currentSlot.id);
+
   return (
     <div className="p-4 max-w-lg mx-auto space-y-4">
       <Card>
@@ -162,7 +202,7 @@ export default function GuardDutySignIn() {
             </div>
             {currentSlot ? (
               <Badge data-testid="badge-current-slot" className={currentSlot.isBreak ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : ""}>
-                {currentSlot.isBreak ? `☕ ${currentSlot.label || "Recreo"} (${currentSlot.start}-${currentSlot.end})` : `${currentSlot.start} - ${currentSlot.end}`}
+                {slotLabel(currentSlot)}
               </Badge>
             ) : (
               <Badge variant="outline" data-testid="badge-no-slot">Sin periodo activo</Badge>
@@ -178,16 +218,112 @@ export default function GuardDutySignIn() {
             </div>
           )}
 
-          {currentSlot && currentSlotAssignments.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-muted-foreground text-sm">No hay profesores asignados para este periodo</p>
-            </div>
+          {currentSlot && !showSignature && !substitutionMode && (
+            <>
+              {currentSlotAssignments.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground text-sm">No hay profesores asignados para este periodo</p>
+                </div>
+              )}
+
+              {currentSlotAssignments.length > 0 && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Seleccione su nombre:</label>
+                    <Select
+                      value={selectedUserId ? String(selectedUserId) : undefined}
+                      onValueChange={(val) => {
+                        setSelectedUserId(parseInt(val));
+                        setSelectedZoneId(null);
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-teacher">
+                        <SelectValue placeholder="Seleccione profesor..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {uniqueTeachers.map(t => {
+                          const signed = alreadySigned(t.id, currentSlot.id);
+                          return (
+                            <SelectItem key={t.id} value={String(t.id)} disabled={signed}>
+                              {t.name} {signed ? "✓ (fichado)" : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedUserId && !alreadySigned(selectedUserId, currentSlot.id) && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Seleccione la zona:</label>
+                      <Select
+                        value={selectedZoneId ? String(selectedZoneId) : undefined}
+                        onValueChange={(val) => setSelectedZoneId(parseInt(val))}
+                      >
+                        <SelectTrigger data-testid="select-zone">
+                          <SelectValue placeholder="Seleccione zona..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableZones.map(z => (
+                            <SelectItem key={z.zoneId} value={String(z.zoneId)}>
+                              {z.zoneName} (Ed. {z.buildingNumber})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {canProceedToSign && (
+                    <Button
+                      className="w-full"
+                      onClick={() => setShowSignature(true)}
+                      data-testid="button-proceed-signature"
+                    >
+                      Firmar guardia
+                    </Button>
+                  )}
+
+                  {selectedUserId && alreadySigned(selectedUserId, currentSlot.id) && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                        Este profesor ya ha fichado para este periodo
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setSubstitutionMode(true);
+                    setSelectedUserId(null);
+                    setSelectedZoneId(null);
+                  }}
+                  data-testid="button-substitution-mode"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Sustitución corta (profesor no asignado)
+                </Button>
+              </div>
+            </>
           )}
 
-          {currentSlot && currentSlotAssignments.length > 0 && !showSignature && (
+          {currentSlot && !showSignature && substitutionMode && (
             <>
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+                <UserPlus className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Modo sustitución corta — profesor no asignado previamente
+                </p>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Seleccione su nombre:</label>
+                <label className="text-sm font-medium">Seleccione profesor:</label>
                 <Select
                   value={selectedUserId ? String(selectedUserId) : undefined}
                   onValueChange={(val) => {
@@ -195,51 +331,54 @@ export default function GuardDutySignIn() {
                     setSelectedZoneId(null);
                   }}
                 >
-                  <SelectTrigger data-testid="select-teacher">
+                  <SelectTrigger data-testid="select-substitution-teacher">
                     <SelectValue placeholder="Seleccione profesor..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {uniqueTeachers.map(t => {
-                      const signed = alreadySigned(t.id, currentSlot.id);
-                      return (
-                        <SelectItem key={t.id} value={String(t.id)} disabled={signed}>
-                          {t.name} {signed ? "✓ (fichado)" : ""}
-                        </SelectItem>
-                      );
-                    })}
+                    {allTeachers.map(t => {
+                        const signed = alreadySigned(t.id, currentSlot.id);
+                        return (
+                          <SelectItem key={t.id} value={String(t.id)} disabled={signed}>
+                            {t.fullName} {signed ? "✓ (fichado)" : ""}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>
 
               {selectedUserId && !alreadySigned(selectedUserId, currentSlot.id) && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Seleccione la zona:</label>
-                  <Select
-                    value={selectedZoneId ? String(selectedZoneId) : undefined}
-                    onValueChange={(val) => setSelectedZoneId(parseInt(val))}
-                  >
-                    <SelectTrigger data-testid="select-zone">
-                      <SelectValue placeholder="Seleccione zona..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableZones.map(z => (
-                        <SelectItem key={z.zoneId} value={String(z.zoneId)}>
-                          {z.zoneName} (Ed. {z.buildingNumber})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Seleccione la zona:</label>
+                    <Select
+                      value={selectedZoneId ? String(selectedZoneId) : undefined}
+                      onValueChange={(val) => setSelectedZoneId(parseInt(val))}
+                    >
+                      <SelectTrigger data-testid="select-substitution-zone">
+                        <SelectValue placeholder="Seleccione zona..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {zones.map(z => (
+                          <SelectItem key={z.id} value={String(z.id)}>
+                            {z.zoneName} (Ed. {z.buildingNumber})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {selectedUserId && selectedZoneId && !alreadySigned(selectedUserId, currentSlot.id) && (
-                <Button
-                  className="w-full"
-                  onClick={() => setShowSignature(true)}
-                  data-testid="button-proceed-signature"
-                >
-                  Firmar guardia
-                </Button>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Plan de sustitución corta:</label>
+                    <Input
+                      value={substitutionPlan}
+                      onChange={(e) => setSubstitutionPlan(e.target.value)}
+                      placeholder="Ej: Sustituyo a Prof. García - Baja médica"
+                      data-testid="input-substitution-plan"
+                    />
+                    <p className="text-xs text-muted-foreground">Indique el motivo de la sustitución</p>
+                  </div>
+                </>
               )}
 
               {selectedUserId && alreadySigned(selectedUserId, currentSlot.id) && (
@@ -250,21 +389,46 @@ export default function GuardDutySignIn() {
                   </p>
                 </div>
               )}
+
+              {canProceedToSign && (
+                <Button
+                  className="w-full"
+                  onClick={() => setShowSignature(true)}
+                  data-testid="button-proceed-substitution-signature"
+                >
+                  Firmar guardia (sustitución)
+                </Button>
+              )}
+
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={resetSelection}
+                data-testid="button-back-normal"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Volver al modo normal
+              </Button>
             </>
           )}
 
           {showSignature && currentSlot && (
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
-                <p><strong>Profesor:</strong> {uniqueTeachers.find(t => t.id === selectedUserId)?.name}</p>
+                <p><strong>Profesor:</strong> {selectedTeacherName}</p>
                 <p><strong>Zona:</strong> {availableZones.find(z => z.zoneId === selectedZoneId)?.zoneName} (Ed. {availableZones.find(z => z.zoneId === selectedZoneId)?.buildingNumber})</p>
-                <p><strong>Periodo:</strong> {currentSlot.isBreak ? `☕ ${currentSlot.label || "Recreo"} (${currentSlot.start}-${currentSlot.end})` : `${currentSlot.start} - ${currentSlot.end}`}</p>
+                <p><strong>Periodo:</strong> {slotLabel(currentSlot)}</p>
+                {substitutionMode && (
+                  <p className="text-blue-700 dark:text-blue-300">
+                    <strong>Plan sustitución:</strong> {substitutionPlan}
+                  </p>
+                )}
               </div>
 
               <SignaturePad
                 onSave={(sig) => registerMutation.mutate(sig)}
                 saving={registerMutation.isPending}
-                signerName={uniqueTeachers.find(t => t.id === selectedUserId)?.name}
+                signerName={selectedTeacherName}
               />
 
               <Button
@@ -294,16 +458,26 @@ export default function GuardDutySignIn() {
               {todayRegistrations.map((reg: any) => {
                 const slot = allSlots.find(s => s.id === reg.timeSlotId);
                 return (
-                  <div key={reg.id} className="flex items-center justify-between text-sm p-2 rounded border" data-testid={`registration-item-${reg.id}`}>
-                    <div>
-                      <span className="font-medium">{reg.userName}</span>
-                      <span className="text-muted-foreground ml-2">
-                        {reg.zoneName} (Ed. {reg.buildingNumber})
-                      </span>
+                  <div key={reg.id} className="text-sm p-2 rounded border" data-testid={`registration-item-${reg.id}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">{reg.userName}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {reg.zoneName} (Ed. {reg.buildingNumber})
+                        </span>
+                      </div>
+                      <Badge variant="outline" className={`text-xs ${slot?.isBreak ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : ""}`}>
+                        {slot ? (slot.isBreak ? `☕ ${slot.label || "Recreo"}` : `${slot.start}-${slot.end}`) : `P${reg.timeSlotId}`}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className={`text-xs ${slot?.isBreak ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : ""}`}>
-                      {slot ? (slot.isBreak ? `☕ ${slot.label || "Recreo"}` : `${slot.start}-${slot.end}`) : `P${reg.timeSlotId}`}
-                    </Badge>
+                    {reg.substitutionPlan && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          Sustitución
+                        </Badge>
+                        <span className="text-xs text-blue-600 dark:text-blue-400 truncate">{reg.substitutionPlan}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -180,6 +180,7 @@ export default function GuardDutyRegistryPage() {
                     <th className="text-left p-2 font-medium">Edificio</th>
                     <th className="text-left p-2 font-medium">Zona</th>
                     <th className="text-left p-2 font-medium">Periodo</th>
+                    <th className="text-left p-2 font-medium">Plan sust.</th>
                     <th className="text-left p-2 font-medium">Firma</th>
                     <th className="text-left p-2 font-medium">Documento</th>
                   </tr>
@@ -199,6 +200,15 @@ export default function GuardDutyRegistryPage() {
                       <td className="p-2">{reg.zoneName}</td>
                       <td className="p-2">
                         <Badge variant="secondary" className="text-xs">{getSlotLabel(reg.timeSlotId)}</Badge>
+                      </td>
+                      <td className="p-2">
+                        {reg.substitutionPlan ? (
+                          <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" title={reg.substitutionPlan} data-testid={`badge-substitution-${reg.id}`}>
+                            {reg.substitutionPlan.length > 25 ? reg.substitutionPlan.slice(0, 25) + "…" : reg.substitutionPlan}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="p-2">
                         {reg.signatureData ? (

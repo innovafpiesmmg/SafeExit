@@ -216,6 +216,7 @@ export const guardDutyRegistrations = pgTable("guard_duty_registrations", {
   date: text("date").notNull(),
   timeSlotId: integer("time_slot_id").notNull(),
   signatureData: text("signature_data"),
+  substitutionPlan: text("substitution_plan"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
