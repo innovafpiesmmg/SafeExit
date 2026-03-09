@@ -729,7 +729,7 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">DNI/NIE de la persona que recoge:</p>
+            <p className="text-sm font-medium text-muted-foreground">DNI/NIE del padre, tutor legal o persona autorizada:</p>
             <div className="flex gap-2">
               <Input
                 value={accompDni}

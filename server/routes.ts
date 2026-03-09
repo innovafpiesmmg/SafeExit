@@ -1225,13 +1225,13 @@ export async function registerRoutes(
 
         await storage.createIncident({
           exitLogId: exitLog.id,
-          note: `Intento de recogida no autorizada. DNI/NIE presentado: ${documentId.trim()}. Alumno: ${student.firstName} ${student.lastName}.`,
+          note: `DNI/NIE no reconocido como padre, tutor legal o persona autorizada. DNI/NIE presentado: ${documentId.trim()}. Alumno: ${student.firstName} ${student.lastName}.`,
           createdBy: userId,
         });
 
         res.json({
           result: "DENEGADO",
-          reason: `DNI/NIE ${documentId.trim()} no está autorizado para recoger a este alumno`,
+          reason: `DNI/NIE ${documentId.trim()} no figura como padre, tutor legal o persona autorizada`,
           student: {
             firstName: student.firstName,
             lastName: student.lastName,

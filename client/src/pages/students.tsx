@@ -512,7 +512,7 @@ export default function StudentsPage() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Personas autorizadas a recoger a este alumno (máximo 10). El guardia verificará el DNI/NIE al recoger.
+                Padres, tutores legales y personas autorizadas a recoger a este alumno (máximo 10). El guardia verificará el DNI/NIE al recoger.
               </p>
 
               <div className="space-y-2">
