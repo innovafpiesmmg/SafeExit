@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, FileDown, GraduationCap, Smartphone, ShieldCheck } from "lucide-react";
+import { Printer, FileDown, GraduationCap, Smartphone } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
@@ -46,7 +46,7 @@ function StudentCard({ student, group, qrDataUrl, barcodeDataUrl, schoolName, ac
           )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" />
+              <img src="/favicon.png" alt="SafeExit" className="w-3.5 h-3.5 rounded-sm" />
               <span className="text-[8px] font-bold tracking-wide">SafeExit</span>
             </div>
             <span className="text-[6px] opacity-80">
@@ -165,6 +165,23 @@ export default function PrintPage() {
     const headerH = 8;
     const primaryR = 37, primaryG = 99, primaryB = 235;
 
+    let logoDataUrl = "";
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => reject();
+        logoImg.src = "/favicon.png";
+      });
+      const c = document.createElement("canvas");
+      c.width = logoImg.width;
+      c.height = logoImg.height;
+      const ctx = c.getContext("2d")!;
+      ctx.drawImage(logoImg, 0, 0);
+      logoDataUrl = c.toDataURL("image/png");
+    } catch {}
+
     for (let i = 0; i < printStudents.length; i++) {
       if (i > 0 && i % 10 === 0) doc.addPage();
       const pageIdx = i % 10;
@@ -190,23 +207,6 @@ export default function PrintPage() {
       doc.setLineWidth(0.3);
       doc.roundedRect(x, y, cardWidth, cardHeight, r, r);
 
-      const drawShield = (sx: number, sy: number, size: number) => {
-        doc.setFillColor(255, 255, 255);
-        const w = size * 0.8;
-        const h = size;
-        doc.roundedRect(sx - w / 2, sy - h * 0.1, w, h * 0.55, w * 0.15, w * 0.15, "F");
-        doc.triangle(
-          sx - w / 2, sy + h * 0.4,
-          sx + w / 2, sy + h * 0.4,
-          sx, sy + h * 0.85,
-          "F"
-        );
-        doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(0.3);
-        doc.line(sx, sy + h * 0.05, sx, sy + h * 0.65);
-        doc.line(sx - w * 0.2, sy + h * 0.35, sx, sy + h * 0.55);
-      };
-
       let headerTextY = y + 3;
       if (schoolName) {
         doc.setFontSize(5.5);
@@ -217,12 +217,17 @@ export default function PrintPage() {
         headerTextY += 4;
       }
 
-      drawShield(x + 5, headerTextY - 0.5, 4);
+      const logoSize = 4.5;
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, "PNG", x + 2.5, headerTextY - 0.8, logoSize, logoSize);
+        } catch {}
+      }
 
       doc.setFontSize(7);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.text("SafeExit", x + 8, headerTextY + 2.5);
+      doc.text("SafeExit", x + 2.5 + logoSize + 1.5, headerTextY + 2.5);
 
       doc.setFontSize(5);
       doc.setFont("helvetica", "normal");
