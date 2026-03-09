@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee, ArrowUp, ArrowDown } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee, ArrowUp, ArrowDown, Volume2, Upload } from "lucide-react";
 import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -528,6 +528,32 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Volume2 className="w-5 h-5" />
+            Sonidos personalizados
+          </CardTitle>
+          <CardDescription>
+            Sube archivos de audio (MP3, WAV, OGG) que se reproducirán cuando una salida sea autorizada o denegada. Si no se configura, se usarán los sonidos por defecto.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SoundUploader
+            label="Sonido de salida AUTORIZADA"
+            type="authorized"
+            currentUrl={settings?.sound_authorized || ""}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ["/api/settings"] })}
+          />
+          <SoundUploader
+            label="Sonido de salida DENEGADA"
+            type="denied"
+            currentUrl={settings?.sound_denied || ""}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ["/api/settings"] })}
+          />
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
         <Button
           onClick={() => saveMutation.mutate()}
@@ -679,6 +705,128 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function SoundUploader({ label, type, currentUrl, onUpdate }: {
+  label: string;
+  type: "authorized" | "denied";
+  currentUrl: string;
+  onUpdate: () => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("audio/")) {
+      toast({ title: "Error", description: "Solo se permiten archivos de audio", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", file);
+      const res = await fetch(`/api/upload-sound/${type}`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Error al subir audio");
+      }
+      toast({ title: "Audio subido correctamente" });
+      onUpdate();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/upload-sound/${type}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al eliminar");
+      toast({ title: "Audio eliminado, se usará el sonido por defecto" });
+      onUpdate();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const playPreview = () => {
+    if (currentUrl) {
+      const audio = new Audio(currentUrl);
+      audio.volume = 0.7;
+      audio.play().catch(() => {});
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3">
+      <div className="space-y-1 flex-1">
+        <Label className="text-sm font-medium">{label}</Label>
+        {currentUrl ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
+              <Volume2 className="w-3 h-3 mr-1" />
+              Audio personalizado
+            </Badge>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={playPreview} data-testid={`button-play-sound-${type}`}>
+              Reproducir
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+              data-testid={`button-delete-sound-${type}`}
+            >
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Sonido por defecto</p>
+        )}
+      </div>
+      <div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="audio/*"
+          className="hidden"
+          onChange={handleUpload}
+          data-testid={`input-sound-${type}`}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          data-testid={`button-upload-sound-${type}`}
+        >
+          {uploading ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Upload className="w-4 h-4 mr-1" />
+          )}
+          Subir
+        </Button>
+      </div>
     </div>
   );
 }

@@ -30,6 +30,26 @@ const multerStorage = multer.diskStorage({
 });
 const upload = multer({ storage: multerStorage });
 
+const audioStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const type = (_req as any).params?.type || "sound";
+    cb(null, `sound-${type}-${Date.now()}${ext}`);
+  },
+});
+const audioUpload = multer({
+  storage: audioStorage,
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("audio/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Solo se permiten archivos de audio") as any, false);
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 function normalizeUsername(str: string): string {
   return str
     .normalize("NFD")
@@ -512,6 +532,46 @@ export async function registerRoutes(
   app.post("/api/upload-photo", requireAuth, upload.single("photo"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No se subió imagen" });
     res.json({ url: `/uploads/${req.file.filename}` });
+  });
+
+  app.post("/api/upload-sound/:type", requireAuth, requireAdmin, audioUpload.single("audio"), async (req, res) => {
+    try {
+      const type = req.params.type;
+      if (type !== "authorized" && type !== "denied") {
+        return res.status(400).json({ message: "Tipo inválido. Usar 'authorized' o 'denied'" });
+      }
+      if (!req.file) return res.status(400).json({ message: "No se subió archivo de audio" });
+
+      const oldSound = await storage.getSetting(`sound_${type}`);
+      if (oldSound) {
+        const oldPath = path.join(uploadsDir, path.basename(oldSound));
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
+      const url = `/uploads/${req.file.filename}`;
+      await storage.setSetting(`sound_${type}`, url);
+      res.json({ url });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/upload-sound/:type", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const type = req.params.type;
+      if (type !== "authorized" && type !== "denied") {
+        return res.status(400).json({ message: "Tipo inválido" });
+      }
+      const currentSound = await storage.getSetting(`sound_${type}`);
+      if (currentSound) {
+        const filePath = path.join(uploadsDir, path.basename(currentSound));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await storage.setSetting(`sound_${type}`, "");
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   app.get("/api/tutor/students", requireAuth, async (req, res) => {

@@ -37,7 +37,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Audit History**: Filterable exit log table with Excel (.xlsx) export. PDF document download per exit log (includes student data, exit details, accompanying person info, and signature image). Signature viewer dialog with PNG download option.
 - **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. Shows school name and academic year.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) with blue header (school name + academic year + "SafeExit"), photo, avatar with group badge, QR code (22mm/68px)
-- **Sound Feedback**: Beep for authorized, alert for denied
+- **Sound Feedback**: Default beep/alert sounds, with optional custom audio upload per result (authorized/denied) from admin settings. MP3/WAV/OGG supported, max 5MB.
 - **Incident Reporting**: Optional note creation on authorized exits
 - **Guard View**: Dedicated full-screen tablet-optimized view for guards (no sidebar, large buttons, live stats, clock, WiFi indicator)
 - **Tutor→Guard Switch**: Tutors have a shield button in header to enter guard scanner mode (/guard route)

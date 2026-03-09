@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { playSuccessSound, playErrorSound } from "@/lib/sounds";
+import { playSuccessSound, playErrorSound, loadCustomSounds } from "@/lib/sounds";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -58,6 +58,10 @@ export default function GuardView({ tutorMode, embedded, onFullscreenChange }: G
   const now = useCurrentTime();
   const online = useOnlineStatus();
   useWakeLock();
+
+  useEffect(() => {
+    loadCustomSounds();
+  }, []);
 
   const [qrInput, setQrInput] = useState("");
   const [scanResult, setScanResult] = useState<any>(null);
