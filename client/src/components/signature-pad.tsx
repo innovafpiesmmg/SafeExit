@@ -87,13 +87,19 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
     onSave(dataUrl);
   }, [hasSignature, onSave]);
 
-  const initCanvas = useCallback(() => {
+  const lastSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  const initCanvas = useCallback((force?: boolean) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    const newW = Math.round(rect.width * dpr);
+    const newH = Math.round(rect.height * dpr);
+    if (!force && newW === lastSize.current.w && newH === lastSize.current.h) return;
+    lastSize.current = { w: newW, h: newH };
+    canvas.width = newW;
+    canvas.height = newH;
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.scale(dpr, dpr);
@@ -102,7 +108,7 @@ export function SignaturePad({ onSave, saving, signerName }: SignaturePadProps) 
   }, []);
 
   useEffect(() => {
-    initCanvas();
+    initCanvas(true);
     const handleResize = () => initCanvas();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);

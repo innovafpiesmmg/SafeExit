@@ -5,7 +5,7 @@ import { differenceInYears } from "date-fns";
 import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
-import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, exitLogs } from "@shared/schema";
+import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, exitLogs, students, groups, users } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection } from "./email";
@@ -1279,6 +1279,126 @@ export async function registerRoutes(
       }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/exit-logs/:id/pdf", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+
+      const log = await storage.getExitLog(id);
+      if (!log) return res.status(404).json({ message: "Registro no encontrado" });
+
+      const allStudents = await db.select().from(students);
+      const allGroups = await db.select().from(groups);
+      const allUsers = await db.select().from(users);
+
+      const student = allStudents.find(s => s.id === log.studentId);
+      const group = student ? allGroups.find(g => g.id === student.groupId) : undefined;
+      const verifier = log.verifiedBy ? allUsers.find(u => u.id === log.verifiedBy) : undefined;
+
+      const schoolName = (await storage.getSetting("schoolName")) || "Centro Educativo";
+      const ts = new Date(log.timestamp);
+      const dateStr = ts.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const timeStr = ts.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const studentName = student ? `${student.firstName} ${student.lastName}` : "Desconocido";
+
+      const PDFDocument = (await import("pdfkit")).default;
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="salida_${id}_${dateStr.replace(/\//g, "-")}.pdf"`);
+      doc.pipe(res);
+
+      const primaryColor = "#4472C4";
+      const textColor = "#1a1a2e";
+
+      doc.rect(0, 0, doc.page.width, 100).fill(primaryColor);
+      doc.fontSize(22).fillColor("#ffffff").text(schoolName, 50, 30, { align: "center" });
+      doc.fontSize(12).text("DOCUMENTO DE REGISTRO DE SALIDA", 50, 60, { align: "center" });
+
+      doc.fillColor(textColor);
+      let y = 130;
+
+      doc.fontSize(10).fillColor("#666666").text(`Documento nº: SAL-${String(id).padStart(6, "0")}`, 50, y);
+      doc.text(`Fecha de emisión: ${dateStr} ${timeStr}`, 50, y, { align: "right" });
+      y += 30;
+
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 20;
+
+      doc.fontSize(14).fillColor(primaryColor).text("DATOS DEL ALUMNO/A", 50, y);
+      y += 25;
+
+      const labelX = 50;
+      const valueX = 200;
+
+      const addField = (label: string, value: string) => {
+        doc.fontSize(10).fillColor("#666666").text(label, labelX, y);
+        doc.fontSize(11).fillColor(textColor).text(value, valueX, y);
+        y += 22;
+      };
+
+      addField("Nombre completo:", studentName);
+      addField("Grupo:", group?.name || "Sin grupo");
+      addField("Curso:", student?.course || "—");
+      if (student?.qrCode) addField("Código QR:", student.qrCode);
+
+      y += 10;
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 20;
+
+      doc.fontSize(14).fillColor(primaryColor).text("DATOS DE LA SALIDA", 50, y);
+      y += 25;
+
+      addField("Fecha:", dateStr);
+      addField("Hora:", timeStr);
+
+      const resultColor = log.result === "AUTORIZADO" ? "#16a34a" : "#dc2626";
+      doc.fontSize(10).fillColor("#666666").text("Resultado:", labelX, y);
+      doc.fontSize(11).fillColor(resultColor).font("Helvetica-Bold").text(log.result, valueX, y);
+      doc.font("Helvetica");
+      y += 22;
+
+      addField("Motivo:", log.reason || "—");
+      addField("Verificado por:", verifier?.fullName || "Sistema");
+
+      if (log.signatureData) {
+        y += 10;
+        doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+        y += 20;
+
+        doc.fontSize(14).fillColor(primaryColor).text("FIRMA DEL ACOMPAÑANTE", 50, y);
+        y += 25;
+
+        try {
+          const base64Data = log.signatureData.replace(/^data:image\/\w+;base64,/, "");
+          const imgBuffer = Buffer.from(base64Data, "base64");
+          doc.image(imgBuffer, 50, y, { width: 300, height: 120 });
+          y += 130;
+        } catch {
+          doc.fontSize(10).fillColor("#999999").text("[Firma no disponible]", 50, y);
+          y += 20;
+        }
+      }
+
+      y += 30;
+      doc.moveTo(50, y).lineTo(doc.page.width - 50, y).strokeColor("#e0e0e0").stroke();
+      y += 15;
+
+      doc.fontSize(8).fillColor("#999999").text(
+        `Este documento ha sido generado automáticamente por ${schoolName} — SafeExit. ` +
+        `Registro ID: SAL-${String(id).padStart(6, "0")}. Fecha de generación: ${new Date().toLocaleString("es-ES")}.`,
+        50, y, { width: doc.page.width - 100, align: "center" }
+      );
+
+      doc.end();
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message });
+      }
     }
   });
 

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Search, History, Filter, PenLine } from "lucide-react";
+import { Download, Search, History, FileText, PenLine } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Group } from "@shared/schema";
@@ -19,7 +19,7 @@ export default function HistoryPage() {
   const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [groupFilter, setGroupFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("");
-  const [signatureView, setSignatureView] = useState<{ open: boolean; data: string; studentName: string; reason: string; date: string } | null>(null);
+  const [signatureView, setSignatureView] = useState<{ open: boolean; data: string; studentName: string; reason: string; date: string; logId: number } | null>(null);
 
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
 
@@ -41,6 +41,10 @@ export default function HistoryPage() {
   const handleExport = () => {
     const exportParams = new URLSearchParams(queryParams);
     window.open(`/api/exit-logs/export?${exportParams.toString()}&format=xlsx`, "_blank");
+  };
+
+  const handleDownloadPdf = (logId: number) => {
+    window.open(`/api/exit-logs/${logId}/pdf`, "_blank");
   };
 
   return (
@@ -114,7 +118,7 @@ export default function HistoryPage() {
                     <TableHead className="text-xs">Resultado</TableHead>
                     <TableHead className="text-xs">Motivo</TableHead>
                     <TableHead className="text-xs">Verificado por</TableHead>
-                    <TableHead className="text-xs text-center">Firma</TableHead>
+                    <TableHead className="text-xs text-center">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -132,25 +136,37 @@ export default function HistoryPage() {
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{log.reason}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{log.verifierName}</TableCell>
                       <TableCell className="text-center">
-                        {log.signatureData ? (
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            data-testid={`button-view-signature-${log.id}`}
-                            onClick={() => setSignatureView({
-                              open: true,
-                              data: log.signatureData,
-                              studentName: log.studentName,
-                              reason: log.reason || "",
-                              date: format(new Date(log.timestamp), "dd/MM/yyyy HH:mm"),
-                            })}
+                            title="Descargar PDF"
+                            data-testid={`button-download-pdf-${log.id}`}
+                            onClick={() => handleDownloadPdf(log.id)}
                           >
-                            <PenLine className="w-4 h-4 text-primary" />
+                            <FileText className="w-4 h-4 text-primary" />
                           </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/40">—</span>
-                        )}
+                          {log.signatureData && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="Ver firma"
+                              data-testid={`button-view-signature-${log.id}`}
+                              onClick={() => setSignatureView({
+                                open: true,
+                                data: log.signatureData,
+                                studentName: log.studentName,
+                                reason: log.reason || "",
+                                date: format(new Date(log.timestamp), "dd/MM/yyyy HH:mm"),
+                                logId: log.id,
+                              })}
+                            >
+                              <PenLine className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -183,7 +199,7 @@ export default function HistoryPage() {
                   data-testid="img-signature"
                 />
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
@@ -196,7 +212,15 @@ export default function HistoryPage() {
                   }}
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Descargar
+                  Firma PNG
+                </Button>
+                <Button
+                  size="sm"
+                  data-testid="button-download-pdf-dialog"
+                  onClick={() => handleDownloadPdf(signatureView.logId)}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Documento PDF
                 </Button>
               </div>
             </div>

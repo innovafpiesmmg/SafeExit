@@ -7,7 +7,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Frontend**: React + Tailwind CSS + shadcn/ui components (PWA with service worker)
 - **Backend**: Express.js with session-based auth
 - **Database**: PostgreSQL with Drizzle ORM
-- **Key Libraries**: qrcode (QR generation), html5-qrcode (scanning), jsPDF (PDF carnet printing), date-fns, bcrypt, xlsx (Excel import/export), nodemailer (email)
+- **Key Libraries**: qrcode (QR generation), html5-qrcode (scanning), jsPDF (PDF carnet printing), pdfkit (exit document PDF generation), date-fns, bcrypt, xlsx (Excel import/export), nodemailer (email)
 - **PWA**: manifest.json, sw.js service worker, installable on tablets/phones
 
 ## Data Models
@@ -34,7 +34,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Late Arrivals**: Register student late arrivals via QR scan or manual group/student selection. Optional email notification to student's email. Today's arrivals sidebar.
 - **SMTP Email**: Configurable SMTP settings in admin panel. Test connection button. Used for late arrival notifications and authorized minor exit notifications.
 - **Accompanied Exit (Salida Acompañada)**: Guard tab to verify pickup persons by DNI/NIE. Admin manages authorized persons per student (up to 10). DNI/NIE can be scanned via camera (PDF417 barcode) or typed manually. Creates exit log + auto-incident if unauthorized. Optional email notification (admin toggle).
-- **Audit History**: Filterable exit log table with Excel (.xlsx) export
+- **Audit History**: Filterable exit log table with Excel (.xlsx) export. PDF document download per exit log (includes student data, exit details, accompanying person info, and signature image). Signature viewer dialog with PNG download option.
 - **Digital Carnet**: Public carnet page at /carnet/:token with QR code for mobile (no login needed). Share via link/QR from student management. Shows school name and academic year.
 - **Carnet Printing**: PDF generation with 2x5 grid (85x55mm cards) with blue header (school name + academic year + "SafeExit"), photo, avatar with group badge, QR code (22mm/68px)
 - **Sound Feedback**: Beep for authorized, alert for denied
