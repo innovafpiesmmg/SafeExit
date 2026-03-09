@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import { useRoute } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +47,7 @@ function useDisablePwa() {
 
 export default function CarnetPublicPage() {
   useDisablePwa();
+  useWakeLock();
   const [, params] = useRoute("/carnet/:token");
   const token = params?.token;
   const [data, setData] = useState<CarnetData | null>(null);
