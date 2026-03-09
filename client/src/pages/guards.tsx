@@ -19,12 +19,12 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
-  QrCode, Tablet, Smartphone, Copy, Check,
+  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
 
-type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null };
+type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null };
 
 export default function GuardsPage() {
   const { toast } = useToast();
@@ -316,40 +316,13 @@ export default function GuardsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((guard) => (
-            <Card key={guard.id} data-testid={`card-guard-${guard.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10 flex-shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                      {guard.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate" data-testid={`text-guard-name-${guard.id}`}>{guard.fullName}</p>
-                    <p className="text-xs text-muted-foreground truncate">@{guard.username}</p>
-                    {guard.role === "tutor" && guard.groupId && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <GraduationCap className="w-3 h-3 text-primary" />
-                        <span className="text-xs text-primary font-medium">
-                          {groups?.find(g => g.id === guard.groupId)?.name || ""}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <Badge variant={guard.role === "tutor" ? "default" : "secondary"} className="text-xs flex-shrink-0">
-                    {guard.role === "tutor" ? "Tutor" : "Guardia"}
-                  </Badge>
-                </div>
-                <div className="flex gap-1 mt-3 pt-3 border-t">
-                  <Button size="sm" variant="secondary" data-testid={`button-edit-guard-${guard.id}`} onClick={() => handleEdit(guard)} className="flex-1">
-                    <Pencil className="w-3 h-3 mr-1" /> Editar
-                  </Button>
-                  <Button size="sm" variant="destructive" data-testid={`button-delete-guard-${guard.id}`} onClick={() => { if (confirm("¿Eliminar este profesor?")) deleteMutation.mutate(guard.id); }} className="flex-1">
-                    <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <GuardCard
+              key={guard.id}
+              guard={guard}
+              groups={groups}
+              onEdit={handleEdit}
+              onDelete={(id) => { if (confirm("¿Eliminar este profesor?")) deleteMutation.mutate(id); }}
+            />
           ))}
         </div>
       )}
@@ -523,5 +496,171 @@ export default function GuardsPage() {
       </Dialog>
 
     </div>
+  );
+}
+
+function GuardCard({
+  guard,
+  groups,
+  onEdit,
+  onDelete,
+}: {
+  guard: Guard;
+  groups: Group[] | undefined;
+  onEdit: (guard: Guard) => void;
+  onDelete: (id: number) => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Error", description: "Solo se permiten imágenes", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await fetch(`/api/guards/${guard.id}/photo`, {
+        method: "PATCH",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Error al subir foto");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+      toast({ title: "Foto actualizada" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    try {
+      const res = await fetch(`/api/guards/${guard.id}/photo`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al eliminar foto");
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+      toast({ title: "Foto eliminada" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const initials = guard.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <Card data-testid={`card-guard-${guard.id}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="relative group flex-shrink-0">
+            <Avatar className="w-14 h-14">
+              {guard.photoUrl ? (
+                <img
+                  src={guard.photoUrl}
+                  alt={guard.fullName}
+                  className="w-full h-full object-cover rounded-full"
+                  data-testid={`img-guard-photo-${guard.id}`}
+                />
+              ) : (
+                <AvatarFallback className="bg-primary/10 text-primary text-base">
+                  {initials}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            {uploading && (
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="flex gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1 bg-white/90 rounded-full hover:bg-white"
+                  title="Subir foto"
+                  data-testid={`button-upload-photo-${guard.id}`}
+                >
+                  <ImagePlus className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="p-1 bg-white/90 rounded-full hover:bg-white"
+                  title="Tomar foto"
+                  data-testid={`button-camera-photo-${guard.id}`}
+                >
+                  <Camera className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+                {guard.photoUrl && (
+                  <button
+                    onClick={handleDeletePhoto}
+                    className="p-1 bg-white/90 rounded-full hover:bg-white"
+                    title="Eliminar foto"
+                    data-testid={`button-delete-photo-${guard.id}`}
+                  >
+                    <X className="w-3.5 h-3.5 text-red-600" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoUpload(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm truncate" data-testid={`text-guard-name-${guard.id}`}>{guard.fullName}</p>
+            <p className="text-xs text-muted-foreground truncate">@{guard.username}</p>
+            {guard.role === "tutor" && guard.groupId && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <GraduationCap className="w-3 h-3 text-primary" />
+                <span className="text-xs text-primary font-medium">
+                  {groups?.find(g => g.id === guard.groupId)?.name || ""}
+                </span>
+              </div>
+            )}
+          </div>
+          <Badge variant={guard.role === "tutor" ? "default" : "secondary"} className="text-xs flex-shrink-0">
+            {guard.role === "tutor" ? "Tutor" : "Guardia"}
+          </Badge>
+        </div>
+        <div className="flex gap-1 mt-3 pt-3 border-t">
+          <Button size="sm" variant="secondary" data-testid={`button-edit-guard-${guard.id}`} onClick={() => onEdit(guard)} className="flex-1">
+            <Pencil className="w-3 h-3 mr-1" /> Editar
+          </Button>
+          <Button size="sm" variant="destructive" data-testid={`button-delete-guard-${guard.id}`} onClick={() => onDelete(guard.id)} className="flex-1">
+            <Trash2 className="w-3 h-3 mr-1" /> Eliminar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

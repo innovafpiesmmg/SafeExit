@@ -149,7 +149,7 @@ export async function registerRoutes(
 
   app.get("/api/guards", requireAuth, requireAdmin, async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl })));
   });
 
   app.get("/api/guards/template", requireAuth, requireAdmin, (_req, res) => {
@@ -305,6 +305,51 @@ export async function registerRoutes(
   app.delete("/api/guards/:id", requireAuth, requireAdmin, async (req, res) => {
     await storage.deleteUser(parseInt(req.params.id));
     res.json({ message: "Profesor eliminado" });
+  });
+
+  const guardPhotoUpload = multer({
+    storage: multerStorage,
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith("image/")) cb(null, true);
+      else cb(new Error("Solo se permiten imágenes"));
+    },
+    limits: { fileSize: 5 * 1024 * 1024 },
+  });
+
+  app.patch("/api/guards/:id/photo", requireAuth, requireAdmin, guardPhotoUpload.single("photo"), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      if (!req.file) return res.status(400).json({ message: "No se recibió imagen" });
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.photoUrl) {
+        const oldPath = path.join(uploadsDir, path.basename(user.photoUrl));
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      const photoUrl = `/uploads/${req.file.filename}`;
+      await storage.updateUser(id, { photoUrl });
+      res.json({ photoUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/guards/:id/photo", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.photoUrl) {
+        const filePath = path.join(uploadsDir, path.basename(user.photoUrl));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+      await storage.updateUser(id, { photoUrl: null });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   app.get("/api/groups", requireAuth, async (_req, res) => {

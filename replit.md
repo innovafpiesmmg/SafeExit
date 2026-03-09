@@ -28,7 +28,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Student Management**: CRUD with photo upload, parental/bus authorization toggles, email field
 - **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation (includes Email column)
 - **Group Management**: Create/edit groups with course assignment and schedule type (morning/afternoon/full). Schedule determines which time slots appear in the calendar.
-- **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns)
+- **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns), photo upload (file picker or camera capture) per teacher with hover overlay on avatar
 - **Academic Year Archive & Reset**: Two options in Settings: 1) "Archivar y Comenzar Nuevo Curso" — saves all data as JSON archive, then clears DB (requires "ARCHIVAR CURSO" confirmation). 2) "Eliminar sin archivar" — deletes all without saving (requires "NUEVO CURSO" confirmation). Archives browsable from /archives page.
 - **Archived Courses**: Admin-only page (/archives) to browse archived academic years. Shows summary stats (students, groups, exits, etc.). Click "Consultar" to view full data with tabbed interface (Alumnos, Grupos, Salidas, Tardías, Incidencias) + search filter. Can permanently delete archives.
 - **Calendar System**: Date-based calendar — select a specific date, configure 12 time slots for exit permissions per group. Green dots indicate dates with permissions. Weekends disabled.

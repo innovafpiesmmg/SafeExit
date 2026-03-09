@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   role: text("role").notNull().default("guard"),
   groupId: integer("group_id"),
+  photoUrl: text("photo_url"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
