@@ -578,11 +578,13 @@ export async function registerRoutes(
 
   app.post("/api/verify", requireAuth, async (req, res) => {
     try {
-      const { qrCode } = req.body;
+      const rawQrCode = req.body.qrCode;
+      const qrCode = typeof rawQrCode === "string" ? rawQrCode.trim() : rawQrCode;
       const userId = (req.session as any).userId;
 
       const student = await storage.getStudentByQr(qrCode);
       if (!student) {
+        console.log(`[verify] Código no reconocido: "${qrCode}" (longitud: ${qrCode?.length})`);
         const log = await storage.createExitLog({
           studentId: 0,
           result: "DENEGADO",

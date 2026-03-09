@@ -127,7 +127,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStudentByQr(qrCode: string): Promise<Student | undefined> {
-    const [student] = await db.select().from(students).where(eq(students.qrCode, qrCode));
+    const trimmed = (qrCode || "").trim();
+    const [student] = await db.select().from(students).where(eq(students.qrCode, trimmed));
     return student;
   }
 
