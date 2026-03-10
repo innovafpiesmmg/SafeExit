@@ -224,6 +224,10 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Los profesores reciben los avisos en la pestaña "Mensajes" → "Avisos" de su vista de staff
 - Indicador de avisos no leídos (punto azul) y expansión inline para leer el contenido
 - Destinatarios de grupo incluyen tanto tutores asignados como profesores que imparten clase en ese grupo
+- **Notificaciones automáticas del Motor de Guardias**:
+  - Cuando se asigna un profesor para cubrir un hueco: recibe notificación con grupo, tramo, fecha y nombre del profesor ausente
+  - Cuando se adelanta una clase: el profesor afectado recibe notificación con grupo, tramo original, nuevo tramo y fecha
+- Las notificaciones se consultan por polling (cada 15 segundos); no incluyen sonido ni push nativo
 
 ### Mensajería de grupos (Chat)
 - Chat por grupo: el equipo educativo de cada grupo puede comunicarse
