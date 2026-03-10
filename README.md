@@ -207,10 +207,12 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Diálogo de permisos con selección individual, "Todos" y "Ninguno"
 - Los controles de edición/eliminación/importación de profesores solo son visibles para el administrador
 
-### Pestaña de Guardia configurable
-- El administrador puede ocultar o mostrar la pestaña "Guardia" (verificación QR) para todos los profesores desde Ajustes
-- Ajuste `staffGuardTabVisible` en la configuración de la aplicación
-- Patrón fail-closed: mientras carga la configuración, la pestaña permanece oculta
+### Pestañas de staff configurables
+- El administrador puede ocultar o mostrar cada pestaña de la vista de staff desde Ajustes: Guardia, Tardías, Fichar, Ausencias, Registros y Mensajes
+- Botones "Mostrar todas" y "Ocultar todas" para activar/desactivar en bloque
+- **Override individual para Guardia**: desde la ficha de cada profesor, se puede forzar que vea (o no) la pestaña Guardia independientemente del ajuste global. Tres opciones: Sí (siempre visible), No (siempre oculta), Global (usar ajuste global)
+- Patrón fail-closed: mientras cargan los ajustes, todas las pestañas permanecen ocultas
+- Si todas las pestañas están ocultas para un usuario, se muestra un mensaje indicando que contacte con el administrador
 
 ### Sistema de notificaciones
 - El administrador puede enviar avisos a todos los profesores, a un grupo específico, o a un profesor individual

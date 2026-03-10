@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   photoUrl: text("photo_url"),
   email: text("email"),
   permissions: text("permissions").array(),
+  guardTabVisible: boolean("guard_tab_visible"),
 });
 
 export const ADMIN_PERMISSIONS = {

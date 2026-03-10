@@ -203,7 +203,8 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
     queryKey: ["/api/settings"],
   });
   const settingsLoaded = !!settings;
-  const guardTabVisible = settings ? settings.staffGuardTabVisible !== "false" : false;
+  const globalGuardTabVisible = settings ? settings.staffGuardTabVisible !== "false" : false;
+  const guardTabVisible = user?.guardTabVisible === true ? true : user?.guardTabVisible === false ? false : globalGuardTabVisible;
   const lateTabVisible = settings ? settings.staffLateTabVisible !== "false" : false;
   const dutyTabVisible = settings ? settings.staffDutyTabVisible !== "false" : false;
   const absencesTabVisible = settings ? settings.staffAbsencesTabVisible !== "false" : false;

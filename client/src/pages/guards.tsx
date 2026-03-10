@@ -19,14 +19,14 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
-  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2, ShieldAlert,
+  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2, ShieldAlert, Eye, EyeOff,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
 import { ADMIN_PERMISSIONS, type AdminPermission } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
 
-type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null; email: string | null; permissions: string[] };
+type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null; email: string | null; permissions: string[]; guardTabVisible: boolean | null };
 
 export default function GuardsPage() {
   const { user: currentUser } = useAuth();
@@ -619,6 +619,15 @@ function GuardCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  const guardTabMutation = useMutation({
+    mutationFn: (visible: boolean | null) =>
+      apiRequest("PUT", `/api/guards/${guard.id}/guard-tab`, { guardTabVisible: visible }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({ title: "Error", description: "Solo se permiten imágenes", variant: "destructive" });
@@ -776,6 +785,60 @@ function GuardCard({
               <ShieldAlert className="w-3 h-3 mr-1" />
               Permisos {guard.permissions?.length ? `(${guard.permissions.length})` : ""}
             </Button>
+            <div className="flex items-center justify-between rounded border px-2 py-1.5">
+              <div className="flex items-center gap-1.5">
+                {guard.guardTabVisible === true ? (
+                  <Eye className="w-3.5 h-3.5 text-emerald-500" />
+                ) : guard.guardTabVisible === false ? (
+                  <EyeOff className="w-3.5 h-3.5 text-red-500" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                <span className="text-xs">Guardia</span>
+                {guard.guardTabVisible === null || guard.guardTabVisible === undefined ? (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">Global</Badge>
+                ) : guard.guardTabVisible ? (
+                  <Badge variant="default" className="text-[10px] px-1 py-0 bg-emerald-500">Sí</Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-[10px] px-1 py-0">No</Badge>
+                )}
+              </div>
+              <div className="flex gap-0.5">
+                <Button
+                  size="icon"
+                  variant={guard.guardTabVisible === true ? "default" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-guard-tab-yes-${guard.id}`}
+                  onClick={() => guardTabMutation.mutate(true)}
+                  disabled={guardTabMutation.isPending}
+                  title="Siempre visible"
+                >
+                  <Eye className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.guardTabVisible === false ? "destructive" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-guard-tab-no-${guard.id}`}
+                  onClick={() => guardTabMutation.mutate(false)}
+                  disabled={guardTabMutation.isPending}
+                  title="Siempre oculta"
+                >
+                  <EyeOff className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.guardTabVisible === null || guard.guardTabVisible === undefined ? "secondary" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-guard-tab-global-${guard.id}`}
+                  onClick={() => guardTabMutation.mutate(null)}
+                  disabled={guardTabMutation.isPending}
+                  title="Usar ajuste global"
+                >
+                  <span className="text-[9px] font-bold">G</span>
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>

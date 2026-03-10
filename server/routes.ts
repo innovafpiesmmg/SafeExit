@@ -141,7 +141,7 @@ export async function registerRoutes(
 
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [] });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -159,7 +159,7 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [] });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null });
   });
 
   app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {
@@ -243,7 +243,7 @@ export async function registerRoutes(
 
   app.get("/api/guards", requireAuth, requirePermission("teachers", "schedules", "absences", "guard_duty", "guard_registry"), async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email, permissions: g.permissions || [] })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email, permissions: g.permissions || [], guardTabVisible: g.guardTabVisible ?? null })));
   });
 
   app.get("/api/staff-list", requireAuth, async (_req, res) => {
@@ -417,6 +417,23 @@ export async function registerRoutes(
       if (user.role === "admin") return res.status(400).json({ message: "No se pueden modificar permisos del administrador" });
       await storage.updateUser(id, { permissions });
       res.json({ message: "Permisos actualizados" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/guards/:id/guard-tab", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { guardTabVisible } = req.body;
+      if (typeof guardTabVisible !== "boolean" && guardTabVisible !== null) {
+        return res.status(400).json({ message: "Valor inválido" });
+      }
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.role === "admin") return res.status(400).json({ message: "No se puede modificar para el administrador" });
+      await storage.updateUser(id, { guardTabVisible });
+      res.json({ message: "Configuración actualizada" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

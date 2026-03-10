@@ -9,6 +9,7 @@ interface AuthUser {
   groupId: number | null;
   email: string | null;
   permissions: string[];
+  guardTabVisible: boolean | null;
 }
 
 interface AuthContextType {
