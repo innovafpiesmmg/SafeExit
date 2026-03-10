@@ -9,12 +9,85 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { TIME_SLOTS } from "@shared/schema";
 import type { Group } from "@shared/schema";
-import { Download, Upload, Trash2, Save, Calendar, Users, User } from "lucide-react";
+import { Download, Upload, Trash2, Save, Calendar, Users, User, Shield, Clock, Ban } from "lucide-react";
 
 const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const classSlots = TIME_SLOTS.filter(s => !s.isBreak);
 
 type ViewMode = "teacher" | "group";
+
+const SLOT_TYPES = [
+  { value: "class", label: "Clase", shortLabel: "Clase", icon: Users, color: "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" },
+  { value: "guard", label: "Guardia", shortLabel: "Guardia", icon: Shield, color: "bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300" },
+  { value: "permanence", label: "Permanencia", shortLabel: "Perman.", icon: Clock, color: "bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300" },
+  { value: "blocked", label: "Bloqueada", shortLabel: "Bloq.", icon: Ban, color: "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300" },
+];
+
+function getSlotTypeInfo(type: string) {
+  return SLOT_TYPES.find(s => s.value === type) || SLOT_TYPES[0];
+}
+
+interface CellData {
+  slotType: string;
+  groupId: number | null;
+}
+
+function ScheduleCell({ cell, groups, onChange }: {
+  cell: CellData;
+  groups: Group[];
+  onChange: (slotType: string, groupId: number | null) => void;
+}) {
+  const typeInfo = getSlotTypeInfo(cell.slotType);
+  const isClass = cell.slotType === "class";
+
+  return (
+    <div className="space-y-1">
+      <Select
+        value={cell.slotType || "empty"}
+        onValueChange={v => {
+          if (v === "empty") {
+            onChange("empty", null);
+          } else {
+            onChange(v, v === "class" ? cell.groupId : null);
+          }
+        }}
+      >
+        <SelectTrigger
+          className={`h-7 text-[11px] ${cell.slotType && cell.slotType !== "empty" ? typeInfo.color : "border-dashed"}`}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="empty">—</SelectItem>
+          {SLOT_TYPES.map(st => (
+            <SelectItem key={st.value} value={st.value}>
+              <span className="flex items-center gap-1.5">
+                <st.icon className="w-3 h-3" />
+                {st.label}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {isClass && (
+        <Select
+          value={cell.groupId ? String(cell.groupId) : "empty"}
+          onValueChange={v => onChange("class", v === "empty" ? null : Number(v))}
+        >
+          <SelectTrigger className="h-7 text-[11px] bg-blue-50 dark:bg-blue-950 border-blue-200">
+            <SelectValue placeholder="Grupo..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="empty">Sin grupo</SelectItem>
+            {groups.map(g => (
+              <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
 
 function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
   groups: Group[];
@@ -25,7 +98,7 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   const groupsWithSchedule = useMemo(() => {
-    const ids = new Set(allSchedules.map((s: any) => s.groupId));
+    const ids = new Set(allSchedules.filter((s: any) => s.groupId).map((s: any) => s.groupId));
     return groups.filter(g => ids.has(g.id));
   }, [groups, allSchedules]);
 
@@ -41,7 +114,7 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
     for (let day = 1; day <= 5; day++) {
       for (const slot of classSlots) {
         const key = `${day}-${slot.id}`;
-        const entry = allSchedules.find((s: any) => s.groupId === selectedGroupId && s.dayOfWeek === day && s.timeSlotId === slot.id);
+        const entry = allSchedules.find((s: any) => s.groupId === selectedGroupId && s.dayOfWeek === day && s.timeSlotId === slot.id && s.slotType === "class");
         g[key] = entry ? { userId: entry.userId, teacherName: entry.teacherName || staffMap[entry.userId] || "—" } : null;
       }
     }
@@ -50,7 +123,7 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
 
   const totalSlots = useMemo(() => {
     if (!selectedGroupId) return 0;
-    return allSchedules.filter((s: any) => s.groupId === selectedGroupId).length;
+    return allSchedules.filter((s: any) => s.groupId === selectedGroupId && s.slotType === "class").length;
   }, [allSchedules, selectedGroupId]);
 
   const teacherColors = useMemo(() => {
@@ -182,7 +255,7 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {groups.map(g => {
-                const entries = allSchedules.filter((s: any) => s.groupId === g.id);
+                const entries = allSchedules.filter((s: any) => s.groupId === g.id && s.slotType === "class");
                 const teachers = new Set(entries.map((e: any) => e.userId));
                 return (
                   <div
@@ -214,7 +287,7 @@ export default function TeacherSchedulesPage() {
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>("teacher");
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
-  const [grid, setGrid] = useState<Record<string, number | null>>({});
+  const [grid, setGrid] = useState<Record<string, CellData>>({});
   const [dirty, setDirty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -230,12 +303,14 @@ export default function TeacherSchedulesPage() {
   }, [allSchedules, selectedTeacherId]);
 
   const loadGrid = (schedules: any[]) => {
-    const g: Record<string, number | null> = {};
+    const g: Record<string, CellData> = {};
     for (let day = 1; day <= 5; day++) {
       for (const slot of classSlots) {
         const key = `${day}-${slot.id}`;
         const entry = schedules.find((s: any) => s.dayOfWeek === day && s.timeSlotId === slot.id);
-        g[key] = entry ? entry.groupId : null;
+        g[key] = entry
+          ? { slotType: entry.slotType || "class", groupId: entry.groupId || null }
+          : { slotType: "empty", groupId: null };
       }
     }
     setGrid(g);
@@ -247,9 +322,9 @@ export default function TeacherSchedulesPage() {
     setDirty(false);
   };
 
-  const handleCellChange = (day: number, slotId: number, groupId: string) => {
+  const handleCellChange = (day: number, slotId: number, slotType: string, groupId: number | null) => {
     const key = `${day}-${slotId}`;
-    setGrid(g => ({ ...g, [key]: groupId ? Number(groupId) : null }));
+    setGrid(g => ({ ...g, [key]: { slotType, groupId } }));
     setDirty(true);
   };
 
@@ -257,10 +332,11 @@ export default function TeacherSchedulesPage() {
     mutationFn: async () => {
       if (!selectedTeacherId) return;
       const entries: any[] = [];
-      for (const [key, groupId] of Object.entries(grid)) {
-        if (!groupId) continue;
+      for (const [key, cell] of Object.entries(grid)) {
+        if (!cell.slotType || cell.slotType === "empty") continue;
+        if (cell.slotType === "class" && !cell.groupId) continue;
         const [day, slotId] = key.split("-").map(Number);
-        entries.push({ dayOfWeek: day, timeSlotId: slotId, groupId });
+        entries.push({ dayOfWeek: day, timeSlotId: slotId, groupId: cell.groupId, slotType: cell.slotType });
       }
       return apiRequest("PUT", `/api/teacher-schedules/${selectedTeacherId}`, entries);
     },
@@ -315,10 +391,6 @@ export default function TeacherSchedulesPage() {
           toast({ title: "Errores", description: data.errors.join("; "), variant: "destructive" });
         }
         queryClient.invalidateQueries({ queryKey: ["/api/teacher-schedules"] });
-        if (selectedTeacherId) {
-          const updated = allSchedules.filter((s: any) => s.userId === selectedTeacherId);
-          loadGrid(updated);
-        }
       }
     } catch {
       toast({ title: "Error al importar", variant: "destructive" });
@@ -330,6 +402,19 @@ export default function TeacherSchedulesPage() {
     const ids = new Set(allSchedules.map((s: any) => s.userId));
     return ids.size;
   }, [allSchedules]);
+
+  const getTeacherSummary = (entries: any[]) => {
+    const classes = entries.filter((e: any) => (e.slotType || "class") === "class").length;
+    const guards = entries.filter((e: any) => e.slotType === "guard").length;
+    const permanence = entries.filter((e: any) => e.slotType === "permanence").length;
+    const blocked = entries.filter((e: any) => e.slotType === "blocked").length;
+    const parts = [];
+    if (classes) parts.push(`${classes} clase(s)`);
+    if (guards) parts.push(`${guards} guardia(s)`);
+    if (permanence) parts.push(`${permanence} perm.`);
+    if (blocked) parts.push(`${blocked} bloq.`);
+    return parts.join(" · ") || "Sin horario";
+  };
 
   return (
     <div className="space-y-6">
@@ -377,6 +462,15 @@ export default function TeacherSchedulesPage() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="flex gap-3 flex-wrap">
+        {SLOT_TYPES.map(st => (
+          <div key={st.value} className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border ${st.color}`}>
+            <st.icon className="w-3 h-3" />
+            {st.label}
+          </div>
+        ))}
       </div>
 
       {viewMode === "group" ? (
@@ -466,26 +560,14 @@ export default function TeacherSchedulesPage() {
                         </td>
                         {[1, 2, 3, 4, 5].map(day => {
                           const key = `${day}-${slot.id}`;
-                          const groupId = grid[key];
+                          const cell = grid[key] || { slotType: "empty", groupId: null };
                           return (
-                            <td key={day} className="p-1 text-center">
-                              <Select
-                                value={groupId ? String(groupId) : "empty"}
-                                onValueChange={v => handleCellChange(day, slot.id, v === "empty" ? "" : v)}
-                              >
-                                <SelectTrigger
-                                  className={`h-8 text-xs ${groupId ? "bg-blue-50 dark:bg-blue-950 border-blue-200" : "border-dashed"}`}
-                                  data-testid={`cell-${day}-${slot.id}`}
-                                >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="empty">—</SelectItem>
-                                  {groups.map(g => (
-                                    <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                            <td key={day} className="p-1 text-center" data-testid={`cell-${day}-${slot.id}`}>
+                              <ScheduleCell
+                                cell={cell}
+                                groups={groups}
+                                onChange={(st, gid) => handleCellChange(day, slot.id, st, gid)}
+                              />
                             </td>
                           );
                         })}
@@ -514,7 +596,6 @@ export default function TeacherSchedulesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                   {staffList.map(t => {
                     const entries = allSchedules.filter((s: any) => s.userId === t.id);
-                    const days = new Set(entries.map((e: any) => e.dayOfWeek));
                     return (
                       <div
                         key={t.id}
@@ -523,13 +604,9 @@ export default function TeacherSchedulesPage() {
                         data-testid={`summary-teacher-${t.id}`}
                       >
                         <p className="font-medium text-sm">{t.fullName}</p>
-                        {entries.length > 0 ? (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {entries.length} clase(s) · {days.size} día(s)
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-0.5">Sin horario</p>
-                        )}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {getTeacherSummary(entries)}
+                        </p>
                       </div>
                     );
                   })}

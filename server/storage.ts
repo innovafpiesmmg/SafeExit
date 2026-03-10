@@ -1082,7 +1082,7 @@ export class DatabaseStorage implements IStorage {
       return allGroups.map(g => g.id);
     }
     const scheduleGroups = await db.select({ groupId: teacherSchedules.groupId }).from(teacherSchedules).where(eq(teacherSchedules.userId, userId));
-    const gids = new Set(scheduleGroups.map(s => s.groupId));
+    const gids = new Set(scheduleGroups.map(s => s.groupId).filter((id): id is number => id !== null));
     if (groupId) gids.add(groupId);
     return Array.from(gids);
   }

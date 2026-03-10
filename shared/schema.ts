@@ -338,9 +338,10 @@ export type HourAdvancement = typeof hourAdvancements.$inferSelect;
 export const teacherSchedules = pgTable("teacher_schedules", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  groupId: integer("group_id").notNull(),
+  groupId: integer("group_id"),
   timeSlotId: integer("time_slot_id").notNull(),
   dayOfWeek: integer("day_of_week").notNull(),
+  slotType: text("slot_type").notNull().default("class"),
 });
 
 export const insertTeacherScheduleSchema = createInsertSchema(teacherSchedules).omit({ id: true });

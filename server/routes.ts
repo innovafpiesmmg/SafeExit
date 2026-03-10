@@ -2626,7 +2626,7 @@ export async function registerRoutes(
       const enriched = schedules.map(s => ({
         ...s,
         teacherName: allUsers.find(u => u.id === s.userId)?.fullName || "?",
-        groupName: allGroups.find(g => g.id === s.groupId)?.name || "?",
+        groupName: s.groupId ? (allGroups.find(g => g.id === s.groupId)?.name || "?") : null,
       }));
       res.json(enriched);
     } catch (error: any) {
@@ -2641,9 +2641,17 @@ export async function registerRoutes(
       if (!Array.isArray(entries)) {
         return res.status(400).json({ message: "Se esperaba un array de entradas" });
       }
+      const validSlotTypes = ["class", "guard", "permanence", "blocked"];
       for (const entry of entries) {
-        if (!entry.dayOfWeek || !entry.timeSlotId || !entry.groupId) {
-          return res.status(400).json({ message: "Cada entrada necesita dayOfWeek, timeSlotId y groupId" });
+        const st = entry.slotType || "class";
+        if (!entry.dayOfWeek || !entry.timeSlotId) {
+          return res.status(400).json({ message: "Cada entrada necesita dayOfWeek y timeSlotId" });
+        }
+        if (st === "class" && !entry.groupId) {
+          return res.status(400).json({ message: "Las horas de clase necesitan un grupo asignado" });
+        }
+        if (!validSlotTypes.includes(st)) {
+          return res.status(400).json({ message: `Tipo de tramo no válido: ${st}` });
         }
         if (entry.dayOfWeek < 1 || entry.dayOfWeek > 5) {
           return res.status(400).json({ message: "dayOfWeek debe ser entre 1 (lunes) y 5 (viernes)" });
@@ -2653,7 +2661,8 @@ export async function registerRoutes(
         userId,
         dayOfWeek: e.dayOfWeek,
         timeSlotId: e.timeSlotId,
-        groupId: e.groupId,
+        groupId: e.groupId || null,
+        slotType: e.slotType || "class",
       }));
       const result = await storage.setTeacherSchedules(userId, mapped);
       res.json(result);
@@ -2674,14 +2683,16 @@ export async function registerRoutes(
   app.get("/api/teacher-schedules/template", requireAuth, requirePermission("schedules"), (_req: Request, res: Response) => {
     const wb = XLSX.utils.book_new();
     const headers = [
-      ["Profesor", "Día", "Tramo", "Grupo"],
-      ["María García Fernández", "Lunes", "1", "1A"],
-      ["María García Fernández", "Lunes", "2", "2B"],
-      ["María García Fernández", "Martes", "1", "1A"],
-      ["Carlos López Martín", "Miércoles", "3", "3A"],
+      ["Profesor", "Día", "Tramo", "Tipo", "Grupo"],
+      ["María García Fernández", "Lunes", "1", "clase", "1A"],
+      ["María García Fernández", "Lunes", "2", "clase", "2B"],
+      ["María García Fernández", "Martes", "1", "guardia", ""],
+      ["María García Fernández", "Martes", "3", "permanencia", ""],
+      ["Carlos López Martín", "Miércoles", "3", "clase", "3A"],
+      ["Carlos López Martín", "Jueves", "4", "bloqueada", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
-    ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, ws, "Horarios");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -2700,7 +2711,7 @@ export async function registerRoutes(
 
       if (!rows.length) return res.status(400).json({ message: "El archivo está vacío" });
 
-      const requiredCols = ["Profesor", "Día", "Tramo", "Grupo"];
+      const requiredCols = ["Profesor", "Día", "Tramo"];
       const headersFound = Object.keys(rows[0]);
       const missing = requiredCols.filter(c => !headersFound.includes(c));
       if (missing.length) {
@@ -2712,10 +2723,17 @@ export async function registerRoutes(
         "jueves": 4, "viernes": 5,
       };
 
+      const slotTypeMap: Record<string, string> = {
+        "clase": "class", "class": "class",
+        "guardia": "guard", "guard": "guard",
+        "permanencia": "permanence", "permanence": "permanence",
+        "bloqueada": "blocked", "blocked": "blocked",
+      };
+
       const allUsers = await storage.getAllUsers();
       const allGroups = await storage.getAllGroups();
 
-      const byTeacher = new Map<number, { dayOfWeek: number; timeSlotId: number; groupId: number; userId: number }[]>();
+      const byTeacher = new Map<number, { dayOfWeek: number; timeSlotId: number; groupId: number | null; userId: number; slotType: string }[]>();
       const errors: string[] = [];
       let imported = 0;
 
@@ -2725,12 +2743,15 @@ export async function registerRoutes(
         const teacherName = String(row["Profesor"] || "").trim();
         const dayStr = String(row["Día"] || row["Dia"] || "").trim().toLowerCase();
         const slotId = parseInt(String(row["Tramo"] || ""));
+        const typeStr = String(row["Tipo"] || "clase").trim().toLowerCase();
         const groupName = String(row["Grupo"] || "").trim();
 
-        if (!teacherName || !dayStr || !slotId || !groupName) {
-          errors.push(`Fila ${rowNum}: campos incompletos`);
+        if (!teacherName || !dayStr || !slotId) {
+          errors.push(`Fila ${rowNum}: campos incompletos (Profesor, Día y Tramo son obligatorios)`);
           continue;
         }
+
+        const slotType = slotTypeMap[typeStr] || "class";
 
         const dayOfWeek = dayNameMap[dayStr] || parseInt(dayStr);
         if (!dayOfWeek || dayOfWeek < 1 || dayOfWeek > 5) {
@@ -2744,10 +2765,18 @@ export async function registerRoutes(
           continue;
         }
 
-        const group = allGroups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
-        if (!group) {
-          errors.push(`Fila ${rowNum}: grupo "${groupName}" no encontrado`);
-          continue;
+        let groupId: number | null = null;
+        if (slotType === "class") {
+          if (!groupName) {
+            errors.push(`Fila ${rowNum}: las horas de clase necesitan un grupo`);
+            continue;
+          }
+          const group = allGroups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+          if (!group) {
+            errors.push(`Fila ${rowNum}: grupo "${groupName}" no encontrado`);
+            continue;
+          }
+          groupId = group.id;
         }
 
         if (!byTeacher.has(teacher.id)) {
@@ -2757,7 +2786,8 @@ export async function registerRoutes(
           userId: teacher.id,
           dayOfWeek,
           timeSlotId: slotId,
-          groupId: group.id,
+          groupId,
+          slotType,
         });
       }
 
