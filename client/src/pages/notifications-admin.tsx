@@ -41,6 +41,7 @@ export default function NotificationsAdminPage() {
 
   const { data: sentNotifications = [], isLoading } = useQuery<SentNotification[]>({
     queryKey: ["/api/notifications/sent"],
+    refetchInterval: 10000,
   });
 
   const { data: allGroups = [] } = useQuery<Group[]>({

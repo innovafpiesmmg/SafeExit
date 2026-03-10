@@ -88,6 +88,8 @@ export async function registerRoutes(
 ): Promise<Server> {
   const MemoryStore = memorystore(session);
 
+  app.set("trust proxy", 1);
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "safeexit-secret-key",
@@ -96,7 +98,7 @@ export async function registerRoutes(
       store: new MemoryStore({ checkPeriod: 86400000 }),
       cookie: {
         maxAge: 24 * 60 * 60 * 1000,
-        secure: process.env.SECURE_COOKIES === "true",
+        secure: "auto",
         sameSite: "lax",
       },
     })

@@ -35,6 +35,11 @@ export function usePushNotifications(isAuthenticated: boolean, userId: number | 
 
 async function subscribeToPush() {
   try {
+    if (window.location.protocol !== "https:") {
+      console.log("Push requires HTTPS, skipping subscription");
+      return;
+    }
+
     const res = await fetch("/api/push/vapid-public-key");
     const { publicKey } = await res.json();
     if (!publicKey) return;
@@ -42,15 +47,23 @@ async function subscribeToPush() {
     const registration = await navigator.serviceWorker.ready;
 
     let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
 
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+    if (subscription) {
+      const subJson = subscription.toJSON();
+      await apiRequest("POST", "/api/push/subscribe", {
+        endpoint: subJson.endpoint,
+        keys: subJson.keys,
       });
+      return;
     }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
 
     const subJson = subscription.toJSON();
     await apiRequest("POST", "/api/push/subscribe", {

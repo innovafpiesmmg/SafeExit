@@ -20,6 +20,7 @@ import TeacherAbsencesPage from "./teacher-absences";
 import StaffMessages from "./staff-messages";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { Badge } from "@/components/ui/badge";
+import { useInAppAlert } from "@/hooks/use-in-app-alert";
 
 type TabId = "group" | "guard" | "late" | "records" | "duty" | "absences" | "messages";
 
@@ -198,6 +199,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   const [, setLocation] = useLocation();
   const online = useOnlineStatus();
   const [accountOpen, setAccountOpen] = useState(false);
+  useInAppAlert();
 
   const { data: settings } = useQuery<Record<string, string>>({
     queryKey: ["/api/settings"],
