@@ -17,6 +17,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 ### Gestión de grupos y horarios
 - Creación y edición de grupos (1A, 2B, 1 BACH A, etc.)
 - Cada grupo tiene un **tipo de horario**: Mañana (tramos 1-6), Tarde (tramos 7-12) o Completo (tramos 1-12)
+- **Control de adelantos por grupo**: toggle "Permitir adelantos" en la ficha del grupo. Los grupos con adelantos desactivados muestran una etiqueta naranja "Sin adelantos" y no pueden recibir adelantos de hora (validación en servidor y en interfaz)
 - El calendario muestra automáticamente solo los tramos correspondientes al horario del grupo
 - Configuración de permisos de salida por grupo en fechas concretas
 - Indicadores visuales (puntos verdes) en días con permisos configurados
@@ -81,7 +82,43 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Contraseña común definida por el administrador
 - Importación masiva desde Excel (columnas Nombre/Apellidos)
 - Usuarios autogenerados automáticamente
+- Subida de foto por profesor (selector de archivo o captura de cámara)
 - QR de acceso rápido para que los profesores inicien sesión escaneándolo
+
+### Horarios del profesorado
+- Página de administración (/teacher-schedules) para gestionar el horario semanal de cada profesor
+- **Tabla semanal interactiva**: columnas de lunes a viernes, filas por cada tramo horario. En cada celda se asigna el grupo que imparte el profesor en ese tramo y día
+- Edición manual libre: se puede modificar el horario en cualquier momento sin restricciones
+- Botones "Guardar" y "Limpiar" por profesor
+- **Importación por Excel**: plantilla descargable con columnas Profesor, Día, Tramo y Grupo. El día puede escribirse como nombre (Lunes, Martes...) o número (1-5). Valida que los profesores y grupos existan
+- Vista resumen: cuando no hay profesor seleccionado, se muestran tarjetas de todos los profesores con su estado (número de clases y días asignados)
+- Indicador visual "horario" en el desplegable de profesores para los que ya tienen horario cargado
+- **Integración con ausencias**: cuando un profesor registra una ausencia y selecciona la fecha, el botón "Rellenar desde horario" auto-marca los tramos y grupos de ese día según su horario guardado. Solo tiene que desmarcar los tramos en los que sí estará
+
+### Gestión de ausencias del profesorado
+- Los profesores registran ausencias desde la pestaña "Ausencias" en su vista de staff (fecha, periodos, grupos, notas)
+- **Regla de antelación**: los profesores no pueden crear, eliminar ni modificar adjuntos de ausencias con menos de 12 horas de antelación. Aparece una etiqueta "Bloqueada" en lugar del botón de eliminar. Los administradores pueden gestionar cualquier ausencia sin restricción de tiempo
+- Confirmación y rechazo de ausencias por el administrador
+- Panel de administración (/absence-management) con tres pestañas:
+  - **Motor de Guardias**: muestra los huecos sin cubrir por tramo horario, permite asignar profesores de guardia a cada hueco y crear adelantos
+  - **Adelantos**: lista de adelantos del día con explicación del proceso
+  - **Ausencias**: confirmar, rechazar o eliminar ausencias
+
+### Adelantos de hora (Motor de Guardias)
+- Cuando un profesor falta a media jornada, el administrador puede **adelantar** una clase posterior del mismo grupo para cubrir el hueco
+- El tramo origen (donde falta el profesor) queda cubierto y el tramo destino (de donde se mueve la clase) queda libre
+- Si con varios adelantos las últimas horas del día quedan libres para un grupo, el sistema sugiere **autorizar la salida anticipada**
+- Al autorizar, se crean permisos de salida grupal automáticos: los alumnos de ese grupo podrán salir al escanear su QR en esos tramos
+- **Validaciones del servidor**: el tramo destino debe ser posterior al origen, no puede haber adelantos duplicados, y los grupos con "Sin adelantos" activado no pueden recibir adelantos
+- Los huecos cubiertos por guardia aparecen en verde, los cubiertos por adelanto en azul, y los sin cubrir en rojo
+
+### Gestión de guardias de profesorado
+- El administrador configura edificios (1-3) con hasta 6 zonas de guardia cada uno
+- Asignación de profesores a zonas y periodos por día de la semana, incluyendo recreos
+- Los profesores fichan su guardia ("Fichar Guardia" en la vista de staff) durante su periodo asignado (+5 min de gracia), seleccionando nombre, zona y firmando
+- **Modo sustitución**: profesores no asignados pueden registrarse como sustitutos con plan de sustitución
+- Registro de guardias consultable por el administrador (/guard-duty-registry) con filtros por fecha, edificio, zona y profesor
+- Descarga de documento PDF de declaración por fichaje
 
 ### Historial y auditoría
 - Registro de cada verificación de salida con fecha, hora, resultado, motivo y verificador
@@ -126,7 +163,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Vista de guardia (tablet)
 - Pantalla completa optimizada para tablets en horizontal
-- Tres pestañas internas: escaneo QR, búsqueda por nombre y salida acompañada
+- Pestañas: **Guardia** (QR + búsqueda + acompañada), **Tardías**, **Fichar** (fichaje de guardia) y **Ausencias** (registro de ausencias propias)
 - Botones grandes táctiles
 - Reloj en tiempo real y estado de conexión WiFi
 - Auto-retorno configurable al estado de espera
@@ -136,10 +173,12 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Vista de tutor (móvil)
 - Vista optimizada para móvil con navegación por pestañas inferiores
-- 4 pestañas: **Mi Grupo**, **Guardia**, **Tardías** y **Registros**
+- 6 pestañas: **Mi Grupo**, **Guardia**, **Tardías**, **Fichar**, **Ausencias** y **Registros**
 - Mi Grupo: lista de alumnos del grupo asignado, subida de fotos desde cámara, compartir carnet digital
 - Guardia: verificación de salida con QR, búsqueda y salida acompañada
 - Tardías: registro de entradas tardías
+- Fichar: fichaje de guardia con firma digital
+- Ausencias: registro y consulta de ausencias propias
 - Registros: historial de salidas y tardías del grupo
 - Búsqueda de alumnos dentro del grupo
 
@@ -172,9 +211,9 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 | Rol | Acceso | Dispositivo |
 |-----|--------|-------------|
-| **Admin** | Panel completo: alumnos, grupos, profesores, calendario, historial, impresión, escáner, entradas tardías, cursos archivados, ajustes | PC |
-| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías | Tablet |
-| **Tutor** | Gestión de su grupo + verificación + tardías + historial de registros de su grupo | Móvil |
+| **Admin** | Panel completo: alumnos, grupos, profesores, horarios, calendario, historial, impresión, escáner, guardias, ausencias, cursos archivados, ajustes | PC |
+| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías + fichar guardia + registrar ausencias | Tablet |
+| **Tutor** | Gestión de su grupo + verificación + tardías + fichar guardia + ausencias + historial de registros de su grupo | Móvil |
 
 ---
 
@@ -333,9 +372,10 @@ Archivo: `/etc/safeexit/env`
 - **Base de datos**: PostgreSQL + Drizzle ORM
 - **Autenticación**: Sesiones con express-session
 - **QR**: qrcode (generación) + html5-qrcode (escaneo con soporte PDF417 para DNI)
-- **PDF**: jsPDF (impresión de carnets)
-- **Excel**: xlsx (importación y exportación .xlsx)
+- **PDF**: jsPDF (impresión de carnets) + PDFKit (documentos de salida y fichaje)
+- **Excel**: xlsx (importación y exportación .xlsx de alumnos, profesores y horarios)
 - **Email**: nodemailer (notificaciones SMTP)
+- **PWA**: manifest.json + service worker (instalable en tablets y móviles)
 - **DNS**: dnsmasq (resolución local safeexit.local)
 - **Proxy**: Nginx
 - **Proceso**: systemd
