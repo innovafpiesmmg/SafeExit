@@ -97,6 +97,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Gestión de ausencias del profesorado
 - Los profesores registran ausencias desde la pestaña "Ausencias" en su vista de staff (fecha, periodos, grupos, notas)
+- Adjuntos de justificación: los profesores pueden subir archivos como justificante de su ausencia
 - **Regla de antelación**: los profesores no pueden crear, eliminar ni modificar adjuntos de ausencias con menos de 12 horas de antelación. Aparece una etiqueta "Bloqueada" en lugar del botón de eliminar. Los administradores pueden gestionar cualquier ausencia sin restricción de tiempo
 - Confirmación y rechazo de ausencias por el administrador
 - Panel de administración (/absence-management) con tres pestañas:
@@ -182,12 +183,47 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Registros: historial de salidas y tardías del grupo
 - Búsqueda de alumnos dentro del grupo
 
+### Gestión de contraseñas
+- Todos los usuarios pueden cambiar su contraseña desde un diálogo en la aplicación
+  - **Admin**: icono de llave en el pie del menú lateral
+  - **Profesores**: icono de engranaje en la cabecera → "Mi cuenta"
+- Los profesores pueden configurar un email de recuperación desde su perfil
+- **Recuperación de contraseña**: enlace "¿Olvidaste tu contraseña?" en la página de login
+  - Envía un email con enlace de restablecimiento (token válido 1 hora, un solo uso)
+  - Página de restablecimiento en `/reset-password?token=xxx`
+  - Requiere configuración SMTP y variable `APP_BASE_URL`
+  - Email normalizado (minúsculas + trim)
+
+### Sistema de permisos granulares
+- El administrador puede asignar permisos específicos a cada profesor desde la página de Profesores
+- 15 claves de permiso: Alumnos, Grupos, Profesores, Calendario, Entradas Tardías, Historial Salidas, Historial Entradas, Guardias Prof., Reg. Guardias, Ausencias, Horarios, Imprimir Carnets, Verificación QR, Cursos Archivados, Ajustes
+- Los profesores con permisos asignados ven el **panel de administración** en lugar de la vista de staff, con el menú lateral filtrado mostrando solo las secciones permitidas
+- Protección por ruta: componente `PermissionGate` en el frontend impide acceso a secciones no autorizadas
+- Protección en el backend: middleware `requirePermission()` valida cada petición API
+- Los profesores con permisos ven un botón "Vista de profesor" en el pie del menú lateral para volver a su vista de staff normal
+- Diálogo de permisos con selección individual, "Todos" y "Ninguno"
+- Los controles de edición/eliminación/importación de profesores solo son visibles para el administrador
+
+### Pestaña de Guardia configurable
+- El administrador puede ocultar o mostrar la pestaña "Guardia" (verificación QR) para todos los profesores desde Ajustes
+- Ajuste `staffGuardTabVisible` en la configuración de la aplicación
+- Patrón fail-closed: mientras carga la configuración, la pestaña permanece oculta
+
+### Autorizaciones en el carnet
+- El carnet digital muestra una sección de **Autorizaciones** con:
+  - Estado de salida autónoma (autorizada / no autorizada) con icono visual
+  - Si el alumno tiene autorización de **guagua**: muestra la hora exacta de salida calculada automáticamente (X minutos antes del fin de sesión según el horario del grupo)
+- El carnet impreso (PDF) incluye etiquetas compactas:
+  - "✓ Salida" en verde para alumnos con autorización parental
+  - "🚌 Guagua" en azul para alumnos con autorización de transporte
+
 ### Configuración y ajustes (admin)
 - Nombre del centro educativo (usado en emails y carnets)
 - Curso académico (mostrado en carnets)
 - Configuración de tramos horarios por día de la semana (12 tramos con hora de inicio y fin)
 - Configuración completa del servidor SMTP (host, puerto, usuario, contraseña, dirección de envío, SSL/TLS)
 - Toggle para activar/desactivar el correo en salida acompañada
+- Toggle para mostrar/ocultar la pestaña de guardia para profesores
 - Archivar curso académico o eliminar datos sin archivar
 
 ### PWA (Progressive Web App)
@@ -211,9 +247,9 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 | Rol | Acceso | Dispositivo |
 |-----|--------|-------------|
-| **Admin** | Panel completo: alumnos, grupos, profesores, horarios, calendario, historial, impresión, escáner, guardias, ausencias, cursos archivados, ajustes | PC |
-| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías + fichar guardia + registrar ausencias | Tablet |
-| **Tutor** | Gestión de su grupo + verificación + tardías + fichar guardia + ausencias + historial de registros de su grupo | Móvil |
+| **Admin** | Panel completo: alumnos, grupos, profesores, horarios, calendario, historial, impresión, escáner, guardias, ausencias, permisos, cursos archivados, ajustes | PC |
+| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías + fichar guardia + registrar ausencias. Con permisos: acceso al panel admin filtrado | Tablet |
+| **Tutor** | Gestión de su grupo + verificación + tardías + fichar guardia + ausencias + historial de registros de su grupo. Con permisos: acceso al panel admin filtrado | Móvil |
 
 ---
 
@@ -362,6 +398,7 @@ Archivo: `/etc/safeexit/env`
 | `ADMIN_USER` | Usuario admin inicial |
 | `ADMIN_PASS` | Contraseña admin inicial |
 | `ADMIN_NAME` | Nombre completo del admin |
+| `APP_BASE_URL` | URL base para enlaces de restablecimiento de contraseña (ej: `http://safeexit.local`) |
 
 ---
 
