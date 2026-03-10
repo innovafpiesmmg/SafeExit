@@ -204,6 +204,9 @@ export default function LoginPage() {
             </CardContent>
           </Card>
         )}
+        <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy-policy">
+          Política de Privacidad
+        </a>
         <Footer />
       </div>
     </div>

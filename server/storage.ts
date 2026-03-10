@@ -4,7 +4,7 @@ import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
   teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements, teacherSchedules, passwordResetTokens,
-  notifications, notificationReads, chatMessages, chatReads, directMessages,
+  notifications, notificationReads, chatMessages, chatReads, directMessages, auditLogs,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -28,6 +28,7 @@ import {
   type ChatMessage, type InsertChatMessage,
   type ChatRead,
   type DirectMessage, type InsertDirectMessage,
+  type AuditLog, type InsertAuditLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -156,6 +157,10 @@ export interface IStorage {
   deleteDirectMessage(id: number): Promise<void>;
   getDirectConversations(userId: number): Promise<any[]>;
   getUnreadDirectMessageCount(userId: number): Promise<number>;
+
+  createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(limit?: number, offset?: number, filters?: { userId?: number; action?: string; entity?: string }): Promise<{ logs: AuditLog[]; total: number }>;
+  cleanupOldRecords(yearsOld: number): Promise<{ exitLogs: number; lateArrivals: number; chatMessages: number; directMessages: number; notifications: number; incidents: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1203,6 +1208,63 @@ export class DatabaseStorage implements IStorage {
         sql`${directMessages.readAt} IS NULL`
       ));
     return Number(result?.cnt || 0);
+  }
+
+  async createAuditLog(data: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(auditLogs).values(data).returning();
+    return created;
+  }
+
+  async getAuditLogs(limit: number = 50, offset: number = 0, filters?: { userId?: number; action?: string; entity?: string }): Promise<{ logs: AuditLog[]; total: number }> {
+    const conditions: any[] = [];
+    if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
+    if (filters?.action) conditions.push(eq(auditLogs.action, filters.action));
+    if (filters?.entity) conditions.push(eq(auditLogs.entity, filters.entity));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalResult] = await db.select({ cnt: count() }).from(auditLogs).where(whereClause);
+    const logs = await db.select().from(auditLogs)
+      .where(whereClause)
+      .orderBy(desc(auditLogs.id))
+      .limit(limit)
+      .offset(offset);
+
+    return { logs, total: Number(totalResult?.cnt || 0) };
+  }
+
+  async cleanupOldRecords(yearsOld: number): Promise<{ exitLogs: number; lateArrivals: number; chatMessages: number; directMessages: number; notifications: number; incidents: number }> {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - yearsOld);
+
+    const oldExitIds = await db.select({ id: exitLogs.id }).from(exitLogs).where(lt(exitLogs.timestamp, cutoff));
+    const exitIds = oldExitIds.map(e => e.id);
+    let incidentCount = 0;
+    if (exitIds.length > 0) {
+      const delIncidents = await db.delete(incidents).where(inArray(incidents.exitLogId, exitIds)).returning();
+      incidentCount = delIncidents.length;
+    }
+
+    const delExitLogs = await db.delete(exitLogs).where(lt(exitLogs.timestamp, cutoff)).returning();
+    const delLateArrivals = await db.delete(lateArrivals).where(lt(lateArrivals.timestamp, cutoff)).returning();
+    const delChatMessages = await db.delete(chatMessages).where(lt(chatMessages.createdAt, cutoff)).returning();
+    const delDirectMessages = await db.delete(directMessages).where(lt(directMessages.createdAt, cutoff)).returning();
+
+    const oldNotifIds = await db.select({ id: notifications.id }).from(notifications).where(lt(notifications.createdAt, cutoff));
+    const notifIds = oldNotifIds.map(n => n.id);
+    if (notifIds.length > 0) {
+      await db.delete(notificationReads).where(inArray(notificationReads.notificationId, notifIds));
+    }
+    const delNotifications = await db.delete(notifications).where(lt(notifications.createdAt, cutoff)).returning();
+
+    return {
+      exitLogs: delExitLogs.length,
+      lateArrivals: delLateArrivals.length,
+      chatMessages: delChatMessages.length,
+      directMessages: delDirectMessages.length,
+      notifications: delNotifications.length,
+      incidents: incidentCount,
+    };
   }
 }
 

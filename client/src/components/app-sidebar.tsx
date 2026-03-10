@@ -44,6 +44,7 @@ const adminItems = [
   { title: "Notificaciones", url: "/notifications", icon: Bell, permission: "notifications" },
   { title: "Mensajería", url: "/chat", icon: MessageSquare, permission: "chat" },
   { title: "Cursos Archivados", url: "/archives", icon: Archive, permission: "archives" },
+  { title: "Auditoría", url: "/audit", icon: Shield, permission: "__admin_only__" },
   { title: "Ajustes", url: "/settings", icon: Settings, permission: "settings" },
 ];
 

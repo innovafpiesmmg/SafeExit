@@ -30,6 +30,8 @@ import CarnetPublicPage from "@/pages/carnet-public";
 import NotificationsAdminPage from "@/pages/notifications-admin";
 import ChatAdminPage from "@/pages/chat-admin";
 import ResetPasswordPage from "@/pages/reset-password";
+import PrivacyPolicyPage from "@/pages/privacy-policy";
+import AuditLogsPage from "@/pages/audit-logs";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
@@ -72,6 +74,11 @@ function AdminRouter() {
       <Route path="/notifications">{() => <PermissionGate permission="notifications"><NotificationsAdminPage /></PermissionGate>}</Route>
       <Route path="/chat">{() => <PermissionGate permission="chat"><ChatAdminPage /></PermissionGate>}</Route>
       <Route path="/archives">{() => <PermissionGate permission="archives"><ArchivesPage /></PermissionGate>}</Route>
+      <Route path="/audit">{() => {
+        const { user } = useAuth();
+        if (user?.role !== "admin") return <Card className="max-w-md mx-auto mt-12"><CardContent className="flex flex-col items-center gap-3 py-8"><ShieldAlert className="w-12 h-12 text-muted-foreground" /><p className="text-lg font-medium">Sin acceso</p><p className="text-sm text-muted-foreground text-center">Solo administradores pueden acceder a la auditoría.</p></CardContent></Card>;
+        return <AuditLogsPage />;
+      }}</Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -83,6 +90,10 @@ function AppLayout() {
 
   if (location.startsWith("/carnet/")) {
     return <CarnetPublicPage />;
+  }
+
+  if (location === "/privacy") {
+    return <PrivacyPolicyPage />;
   }
 
   if (location.startsWith("/reset-password")) {

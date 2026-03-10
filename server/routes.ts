@@ -15,6 +15,21 @@ import path from "path";
 import fs from "fs";
 import * as XLSX from "xlsx";
 
+async function audit(req: Request, action: string, entity: string, entityId?: number, details?: string) {
+  try {
+    const user = (req as any).user;
+    await storage.createAuditLog({
+      userId: user?.id || null,
+      userName: user?.fullName || null,
+      action,
+      entity,
+      entityId: entityId || null,
+      details: details || null,
+      ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+    });
+  } catch {}
+}
+
 const uploadsDir = process.env.NODE_ENV === "production"
   ? path.resolve("uploads")
   : path.resolve("client/public/uploads");
@@ -146,13 +161,21 @@ export async function registerRoutes(
 
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
+      (req as any).user = user;
+      await audit(req, "login", "auth", user.id, `Usuario ${user.username} (${user.role})`);
       res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    const userId = (req.session as any).userId;
+    if (userId) {
+      const u = await storage.getUser(userId);
+      (req as any).user = u;
+      await audit(req, "logout", "auth", userId);
+    }
     req.session.destroy(() => {
       res.json({ message: "Sesión cerrada" });
     });
@@ -347,6 +370,7 @@ export async function registerRoutes(
       await storage.setSetting("guardPassword", password);
       const hashedPassword = await bcrypt.hash(password, 10);
       await storage.updateAllGuardPasswords(hashedPassword);
+      await audit(req, "update", "user", undefined, "Contraseña común de profesores actualizada");
       res.json({ message: "Contraseña actualizada para todos los profesores de guardia" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -379,6 +403,7 @@ export async function registerRoutes(
 
       const hashedPassword = await bcrypt.hash(guardPassword, 10);
       const user = await storage.createUser({ username, password: hashedPassword, fullName, role: userRole, groupId: assignedGroupId });
+      await audit(req, "create", "user", user.id, `${user.fullName} (${user.role})`);
       res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -401,6 +426,7 @@ export async function registerRoutes(
       const updateData: any = { fullName, role: userRole, groupId: assignedGroupId };
       const user = await storage.updateUser(id, updateData);
       if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      await audit(req, "update", "user", user.id, `${user.fullName} (${user.role})`);
       res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -408,7 +434,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/guards/:id", requireAuth, requireAdmin, async (req, res) => {
+    const user = await storage.getUser(parseInt(req.params.id));
     await storage.deleteUser(parseInt(req.params.id));
+    await audit(req, "delete", "user", parseInt(req.params.id), user ? `${user.fullName} (${user.role})` : undefined);
     res.json({ message: "Profesor eliminado" });
   });
 
@@ -421,6 +449,7 @@ export async function registerRoutes(
       if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
       if (user.role === "admin") return res.status(400).json({ message: "No se pueden modificar permisos del administrador" });
       await storage.updateUser(id, { permissions });
+      await audit(req, "update", "permissions", id, `${user.fullName}: ${permissions.join(", ") || "sin permisos"}`);
       res.json({ message: "Permisos actualizados" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -728,6 +757,7 @@ export async function registerRoutes(
         req.body.busExitMinutes = Math.max(5, Math.min(30, parseInt(req.body.busExitMinutes) || 5));
       }
       const student = await storage.createStudent(req.body);
+      await audit(req, "create", "student", student.id, `${student.firstName} ${student.lastName}`);
       res.json(student);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -740,11 +770,14 @@ export async function registerRoutes(
     }
     const student = await storage.updateStudent(parseInt(req.params.id), req.body);
     if (!student) return res.status(404).json({ message: "Alumno no encontrado" });
+    await audit(req, "update", "student", student.id, `${student.firstName} ${student.lastName}`);
     res.json(student);
   });
 
   app.delete("/api/students/:id", requireAuth, requirePermission("students"), async (req, res) => {
+    const student = await storage.getStudent(parseInt(req.params.id));
     await storage.deleteStudent(parseInt(req.params.id));
+    await audit(req, "delete", "student", parseInt(req.params.id), student ? `${student.firstName} ${student.lastName}` : undefined);
     res.json({ message: "Alumno eliminado" });
   });
 
@@ -1166,6 +1199,7 @@ export async function registerRoutes(
     const { key, value } = req.body;
     if (!key) return res.status(400).json({ message: "Clave requerida" });
     await storage.setSetting(key, String(value));
+    await audit(req, "update", "settings", undefined, `${key} = ${String(value).substring(0, 100)}`);
     const settings = await storage.getAllSettings();
     res.json(settings);
   });
@@ -1290,6 +1324,7 @@ export async function registerRoutes(
       }
       const adminUserId = (req.session as any).userId;
       const archive = await storage.archiveAcademicYear(adminUserId, yearName.trim());
+      await audit(req, "archive", "academic_year", archive.id, `Archivado curso: ${yearName.trim()}`);
       res.json({ message: `Curso "${yearName}" archivado correctamente.`, archiveId: archive.id });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -1304,6 +1339,7 @@ export async function registerRoutes(
       }
       const adminUserId = (req.session as any).userId;
       await storage.resetAcademicYear(adminUserId);
+      await audit(req, "reset", "academic_year", undefined, "Reinicio de curso académico");
       res.json({ message: "Curso académico reiniciado correctamente. Todos los datos han sido eliminados." });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3168,6 +3204,34 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Archivo no encontrado" });
     }
     res.download(filePath, filename);
+  });
+
+  app.get("/api/audit-logs", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const filters: any = {};
+      if (req.query.userId) filters.userId = parseInt(req.query.userId as string);
+      if (req.query.action) filters.action = req.query.action as string;
+      if (req.query.entity) filters.entity = req.query.entity as string;
+      const result = await storage.getAuditLogs(limit, offset, filters);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/cleanup", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { years } = req.body;
+      const yearsOld = Math.max(1, Math.min(10, parseInt(years) || 3));
+      const result = await storage.cleanupOldRecords(yearsOld);
+      const total = Object.values(result).reduce((s, n) => s + n, 0);
+      await audit(req, "cleanup", "system", undefined, `Borrado registros > ${yearsOld} años: ${total} registros eliminados (salidas: ${result.exitLogs}, tardías: ${result.lateArrivals}, chat: ${result.chatMessages}, DM: ${result.directMessages}, notificaciones: ${result.notifications}, incidencias: ${result.incidents})`);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   return httpServer;

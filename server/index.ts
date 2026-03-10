@@ -89,6 +89,30 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
+  const { storage } = await import("./storage");
+  const runCleanup = async () => {
+    try {
+      const result = await storage.cleanupOldRecords(3);
+      const total = Object.values(result).reduce((s, n) => s + n, 0);
+      if (total > 0) {
+        log(`Auto-cleanup: ${total} registros antiguos (>3 años) eliminados`, "cleanup");
+        await storage.createAuditLog({
+          userId: null,
+          userName: "Sistema",
+          action: "auto_cleanup",
+          entity: "system",
+          entityId: null,
+          details: `Borrado automático: salidas=${result.exitLogs}, tardías=${result.lateArrivals}, chat=${result.chatMessages}, DM=${result.directMessages}, notificaciones=${result.notifications}, incidencias=${result.incidents}`,
+          ipAddress: null,
+        });
+      }
+    } catch (e: any) {
+      log(`Auto-cleanup error: ${e.message}`, "cleanup");
+    }
+  };
+  setTimeout(runCleanup, 30000);
+  setInterval(runCleanup, 24 * 60 * 60 * 1000);
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.

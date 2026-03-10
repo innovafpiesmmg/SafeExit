@@ -415,6 +415,22 @@ export const insertDirectMessageSchema = createInsertSchema(directMessages).omit
 export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
 export type DirectMessage = typeof directMessages.$inferSelect;
 
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  userName: text("user_name"),
+  action: text("action").notNull(),
+  entity: text("entity").notNull(),
+  entityId: integer("entity_id"),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
