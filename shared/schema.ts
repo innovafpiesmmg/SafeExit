@@ -281,3 +281,19 @@ export const guardCoverages = pgTable("guard_coverages", {
 export const insertGuardCoverageSchema = createInsertSchema(guardCoverages).omit({ id: true, assignedAt: true });
 export type InsertGuardCoverage = z.infer<typeof insertGuardCoverageSchema>;
 export type GuardCoverage = typeof guardCoverages.$inferSelect;
+
+export const hourAdvancements = pgTable("hour_advancements", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(),
+  groupId: integer("group_id").notNull(),
+  originalSlotId: integer("original_slot_id").notNull(),
+  targetSlotId: integer("target_slot_id").notNull(),
+  teacherUserId: integer("teacher_user_id").notNull(),
+  absencePeriodId: integer("absence_period_id"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertHourAdvancementSchema = createInsertSchema(hourAdvancements).omit({ id: true, createdAt: true });
+export type InsertHourAdvancement = z.infer<typeof insertHourAdvancementSchema>;
+export type HourAdvancement = typeof hourAdvancements.$inferSelect;

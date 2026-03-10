@@ -2160,5 +2160,118 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== HOUR ADVANCEMENTS ====================
+
+  app.post("/api/hour-advancements", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const { date, groupId, originalSlotId, targetSlotId, teacherUserId, absencePeriodId } = req.body;
+      if (!date || !groupId || !originalSlotId || !targetSlotId || !teacherUserId) {
+        return res.status(400).json({ message: "Datos incompletos" });
+      }
+      if (originalSlotId === targetSlotId) {
+        return res.status(400).json({ message: "El tramo origen y destino no pueden ser iguales" });
+      }
+      if (targetSlotId <= originalSlotId) {
+        return res.status(400).json({ message: "El tramo destino debe ser posterior al tramo origen" });
+      }
+
+      const existing = await storage.getHourAdvancements(date);
+      const conflict = existing.find((a: any) =>
+        a.groupId === groupId && (a.originalSlotId === originalSlotId || a.targetSlotId === targetSlotId)
+      );
+      if (conflict) {
+        return res.status(400).json({ message: "Ya existe un adelanto que afecta a uno de esos tramos para este grupo" });
+      }
+
+      const advancement = await storage.createHourAdvancement({
+        date,
+        groupId,
+        originalSlotId,
+        targetSlotId,
+        teacherUserId,
+        absencePeriodId: absencePeriodId || null,
+        createdBy: user.id,
+      });
+      res.json(advancement);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hour-advancements", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const date = req.query.date as string;
+      if (!date) return res.status(400).json({ message: "Fecha requerida" });
+      const advancements = await storage.getHourAdvancements(date);
+      res.json(advancements);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/hour-advancements/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteHourAdvancement(Number(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/group-free-slots", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const date = req.query.date as string;
+      const groupId = Number(req.query.groupId);
+      if (!date || !groupId) return res.status(400).json({ message: "Fecha y grupo requeridos" });
+      const freeSlots = await storage.getGroupFreeSlots(date, groupId);
+      res.json(freeSlots);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/authorize-early-exit", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { date, groupId, fromSlot } = req.body;
+      if (!date || !groupId || !fromSlot) {
+        return res.status(400).json({ message: "Datos incompletos" });
+      }
+
+      const freeSlots = await storage.getGroupFreeSlots(date, groupId);
+      const allClassSlots = (await import("@shared/schema")).DEFAULT_TIME_SLOTS
+        .filter((s: any) => !s.isBreak)
+        .map((s: any) => s.id)
+        .sort((a: number, b: number) => a - b);
+
+      const fromIndex = allClassSlots.indexOf(fromSlot);
+      if (fromIndex === -1) {
+        return res.status(400).json({ message: "Tramo no válido" });
+      }
+
+      const slotsToAuthorize = allClassSlots.slice(fromIndex);
+      const allFree = slotsToAuthorize.every((s: number) => freeSlots.includes(s));
+      if (!allFree) {
+        return res.status(400).json({ message: "No todas las horas desde ese tramo están libres" });
+      }
+
+      const todayStr = date;
+      const group = await storage.getGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
+
+      for (const slotId of slotsToAuthorize) {
+        await storage.setGroupSchedule(groupId, todayStr, slotId, true);
+      }
+
+      res.json({
+        success: true,
+        message: `Salida autorizada para ${group.name} desde el tramo ${fromSlot}`,
+        authorizedSlots: slotsToAuthorize,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

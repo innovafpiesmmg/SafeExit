@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
-  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages,
+  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -20,6 +20,7 @@ import {
   type TeacherAbsencePeriod, type InsertTeacherAbsencePeriod,
   type TeacherAbsenceAttachment, type InsertTeacherAbsenceAttachment,
   type GuardCoverage, type InsertGuardCoverage,
+  type HourAdvancement, type InsertHourAdvancement,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -111,6 +112,10 @@ export interface IStorage {
   createGuardCoverage(data: InsertGuardCoverage): Promise<GuardCoverage>;
   getGuardCoverages(date: string): Promise<any[]>;
   deleteGuardCoverage(id: number): Promise<void>;
+  createHourAdvancement(data: InsertHourAdvancement): Promise<HourAdvancement>;
+  getHourAdvancements(date: string): Promise<any[]>;
+  deleteHourAdvancement(id: number): Promise<void>;
+  getGroupFreeSlots(date: string, groupId: number): Promise<number[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -698,6 +703,7 @@ export class DatabaseStorage implements IStorage {
     const allGroups = await db.select().from(groups);
     const allUsers = await db.select().from(users);
     const allCoverages = await db.select().from(guardCoverages).where(eq(guardCoverages.date, date));
+    const allAdvancements = await db.select().from(hourAdvancements).where(eq(hourAdvancements.date, date));
 
     return relevantPeriods.map(p => {
       const absence = absences.find(a => a.id === p.absenceId);
@@ -705,6 +711,8 @@ export class DatabaseStorage implements IStorage {
       const group = allGroups.find(g => g.id === p.groupId);
       const coverage = allCoverages.find(c => c.absencePeriodId === p.id);
       const coverGuard = coverage ? allUsers.find(u => u.id === coverage.guardUserId) : null;
+      const advancement = allAdvancements.find(a => a.groupId === p.groupId && a.originalSlotId === p.timeSlotId);
+      const advTeacher = advancement ? allUsers.find(u => u.id === advancement.teacherUserId) : null;
       return {
         periodId: p.id,
         absenceId: p.absenceId,
@@ -718,6 +726,12 @@ export class DatabaseStorage implements IStorage {
           id: coverage.id,
           guardUserId: coverage.guardUserId,
           guardUserName: coverGuard?.fullName || "?",
+        } : null,
+        advancement: advancement ? {
+          id: advancement.id,
+          teacherUserId: advancement.teacherUserId,
+          teacherName: advTeacher?.fullName || "?",
+          fromSlot: advancement.targetSlotId,
         } : null,
       };
     });
@@ -739,6 +753,69 @@ export class DatabaseStorage implements IStorage {
 
   async deleteGuardCoverage(id: number): Promise<void> {
     await db.delete(guardCoverages).where(eq(guardCoverages.id, id));
+  }
+
+  async createHourAdvancement(data: InsertHourAdvancement): Promise<HourAdvancement> {
+    const [created] = await db.insert(hourAdvancements).values(data).returning();
+    return created;
+  }
+
+  async getHourAdvancements(date: string): Promise<any[]> {
+    const advancements = await db.select().from(hourAdvancements).where(eq(hourAdvancements.date, date));
+    const allUsers = await db.select().from(users);
+    const allGroups = await db.select().from(groups);
+    return advancements.map(a => {
+      const teacher = allUsers.find(u => u.id === a.teacherUserId);
+      const group = allGroups.find(g => g.id === a.groupId);
+      const creator = allUsers.find(u => u.id === a.createdBy);
+      return {
+        ...a,
+        teacherName: teacher?.fullName || "?",
+        groupName: group?.name || "?",
+        createdByName: creator?.fullName || "?",
+      };
+    });
+  }
+
+  async deleteHourAdvancement(id: number): Promise<void> {
+    await db.delete(hourAdvancements).where(eq(hourAdvancements.id, id));
+  }
+
+  async getGroupFreeSlots(date: string, groupId: number): Promise<number[]> {
+    const absences = await db.select().from(teacherAbsences)
+      .where(and(eq(teacherAbsences.date, date), ne(teacherAbsences.status, "rejected")));
+    const absenceIds = absences.map(a => a.id);
+
+    const allPeriods = await db.select().from(teacherAbsencePeriods);
+    const relevantPeriods = allPeriods
+      .filter(p => absenceIds.includes(p.absenceId) && p.groupId === groupId);
+
+    const allCoverages = await db.select().from(guardCoverages).where(eq(guardCoverages.date, date));
+    const coveredPeriodIds = new Set(allCoverages.map(c => c.absencePeriodId));
+
+    const uncoveredAbsentSlots = relevantPeriods
+      .filter(p => !coveredPeriodIds.has(p.id))
+      .map(p => p.timeSlotId);
+
+    const advs = await db.select().from(hourAdvancements)
+      .where(and(eq(hourAdvancements.date, date), eq(hourAdvancements.groupId, groupId)));
+
+    const filledByAdvancement = new Set(advs.map(a => a.originalSlotId));
+    const freedByAdvancement = advs.map(a => a.targetSlotId);
+
+    const freeSlots = new Set<number>();
+
+    for (const slot of uncoveredAbsentSlots) {
+      if (!filledByAdvancement.has(slot)) {
+        freeSlots.add(slot);
+      }
+    }
+
+    for (const slot of freedByAdvancement) {
+      freeSlots.add(slot);
+    }
+
+    return Array.from(freeSlots).sort((a, b) => a - b);
   }
 }
 
