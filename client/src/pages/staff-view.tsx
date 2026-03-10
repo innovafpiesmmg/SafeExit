@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX, Settings, Eye, EyeOff,
+  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX, Settings, Eye, EyeOff, MessageSquare,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import GuardView from "./guard-view";
@@ -17,9 +17,11 @@ import LateArrivalsPage from "./late-arrivals";
 import TutorRecords from "./tutor-records";
 import GuardDutySignIn from "./guard-duty-signin";
 import TeacherAbsencesPage from "./teacher-absences";
+import StaffMessages from "./staff-messages";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { Badge } from "@/components/ui/badge";
 
-type TabId = "group" | "guard" | "late" | "records" | "duty" | "absences";
+type TabId = "group" | "guard" | "late" | "records" | "duty" | "absences" | "messages";
 
 interface StaffViewProps {
   showGroupTab: boolean;
@@ -202,6 +204,16 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   });
   const guardTabVisible = settings ? settings.staffGuardTabVisible !== "false" : false;
 
+  const { data: unreadNotifData } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 15000,
+  });
+  const { data: chatUnreadData } = useQuery<Record<string, number>>({
+    queryKey: ["/api/chat/unread-counts"],
+    refetchInterval: 15000,
+  });
+  const totalUnread = (unreadNotifData?.count || 0) + Object.values(chatUnreadData || {}).reduce((s, v) => s + v, 0);
+
   const defaultTab: TabId = showGroupTab ? "group" : (guardTabVisible ? "guard" : "duty");
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
   const [guardFullscreen, setGuardFullscreen] = useState(false);
@@ -228,6 +240,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   if (showGroupTab) {
     tabs.push({ id: "records", label: "Registros", icon: FileText });
   }
+  tabs.push({ id: "messages", label: "Mensajes", icon: MessageSquare });
 
   const handleBackToAdmin = () => {
     sessionStorage.removeItem("safeexit_view_mode");
@@ -296,6 +309,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
         {activeTab === "duty" && <GuardDutySignIn />}
         {activeTab === "absences" && <TeacherAbsencesPage />}
         {activeTab === "records" && <TutorRecords embedded />}
+        {activeTab === "messages" && <StaffMessages />}
       </div>
 
       {!guardFullscreen && (
@@ -308,18 +322,26 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
             {tabs.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
+              const showBadge = tab.id === "messages" && totalUnread > 0;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors ${
+                  className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors relative ${
                     active
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid={`tab-${tab.id}`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <div className="relative">
+                    <Icon className="w-5 h-5" />
+                    {showBadge && (
+                      <span className="absolute -top-1.5 -right-2.5 bg-destructive text-destructive-foreground text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                        {totalUnread > 99 ? "99+" : totalUnread}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] font-medium">{tab.label}</span>
                 </button>
               );

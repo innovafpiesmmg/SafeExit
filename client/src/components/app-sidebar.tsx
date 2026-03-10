@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock, KeyRound, Eye, EyeOff, ArrowLeftRight,
+  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock, KeyRound, Eye, EyeOff, ArrowLeftRight, Bell, MessageSquare,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
@@ -41,6 +41,8 @@ const adminItems = [
   { title: "Ausencias", url: "/absence-management", icon: UserX, permission: "absences" },
   { title: "Horarios", url: "/teacher-schedules", icon: CalendarClock, permission: "schedules" },
   { title: "Imprimir Carnets", url: "/print", icon: Printer, permission: "print" },
+  { title: "Notificaciones", url: "/notifications", icon: Bell, permission: "notifications" },
+  { title: "Mensajería", url: "/chat", icon: MessageSquare, permission: "chat" },
   { title: "Cursos Archivados", url: "/archives", icon: Archive, permission: "archives" },
   { title: "Ajustes", url: "/settings", icon: Settings, permission: "settings" },
 ];

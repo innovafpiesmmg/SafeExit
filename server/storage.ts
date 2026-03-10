@@ -1,9 +1,10 @@
-import { eq, and, ne, desc, gte, lte, ilike, or } from "drizzle-orm";
+import { eq, and, ne, desc, gte, lte, ilike, or, lt, inArray, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
   teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements, teacherSchedules, passwordResetTokens,
+  notifications, notificationReads, chatMessages, chatReads,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -22,6 +23,10 @@ import {
   type GuardCoverage, type InsertGuardCoverage,
   type HourAdvancement, type InsertHourAdvancement,
   type TeacherSchedule, type InsertTeacherSchedule,
+  type Notification, type InsertNotification,
+  type NotificationRead, type InsertNotificationRead,
+  type ChatMessage, type InsertChatMessage,
+  type ChatRead,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -127,6 +132,19 @@ export interface IStorage {
   getTeacherSchedulesByDay(dayOfWeek: number): Promise<TeacherSchedule[]>;
   setTeacherSchedules(userId: number, entries: InsertTeacherSchedule[]): Promise<TeacherSchedule[]>;
   deleteTeacherSchedulesByUser(userId: number): Promise<void>;
+
+  createNotification(data: InsertNotification): Promise<Notification>;
+  getNotificationsForUser(userId: number, role: string, groupId?: number | null): Promise<any[]>;
+  getSentNotifications(): Promise<any[]>;
+  markNotificationRead(notificationId: number, userId: number): Promise<void>;
+  getUnreadNotificationCount(userId: number, role: string, groupId?: number | null): Promise<number>;
+  deleteNotification(id: number): Promise<void>;
+
+  createChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
+  getChatMessages(groupId: number, limit?: number, beforeId?: number): Promise<any[]>;
+  markChatRead(groupId: number, userId: number): Promise<void>;
+  getUnreadChatCounts(userId: number, groupIds: number[]): Promise<Record<number, number>>;
+  getGroupsForChat(userId: number, role: string, groupId?: number | null): Promise<number[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -869,6 +887,170 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTeacherSchedulesByUser(userId: number): Promise<void> {
     await db.delete(teacherSchedules).where(eq(teacherSchedules.userId, userId));
+  }
+
+  async createNotification(data: InsertNotification): Promise<Notification> {
+    const [created] = await db.insert(notifications).values(data).returning();
+    return created;
+  }
+
+  async getNotificationsForUser(userId: number, role: string, groupId?: number | null): Promise<any[]> {
+    const allNotifs = await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    const userGroupIds = await this.getGroupsForChat(userId, role, groupId);
+    const userGroupSet = new Set(userGroupIds);
+    const filtered = allNotifs.filter(n => {
+      if (n.targetType === "all") return true;
+      if (n.targetType === "user" && n.targetId === userId) return true;
+      if (n.targetType === "group" && n.targetId && userGroupSet.has(n.targetId)) return true;
+      return false;
+    });
+    const reads = await db.select().from(notificationReads).where(eq(notificationReads.userId, userId));
+    const readMap = new Set(reads.map(r => r.notificationId));
+    const senderIds = [...new Set(filtered.map(n => n.senderId))];
+    const senders = senderIds.length > 0 ? await db.select().from(users).where(inArray(users.id, senderIds)) : [];
+    const senderMap = new Map(senders.map(s => [s.id, s.fullName]));
+    return filtered.map(n => ({
+      ...n,
+      read: readMap.has(n.id),
+      senderName: senderMap.get(n.senderId) || "Sistema",
+    }));
+  }
+
+  async getSentNotifications(): Promise<any[]> {
+    const allNotifs = await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    const senderIds = [...new Set(allNotifs.map(n => n.senderId))];
+    const senders = senderIds.length > 0 ? await db.select().from(users).where(inArray(users.id, senderIds)) : [];
+    const senderMap = new Map(senders.map(s => [s.id, s.fullName]));
+    const allReads = await db.select().from(notificationReads);
+    const readCountMap = new Map<number, number>();
+    for (const r of allReads) {
+      readCountMap.set(r.notificationId, (readCountMap.get(r.notificationId) || 0) + 1);
+    }
+    const allUsers = await db.select().from(users).where(ne(users.role, "admin"));
+    const allGroups = await db.select().from(groups);
+    const groupMap = new Map(allGroups.map(g => [g.id, g.name]));
+    const allSchedules = await db.select().from(teacherSchedules);
+    return allNotifs.map(n => {
+      let totalRecipients = 0;
+      if (n.targetType === "all") totalRecipients = allUsers.length;
+      else if (n.targetType === "user") totalRecipients = 1;
+      else if (n.targetType === "group" && n.targetId) {
+        const teacherIdsInGroup = new Set<number>();
+        allUsers.filter(u => u.groupId === n.targetId).forEach(u => teacherIdsInGroup.add(u.id));
+        allSchedules.filter(s => s.groupId === n.targetId).forEach(s => teacherIdsInGroup.add(s.userId));
+        totalRecipients = teacherIdsInGroup.size;
+      }
+      return {
+        ...n,
+        senderName: senderMap.get(n.senderId) || "Sistema",
+        readCount: readCountMap.get(n.id) || 0,
+        totalRecipients,
+        targetName: n.targetType === "group" ? groupMap.get(n.targetId!) : n.targetType === "user" ? allUsers.find(u => u.id === n.targetId)?.fullName : "Todos",
+      };
+    });
+  }
+
+  async markNotificationRead(notificationId: number, userId: number): Promise<void> {
+    const existing = await db.select().from(notificationReads).where(
+      and(eq(notificationReads.notificationId, notificationId), eq(notificationReads.userId, userId))
+    );
+    if (existing.length === 0) {
+      await db.insert(notificationReads).values({ notificationId, userId });
+    }
+  }
+
+  async getUnreadNotificationCount(userId: number, role: string, groupId?: number | null): Promise<number> {
+    const allNotifs = await db.select({ id: notifications.id, targetType: notifications.targetType, targetId: notifications.targetId }).from(notifications);
+    const userGroupIds = await this.getGroupsForChat(userId, role, groupId);
+    const userGroupSet = new Set(userGroupIds);
+    const filtered = allNotifs.filter(n => {
+      if (n.targetType === "all") return true;
+      if (n.targetType === "user" && n.targetId === userId) return true;
+      if (n.targetType === "group" && n.targetId && userGroupSet.has(n.targetId)) return true;
+      return false;
+    });
+    if (filtered.length === 0) return 0;
+    const reads = await db.select().from(notificationReads).where(eq(notificationReads.userId, userId));
+    const readSet = new Set(reads.map(r => r.notificationId));
+    return filtered.filter(n => !readSet.has(n.id)).length;
+  }
+
+  async deleteNotification(id: number): Promise<void> {
+    await db.delete(notificationReads).where(eq(notificationReads.notificationId, id));
+    await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  async createChatMessage(data: InsertChatMessage): Promise<ChatMessage> {
+    const [created] = await db.insert(chatMessages).values(data).returning();
+    return created;
+  }
+
+  async getChatMessages(groupId: number, limit: number = 50, beforeId?: number): Promise<any[]> {
+    let conditions = [eq(chatMessages.groupId, groupId)];
+    if (beforeId) {
+      conditions.push(lt(chatMessages.id, beforeId));
+    }
+    const messages = await db.select().from(chatMessages)
+      .where(and(...conditions))
+      .orderBy(desc(chatMessages.id))
+      .limit(limit);
+    const senderIds = [...new Set(messages.map(m => m.senderId))];
+    const senders = senderIds.length > 0 ? await db.select().from(users).where(inArray(users.id, senderIds)) : [];
+    const senderMap = new Map(senders.map(s => [s.id, { fullName: s.fullName, role: s.role }]));
+    return messages.reverse().map(m => ({
+      ...m,
+      senderName: senderMap.get(m.senderId)?.fullName || "Desconocido",
+      senderRole: senderMap.get(m.senderId)?.role || "guard",
+    }));
+  }
+
+  async markChatRead(groupId: number, userId: number): Promise<void> {
+    const existing = await db.select().from(chatReads).where(
+      and(eq(chatReads.groupId, groupId), eq(chatReads.userId, userId))
+    );
+    if (existing.length > 0) {
+      await db.update(chatReads).set({ lastReadAt: new Date() }).where(
+        and(eq(chatReads.groupId, groupId), eq(chatReads.userId, userId))
+      );
+    } else {
+      await db.insert(chatReads).values({ groupId, userId, lastReadAt: new Date() });
+    }
+  }
+
+  async getUnreadChatCounts(userId: number, groupIds: number[]): Promise<Record<number, number>> {
+    if (groupIds.length === 0) return {};
+    const result: Record<number, number> = {};
+    const reads = await db.select().from(chatReads).where(
+      and(eq(chatReads.userId, userId), inArray(chatReads.groupId, groupIds))
+    );
+    const readMap = new Map(reads.map(r => [r.groupId, r.lastReadAt]));
+    for (const gid of groupIds) {
+      const lastRead = readMap.get(gid);
+      let conditions = [eq(chatMessages.groupId, gid), ne(chatMessages.senderId, userId)];
+      if (lastRead) {
+        const msgs = await db.select({ cnt: count() }).from(chatMessages).where(
+          and(eq(chatMessages.groupId, gid), ne(chatMessages.senderId, userId), gte(chatMessages.createdAt, lastRead))
+        );
+        result[gid] = msgs[0]?.cnt || 0;
+      } else {
+        const msgs = await db.select({ cnt: count() }).from(chatMessages).where(
+          and(eq(chatMessages.groupId, gid), ne(chatMessages.senderId, userId))
+        );
+        result[gid] = msgs[0]?.cnt || 0;
+      }
+    }
+    return result;
+  }
+
+  async getGroupsForChat(userId: number, role: string, groupId?: number | null): Promise<number[]> {
+    if (role === "admin") {
+      const allGroups = await db.select({ id: groups.id }).from(groups);
+      return allGroups.map(g => g.id);
+    }
+    const scheduleGroups = await db.select({ groupId: teacherSchedules.groupId }).from(teacherSchedules).where(eq(teacherSchedules.userId, userId));
+    const gids = new Set(scheduleGroups.map(s => s.groupId));
+    if (groupId) gids.add(groupId);
+    return Array.from(gids);
   }
 }
 

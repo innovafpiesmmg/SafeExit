@@ -31,6 +31,8 @@ export const ADMIN_PERMISSIONS = {
   schedules: "Horarios",
   archives: "Cursos Archivados",
   settings: "Ajustes",
+  notifications: "Notificaciones",
+  chat: "Mensajería",
 } as const;
 
 export type AdminPermission = keyof typeof ADMIN_PERMISSIONS;
@@ -53,6 +55,7 @@ export const groups = pgTable("groups", {
   course: text("course").notNull(),
   schedule: text("schedule").notNull().default("morning"),
   allowAdvancement: boolean("allow_advancement").notNull().default(true),
+  chatBidirectional: boolean("chat_bidirectional").notNull().default(true),
 });
 
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true });
@@ -340,3 +343,55 @@ export const teacherSchedules = pgTable("teacher_schedules", {
 export const insertTeacherScheduleSchema = createInsertSchema(teacherSchedules).omit({ id: true });
 export type InsertTeacherSchedule = z.infer<typeof insertTeacherScheduleSchema>;
 export type TeacherSchedule = typeof teacherSchedules.$inferSelect;
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: integer("target_id"),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+export const notificationReads = pgTable("notification_reads", {
+  id: serial("id").primaryKey(),
+  notificationId: integer("notification_id").notNull(),
+  userId: integer("user_id").notNull(),
+  readAt: timestamp("read_at").notNull().defaultNow(),
+});
+
+export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true, readAt: true });
+export type InsertNotificationRead = z.infer<typeof insertNotificationReadSchema>;
+export type NotificationRead = typeof notificationReads.$inferSelect;
+
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull(),
+  senderId: integer("sender_id").notNull(),
+  message: text("message").notNull(),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+
+export const chatReads = pgTable("chat_reads", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull(),
+  userId: integer("user_id").notNull(),
+  lastReadAt: timestamp("last_read_at").notNull().defaultNow(),
+});
+
+export const insertChatReadSchema = createInsertSchema(chatReads).omit({ id: true });
+export type InsertChatRead = z.infer<typeof insertChatReadSchema>;
+export type ChatRead = typeof chatReads.$inferSelect;

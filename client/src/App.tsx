@@ -27,6 +27,8 @@ import GuardDutyRegistryPage from "@/pages/guard-duty-registry";
 import AbsenceManagementPage from "@/pages/absence-management";
 import TeacherSchedulesPage from "@/pages/teacher-schedules";
 import CarnetPublicPage from "@/pages/carnet-public";
+import NotificationsAdminPage from "@/pages/notifications-admin";
+import ChatAdminPage from "@/pages/chat-admin";
 import ResetPasswordPage from "@/pages/reset-password";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +69,8 @@ function AdminRouter() {
       <Route path="/guard-duty-registry">{() => <PermissionGate permission="guard_registry"><GuardDutyRegistryPage /></PermissionGate>}</Route>
       <Route path="/absence-management">{() => <PermissionGate permission="absences"><AbsenceManagementPage /></PermissionGate>}</Route>
       <Route path="/teacher-schedules">{() => <PermissionGate permission="schedules"><TeacherSchedulesPage /></PermissionGate>}</Route>
+      <Route path="/notifications">{() => <PermissionGate permission="notifications"><NotificationsAdminPage /></PermissionGate>}</Route>
+      <Route path="/chat">{() => <PermissionGate permission="chat"><ChatAdminPage /></PermissionGate>}</Route>
       <Route path="/archives">{() => <PermissionGate permission="archives"><ArchivesPage /></PermissionGate>}</Route>
       <Route component={NotFound} />
     </Switch>

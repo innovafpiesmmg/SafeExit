@@ -209,6 +209,25 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Ajuste `staffGuardTabVisible` en la configuración de la aplicación
 - Patrón fail-closed: mientras carga la configuración, la pestaña permanece oculta
 
+### Sistema de notificaciones
+- El administrador puede enviar avisos a todos los profesores, a un grupo específico, o a un profesor individual
+- Los avisos pueden incluir archivos adjuntos (PDF, imágenes, documentos Office, texto)
+- Panel de notificaciones enviadas con estadísticas de lectura (leídas/total destinatarios)
+- Los profesores reciben los avisos en la pestaña "Mensajes" → "Avisos" de su vista de staff
+- Indicador de avisos no leídos (punto azul) y expansión inline para leer el contenido
+- Destinatarios de grupo incluyen tanto tutores asignados como profesores que imparten clase en ese grupo
+
+### Mensajería de grupos (Chat)
+- Chat por grupo: el equipo educativo de cada grupo puede comunicarse
+- El administrador ve todos los grupos y puede escribir en cualquiera
+- Los profesores ven los grupos donde son tutores o donde imparten clase (según su horario)
+- **Chat bidireccional/unidireccional**: el admin puede configurar si los profesores pueden escribir en el chat de cada grupo (toggle "Bidireccional" por grupo)
+- Soporte para archivos adjuntos en mensajes
+- Indicador de mensajes no leídos por grupo (badges en la lista de grupos y en la pestaña)
+- Encuesta automática cada 5-15 segundos para nuevos mensajes
+- Panel admin en /chat con lista de grupos a la izquierda y chat a la derecha
+- Pestaña "Mensajes" → "Equipo" en la vista de staff para profesores
+
 ### Autorizaciones en el carnet
 - El carnet digital muestra una sección de **Autorizaciones** con:
   - Estado de salida autónoma (autorizada / no autorizada) con icono visual

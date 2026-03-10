@@ -491,7 +491,10 @@ export async function registerRoutes(
   });
 
   app.patch("/api/groups/:id", requireAuth, requirePermission("groups"), async (req, res) => {
-    const group = await storage.updateGroup(parseInt(req.params.id), req.body);
+    const isAdmin = req.user?.role === "admin";
+    const { chatBidirectional, ...rest } = req.body;
+    const updateData = isAdmin ? req.body : rest;
+    const group = await storage.updateGroup(parseInt(req.params.id), updateData);
     if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
     res.json(group);
   });
@@ -2612,6 +2615,210 @@ export async function registerRoutes(
       if (filePath && fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
+    }
+  });
+
+  const ALLOWED_UPLOAD_TYPES = [
+    "application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain", "text/csv",
+  ];
+  const safeFileFilter = (_req: any, file: any, cb: any) => {
+    if (ALLOWED_UPLOAD_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Tipo de archivo no permitido") as any, false);
+    }
+  };
+
+  const notifUpload = multer({
+    storage: multerStorage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: safeFileFilter,
+  });
+
+  app.post("/api/notifications", requireAuth, requirePermission("notifications"), notifUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const { title, message, targetType, targetId } = req.body;
+      if (!title || !message || !targetType) return res.status(400).json({ message: "Título, mensaje y destinatario requeridos" });
+      if (!["all", "group", "user"].includes(targetType)) return res.status(400).json({ message: "Tipo de destinatario inválido" });
+      if ((targetType === "group" || targetType === "user") && !targetId) return res.status(400).json({ message: "Se requiere ID de destinatario" });
+      const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
+      const fileName = req.file ? req.file.originalname : null;
+      const notif = await storage.createNotification({
+        senderId: user.id,
+        title,
+        message,
+        targetType,
+        targetId: targetId ? parseInt(targetId) : null,
+        fileUrl,
+        fileName,
+      });
+      res.json(notif);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/notifications", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const notifs = await storage.getNotificationsForUser(user.id, user.role, user.groupId);
+      res.json(notifs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/notifications/sent", requireAuth, requirePermission("notifications"), async (_req: Request, res: Response) => {
+    try {
+      const notifs = await storage.getSentNotifications();
+      res.json(notifs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const notifId = parseInt(req.params.id);
+      const userNotifs = await storage.getNotificationsForUser(user.id, user.role, user.groupId);
+      if (!userNotifs.find(n => n.id === notifId)) {
+        return res.status(403).json({ message: "Sin acceso a esta notificación" });
+      }
+      await storage.markNotificationRead(notifId, user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const count = await storage.getUnreadNotificationCount(user.id, user.role, user.groupId);
+      res.json({ count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/notifications/:id", requireAuth, requirePermission("notifications"), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteNotification(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  const chatUpload = multer({
+    storage: multerStorage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: safeFileFilter,
+  });
+
+  app.get("/api/chat/groups", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const groupIds = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      const allGroups = await storage.getAllGroups();
+      const chatGroups = allGroups.filter(g => groupIds.includes(g.id));
+      const unreadCounts = await storage.getUnreadChatCounts(user.id, groupIds);
+      res.json(chatGroups.map(g => ({
+        ...g,
+        unreadCount: unreadCounts[g.id] || 0,
+      })));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/:groupId/messages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const groupId = parseInt(req.params.groupId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const beforeId = req.query.beforeId ? parseInt(req.query.beforeId as string) : undefined;
+      const groupIds = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      if (!groupIds.includes(groupId)) return res.status(403).json({ message: "Sin acceso a este grupo" });
+      const messages = await storage.getChatMessages(groupId, limit, beforeId);
+      res.json(messages);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/:groupId/messages", requireAuth, chatUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const groupId = parseInt(req.params.groupId);
+      const { message } = req.body;
+      const groupIds = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      if (!groupIds.includes(groupId)) return res.status(403).json({ message: "Sin acceso a este grupo" });
+      if (user.role !== "admin") {
+        const group = await storage.getGroup(groupId);
+        if (group && !group.chatBidirectional) {
+          return res.status(403).json({ message: "El chat de este grupo es solo lectura para profesores" });
+        }
+      }
+      if (!message && !req.file) return res.status(400).json({ message: "Mensaje o archivo requerido" });
+      const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
+      const fileName = req.file ? req.file.originalname : null;
+      const chatMsg = await storage.createChatMessage({
+        groupId,
+        senderId: user.id,
+        message: message || "",
+        fileUrl,
+        fileName,
+      });
+      res.json(chatMsg);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/:groupId/read", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const groupId = parseInt(req.params.groupId);
+      const groupIds = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      if (!groupIds.includes(groupId)) {
+        return res.status(403).json({ message: "Sin acceso a este grupo" });
+      }
+      await storage.markChatRead(groupId, user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/unread-counts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const groupIds = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      const counts = await storage.getUnreadChatCounts(user.id, groupIds);
+      res.json(counts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/groups/:id/chat-bidirectional", requireAuth, requirePermission("chat"), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { chatBidirectional } = req.body;
+      if (typeof chatBidirectional !== "boolean") return res.status(400).json({ message: "Valor inválido" });
+      const updated = await storage.updateGroup(id, { chatBidirectional });
+      if (!updated) return res.status(404).json({ message: "Grupo no encontrado" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

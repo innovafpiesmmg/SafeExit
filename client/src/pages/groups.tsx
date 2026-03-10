@@ -18,7 +18,7 @@ export default function GroupsPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Group | null>(null);
-  const [form, setForm] = useState({ name: "", course: "", schedule: "morning", allowAdvancement: true });
+  const [form, setForm] = useState({ name: "", course: "", schedule: "morning", allowAdvancement: true, chatBidirectional: true });
 
   const { data: groups, isLoading } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
   const { data: students } = useQuery<any[]>({ queryKey: ["/api/students"] });
@@ -50,9 +50,9 @@ export default function GroupsPage() {
     },
   });
 
-  const resetForm = () => { setForm({ name: "", course: "", schedule: "morning", allowAdvancement: true }); setEditing(null); setDialogOpen(false); };
+  const resetForm = () => { setForm({ name: "", course: "", schedule: "morning", allowAdvancement: true, chatBidirectional: true }); setEditing(null); setDialogOpen(false); };
 
-  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course, schedule: g.schedule || "morning", allowAdvancement: g.allowAdvancement !== false }); setDialogOpen(true); };
+  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course, schedule: g.schedule || "morning", allowAdvancement: g.allowAdvancement !== false, chatBidirectional: g.chatBidirectional !== false }); setDialogOpen(true); };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +106,17 @@ export default function GroupsPage() {
                   checked={form.allowAdvancement}
                   onCheckedChange={v => setForm(f => ({ ...f, allowAdvancement: v }))}
                   data-testid="switch-allow-advancement"
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Chat bidireccional</Label>
+                  <p className="text-xs text-muted-foreground">Los profesores pueden escribir en el chat del grupo</p>
+                </div>
+                <Switch
+                  checked={form.chatBidirectional}
+                  onCheckedChange={v => setForm(f => ({ ...f, chatBidirectional: v }))}
+                  data-testid="switch-chat-bidirectional"
                 />
               </div>
               <div className="flex gap-2 pt-2">
