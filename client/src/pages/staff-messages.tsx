@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bell, MessageSquare, Send, Paperclip, FileIcon, X, Check } from "lucide-react";
+import { EmojiPicker } from "@/components/emoji-picker";
 
 interface Notification {
   id: number;
@@ -339,6 +340,7 @@ export default function StaffMessages() {
                     className="hidden"
                     onChange={e => setFile(e.target.files?.[0] || null)}
                   />
+                  <EmojiPicker onSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
                   <Button type="button" size="icon" variant="ghost" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] min-w-[44px]">
                     <Paperclip className="w-4 h-4" />
                   </Button>

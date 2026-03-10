@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { MessageSquare, Send, Paperclip, FileIcon, X, ArrowUpDown } from "lucide-react";
+import { EmojiPicker } from "@/components/emoji-picker";
 import type { Group } from "@shared/schema";
 
 interface ChatGroup extends Group {
@@ -256,6 +257,7 @@ export default function ChatAdminPage() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
+                <EmojiPicker onSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
                 <Button type="submit" size="icon" disabled={sendMutation.isPending} data-testid="button-chat-send">
                   <Send className="w-4 h-4" />
                 </Button>
