@@ -27,6 +27,7 @@ import GuardDutyRegistryPage from "@/pages/guard-duty-registry";
 import AbsenceManagementPage from "@/pages/absence-management";
 import TeacherSchedulesPage from "@/pages/teacher-schedules";
 import CarnetPublicPage from "@/pages/carnet-public";
+import ResetPasswordPage from "@/pages/reset-password";
 import { Footer } from "@/components/footer";
 
 function AdminRouter() {
@@ -59,6 +60,10 @@ function AppLayout() {
 
   if (location.startsWith("/carnet/")) {
     return <CarnetPublicPage />;
+  }
+
+  if (location.startsWith("/reset-password")) {
+    return <ResetPasswordPage />;
   }
 
   if (loading) {

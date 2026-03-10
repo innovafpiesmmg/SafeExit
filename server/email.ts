@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { storage } from "./storage";
-import type { Student } from "@shared/schema";
+import type { Student, User } from "@shared/schema";
 
 interface SmtpConfig {
   host: string;
@@ -186,6 +186,50 @@ export async function sendLateArrivalEmail(student: Student, timestamp: Date): P
     return true;
   } catch (error: any) {
     console.error("Error sending late arrival email:", error.message);
+    return false;
+  }
+}
+
+export async function sendPasswordResetEmail(user: { fullName: string; email: string | null }, resetToken: string, baseUrl: string): Promise<boolean> {
+  if (!user.email) return false;
+
+  const config = await getSmtpConfig();
+  if (!config) return false;
+
+  try {
+    const transporter = createTransport(config);
+    const schoolName = (await storage.getSetting("schoolName")) || "Centro Educativo";
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    await transporter.sendMail({
+      from: config.from,
+      to: user.email,
+      subject: `Restablecer contraseña - SafeExit`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h2 style="margin: 0;">Restablecer Contraseña</h2>
+            <p style="margin: 5px 0 0; opacity: 0.9;">${schoolName} — SafeExit</p>
+          </div>
+          <div style="border: 1px solid #e5e7eb; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p>Hola <strong>${user.fullName}</strong>,</p>
+            <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+            <div style="text-align: center; margin: 25px 0;">
+              <a href="${resetUrl}" style="background: #7c3aed; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+                Restablecer Contraseña
+              </a>
+            </div>
+            <p style="color: #6b7280; font-size: 13px;">Este enlace es válido durante 1 hora. Si no has solicitado este cambio, ignora este correo.</p>
+            <p style="color: #6b7280; font-size: 13px;">Si el botón no funciona, copia y pega esta URL en tu navegador:</p>
+            <p style="color: #6b7280; font-size: 12px; word-break: break-all;">${resetUrl}</p>
+          </div>
+        </div>
+      `,
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("Error sending password reset email:", error.message);
     return false;
   }
 }

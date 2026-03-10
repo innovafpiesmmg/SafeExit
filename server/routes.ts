@@ -8,7 +8,7 @@ import bcrypt from "bcrypt";
 import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, type User, exitLogs, students, groups, users } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection } from "./email";
+import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection, sendPasswordResetEmail } from "./email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -149,12 +149,91 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email });
+  });
+
+  app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user as User;
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) return res.status(400).json({ message: "Contraseña actual y nueva requeridas" });
+      if (newPassword.length < 6) return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres" });
+
+      const fullUser = await storage.getUser(user.id);
+      if (!fullUser) return res.status(404).json({ message: "Usuario no encontrado" });
+
+      const valid = await bcrypt.compare(currentPassword, fullUser.password);
+      if (!valid) return res.status(401).json({ message: "La contraseña actual es incorrecta" });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      res.json({ message: "Contraseña actualizada correctamente" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/auth/email", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user as User;
+      const { email } = req.body;
+      const normalizedEmail = email ? email.trim().toLowerCase() : null;
+      await storage.updateUser(user.id, { email: normalizedEmail });
+      res.json({ message: "Correo electrónico actualizado" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Correo electrónico requerido" });
+
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!user) {
+        return res.json({ message: "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña" });
+      }
+
+      const { randomUUID } = await import("crypto");
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+
+      await sendPasswordResetEmail(user, token, baseUrl);
+
+      res.json({ message: "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) return res.status(400).json({ message: "Token y nueva contraseña requeridos" });
+      if (newPassword.length < 6) return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
+
+      const resetToken = await storage.getPasswordResetToken(token);
+      if (!resetToken) return res.status(400).json({ message: "Enlace inválido o expirado" });
+      if (resetToken.used) return res.status(400).json({ message: "Este enlace ya ha sido utilizado" });
+      if (new Date() > resetToken.expiresAt) return res.status(400).json({ message: "Este enlace ha expirado" });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(resetToken.userId, { password: hashedPassword });
+      await storage.markPasswordResetTokenUsed(token);
+
+      res.json({ message: "Contraseña restablecida correctamente" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   app.get("/api/guards", requireAuth, requireAdmin, async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email })));
   });
 
   app.get("/api/staff-list", requireAuth, async (_req, res) => {

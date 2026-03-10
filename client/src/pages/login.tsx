@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LogIn, Eye, EyeOff, Tablet, GraduationCap } from "lucide-react";
+import { LogIn, Eye, EyeOff, Tablet, GraduationCap, Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/footer";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
 
 export default function LoginPage() {
@@ -18,9 +19,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const searchParams = new URLSearchParams(window.location.search);
   const mode = searchParams.get("mode");
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      await apiRequest("POST", "/api/auth/forgot-password", { email: forgotEmail });
+      setForgotSent(true);
+    } catch {
+      toast({ title: "Error", description: "No se pudo enviar el correo de recuperación", variant: "destructive" });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,9 +140,70 @@ export default function LoginPage() {
                   </span>
                 )}
               </Button>
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowForgotPassword(true); setForgotSent(false); setForgotEmail(""); }}
+                  className="text-sm text-primary hover:underline"
+                  data-testid="link-forgot-password"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>
+
+        {showForgotPassword && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Recuperar contraseña
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {forgotSent ? (
+                <div className="text-center space-y-3">
+                  <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto" />
+                  <p className="text-sm text-muted-foreground" data-testid="text-forgot-sent">
+                    Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={() => setShowForgotPassword(false)} data-testid="button-close-forgot">
+                    <ArrowLeft className="w-4 h-4 mr-1" />
+                    Volver
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Introduce tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="forgotEmail">Correo electrónico</Label>
+                    <Input
+                      id="forgotEmail"
+                      type="email"
+                      data-testid="input-forgot-email"
+                      placeholder="tu@correo.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" disabled={forgotLoading} data-testid="button-send-reset">
+                      {forgotLoading ? "Enviando..." : "Enviar enlace"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowForgotPassword(false)} data-testid="button-cancel-forgot">
+                      Cancelar
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
         <Footer />
       </div>
     </div>

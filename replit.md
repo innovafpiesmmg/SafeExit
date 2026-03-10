@@ -11,7 +11,8 @@ A PWA web application for managing student departures from a school using QR cod
 - **PWA**: manifest.json, sw.js service worker, installable on tablets/phones
 
 ## Data Models
-- `users` - Admin and guard/teacher accounts with roles
+- `users` - Admin and guard/teacher accounts with roles, optional email for password recovery
+- `password_reset_tokens` - Token-based password reset (userId, token, expiresAt, used)
 - `groups` - School class groups (e.g., "1A", "2B") with `allowAdvancement` boolean (default true) to control whether hour advancements can be applied to this group
 - `students` - Student records with QR codes, photos, parental authorization, email (for notifications)
 - `group_schedules` - Exit permission calendar per specific date (date + timeSlot per group)
@@ -27,13 +28,14 @@ A PWA web application for managing student departures from a school using QR cod
 - `teacher_absence_attachments` - File attachments for absence justification
 - `guard_coverages` - Guard-to-absent-period assignments (admin assigns available guard to cover unattended slot)
 - `teacher_schedules` - Weekly schedule per teacher: maps userId + dayOfWeek + timeSlotId to groupId. Used for auto-filling absence periods and informing guard/advancement assignment.
-- `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle)
+- `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle, staffGuardTabVisible)
 
 ## Key Features
 - **Student Management**: CRUD with photo upload, parental/bus authorization toggles, email field
 - **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation (includes Email column)
 - **Group Management**: Create/edit groups with course assignment, schedule type (morning/afternoon/full), and `allowAdvancement` toggle. Schedule determines which time slots appear in the calendar. Groups with advancement disabled show an orange "Sin adelantos" badge and cannot have hour advancements applied (enforced both in UI and server-side).
 - **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns), photo upload (file picker or camera capture) per teacher with hover overlay on avatar
+- **Password Management**: All users can change their own password via account dialog (admin: key icon in sidebar footer, staff: gear icon in header). Staff users can set a recovery email. Login page has "¿Olvidaste tu contraseña?" link that sends a token-based reset email (1h validity). Reset page at /reset-password?token=xxx. Emails normalized (lowercase+trim). Reset URL built from APP_BASE_URL env var.
 - **Teacher Schedule Management**: Admin page (/teacher-schedules) for managing weekly schedules per teacher. Weekly grid (days × time slots) with group selector per cell. Manual entry with save/clear. Excel import (Profesor/Día/Tramo/Grupo columns) with template download. Summary view shows all teachers' schedule status. When teachers create absences, a "Rellenar desde horario" button auto-populates periods from their schedule for that day of week.
 - **Academic Year Archive & Reset**: Two options in Settings: 1) "Archivar y Comenzar Nuevo Curso" — saves all data as JSON archive, then clears DB (requires "ARCHIVAR CURSO" confirmation). 2) "Eliminar sin archivar" — deletes all without saving (requires "NUEVO CURSO" confirmation). Archives browsable from /archives page.
 - **Archived Courses**: Admin-only page (/archives) to browse archived academic years. Shows summary stats (students, groups, exits, etc.). Click "Consultar" to view full data with tabbed interface (Alumnos, Grupos, Salidas, Tardías, Incidencias) + search filter. Can permanently delete archives.
@@ -102,6 +104,7 @@ A PWA web application for managing student departures from a school using QR cod
 - `client/src/pages/teacher-absences.tsx` - Teacher absence registration/view (staff view tab)
 - `client/src/pages/absence-management.tsx` - Admin absence management + guard engine panel
 - `client/src/pages/teacher-schedules.tsx` - Admin teacher schedule management (weekly grid + Excel import)
+- `client/src/pages/reset-password.tsx` - Token-based password reset page (public, no auth required)
 - `client/src/pages/` - Other page components (login, dashboard, students, groups, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
 - `client/src/components/footer.tsx` - Footer with ASD logo

@@ -2,10 +2,15 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX,
+  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX, Settings, Eye, EyeOff,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import GuardView from "./guard-view";
 import TutorView from "./tutor-view";
 import LateArrivalsPage from "./late-arrivals";
@@ -36,10 +41,161 @@ function useOnlineStatus() {
   return online;
 }
 
+function AccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [email, setEmail] = useState(user?.email || "");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setEmail(user?.email || "");
+    }
+  }, [open, user?.email]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({ title: "Error", description: "La nueva contraseña debe tener al menos 6 caracteres", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Error", description: "Las contraseñas no coinciden", variant: "destructive" });
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await apiRequest("PUT", "/api/auth/password", { currentPassword, newPassword });
+      toast({ title: "Contraseña actualizada correctamente" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo cambiar la contraseña", variant: "destructive" });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailLoading(true);
+    try {
+      await apiRequest("PUT", "/api/auth/email", { email });
+      await refreshUser();
+      toast({ title: "Correo electrónico actualizado" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo actualizar el correo", variant: "destructive" });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Mi cuenta
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <form onSubmit={handleUpdateEmail} className="space-y-3">
+            <h3 className="text-sm font-semibold">Correo electrónico</h3>
+            <p className="text-xs text-muted-foreground">
+              Necesario para recuperar tu contraseña si la olvidas
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="accountEmail">Email</Label>
+              <Input
+                id="accountEmail"
+                type="email"
+                data-testid="input-account-email"
+                placeholder="tu@correo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={emailLoading} data-testid="button-save-email">
+              {emailLoading ? "Guardando..." : "Guardar correo"}
+            </Button>
+          </form>
+
+          <div className="border-t" />
+
+          <form onSubmit={handleChangePassword} className="space-y-3">
+            <h3 className="text-sm font-semibold">Cambiar contraseña</h3>
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Contraseña actual</Label>
+              <div className="relative">
+                <Input
+                  id="currentPassword"
+                  data-testid="input-current-password"
+                  type={showPasswords ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowPasswords(!showPasswords)}
+                  data-testid="button-toggle-passwords"
+                >
+                  {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPasswordAccount">Nueva contraseña</Label>
+              <Input
+                id="newPasswordAccount"
+                data-testid="input-new-password-account"
+                type={showPasswords ? "text" : "password"}
+                placeholder="Mínimo 6 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPasswordAccount">Confirmar nueva contraseña</Label>
+              <Input
+                id="confirmPasswordAccount"
+                data-testid="input-confirm-password-account"
+                type={showPasswords ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={passwordLoading} data-testid="button-change-password">
+              {passwordLoading ? "Cambiando..." : "Cambiar contraseña"}
+            </Button>
+          </form>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewProps) {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const online = useOnlineStatus();
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const { data: settings } = useQuery<Record<string, string>>({
     queryKey: ["/api/settings"],
@@ -110,6 +266,15 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
             <Button
               size="icon"
               variant="ghost"
+              onClick={() => setAccountOpen(true)}
+              data-testid="button-account-settings"
+              className="min-h-[44px] min-w-[44px]"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
               onClick={logout}
               data-testid="button-staff-logout"
               className="min-h-[44px] min-w-[44px]"
@@ -162,6 +327,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
           </div>
         </nav>
       )}
+      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} />
     </div>
   );
 }

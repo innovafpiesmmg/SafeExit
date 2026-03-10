@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
-  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements, teacherSchedules,
+  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements, teacherSchedules, passwordResetTokens,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -70,6 +70,10 @@ export interface IStorage {
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: number): Promise<void>;
   updateAllGuardPasswords(hashedPassword: string): Promise<void>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ id: number; userId: number; token: string; expiresAt: Date; used: boolean } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
   archiveAcademicYear(adminUserId: number, yearName: string): Promise<AcademicArchive>;
   resetAcademicYear(adminUserId: number): Promise<void>;
   getAcademicArchives(): Promise<AcademicArchive[]>;
@@ -372,6 +376,24 @@ export class DatabaseStorage implements IStorage {
 
   async updateAllGuardPasswords(hashedPassword: string): Promise<void> {
     await db.update(users).set({ password: hashedPassword }).where(or(eq(users.role, "guard"), eq(users.role, "tutor")));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ id: number; userId: number; token: string; expiresAt: Date; used: boolean } | undefined> {
+    const [row] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return row;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.token, token));
   }
 
   async archiveAcademicYear(adminUserId: number, yearName: string): Promise<AcademicArchive> {

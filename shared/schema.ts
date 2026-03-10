@@ -11,6 +11,15 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("guard"),
   groupId: integer("group_id"),
   photoUrl: text("photo_url"),
+  email: text("email"),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });

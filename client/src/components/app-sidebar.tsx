@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import {
   Sidebar,
   SidebarContent,
@@ -13,12 +15,16 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock,
+  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock, KeyRound, Eye, EyeOff,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
 
 const adminItems = [
@@ -43,9 +49,113 @@ const guardItems = [
   { title: "Verificación", url: "/scan", icon: QrCode },
 ];
 
+function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({ title: "Error", description: "La nueva contraseña debe tener al menos 6 caracteres", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Error", description: "Las contraseñas no coinciden", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiRequest("PUT", "/api/auth/password", { currentPassword, newPassword });
+      toast({ title: "Contraseña actualizada correctamente" });
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo cambiar la contraseña", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5" />
+            Cambiar contraseña
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="adminCurrentPw">Contraseña actual</Label>
+            <div className="relative">
+              <Input
+                id="adminCurrentPw"
+                data-testid="input-admin-current-password"
+                type={showPasswords ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                onClick={() => setShowPasswords(!showPasswords)}
+                data-testid="button-toggle-admin-passwords"
+              >
+                {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adminNewPw">Nueva contraseña</Label>
+            <Input
+              id="adminNewPw"
+              data-testid="input-admin-new-password"
+              type={showPasswords ? "text" : "password"}
+              placeholder="Mínimo 6 caracteres"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adminConfirmPw">Confirmar nueva contraseña</Label>
+            <Input
+              id="adminConfirmPw"
+              data-testid="input-admin-confirm-password"
+              type={showPasswords ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading} data-testid="button-admin-change-password">
+            {loading ? "Cambiando..." : "Cambiar contraseña"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   const items = user?.role === "admin" ? [...adminItems, ...guardItems] : guardItems;
 
@@ -96,11 +206,15 @@ export function AppSidebar() {
               {user?.role === "admin" ? "Administrador" : "Profesor"}
             </Badge>
           </div>
+          <Button size="icon" variant="ghost" onClick={() => setPasswordDialogOpen(true)} data-testid="button-admin-account" title="Cambiar contraseña">
+            <KeyRound className="w-4 h-4" />
+          </Button>
           <Button size="icon" variant="ghost" onClick={logout} data-testid="button-logout">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </SidebarFooter>
+      <ChangePasswordDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
     </Sidebar>
   );
 }
