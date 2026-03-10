@@ -19,6 +19,7 @@ import GuardDutySignIn from "./guard-duty-signin";
 import TeacherAbsencesPage from "./teacher-absences";
 import StaffMessages from "./staff-messages";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { PushPermissionBanner } from "@/components/push-permission-banner";
 import { Badge } from "@/components/ui/badge";
 import { useInAppAlert } from "@/hooks/use-in-app-alert";
 
@@ -316,6 +317,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
       )}
 
       <PwaInstallBanner />
+      <PushPermissionBanner />
 
       <div className={`flex-1 overflow-auto ${guardFullscreen ? "" : "pb-16"}`}>
         {!settingsLoaded ? (
