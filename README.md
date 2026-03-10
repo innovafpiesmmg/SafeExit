@@ -18,6 +18,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Creación y edición de grupos (1A, 2B, 1 BACH A, etc.)
 - Cada grupo tiene un **tipo de horario**: Mañana (tramos 1-6), Tarde (tramos 7-12) o Completo (tramos 1-12)
 - **Control de adelantos por grupo**: toggle "Permitir adelantos" en la ficha del grupo. Los grupos con adelantos desactivados muestran una etiqueta naranja "Sin adelantos" y no pueden recibir adelantos de hora (validación en servidor y en interfaz)
+- **Chat bidireccional por grupo**: toggle "Chat bidireccional" en la ficha del grupo. Controla si los profesores pueden escribir en el chat del grupo o solo el administrador
 - El calendario muestra automáticamente solo los tramos correspondientes al horario del grupo
 - Configuración de permisos de salida por grupo en fechas concretas
 - Indicadores visuales (puntos verdes) en días con permisos configurados
@@ -164,23 +165,25 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Vista de guardia (tablet)
 - Pantalla completa optimizada para tablets en horizontal
-- Pestañas: **Guardia** (QR + búsqueda + acompañada), **Tardías**, **Fichar** (fichaje de guardia) y **Ausencias** (registro de ausencias propias)
+- Pestañas: **Guardia** (QR + búsqueda + acompañada), **Tardías**, **Fichar** (fichaje de guardia), **Ausencias** (registro de ausencias propias) y **Mensajes** (avisos del admin + chat de grupos)
 - Botones grandes táctiles
 - Reloj en tiempo real y estado de conexión WiFi
 - Auto-retorno configurable al estado de espera
 - Estadísticas diarias: total de salidas, permitidas y denegadas
 - Compatible con pistola lectora de códigos de barras (envía Enter automáticamente)
 - Selección de cámara cuando hay varias disponibles
+- Badge de mensajes no leídos en la pestaña "Mensajes"
 
 ### Vista de tutor (móvil)
 - Vista optimizada para móvil con navegación por pestañas inferiores
-- 6 pestañas: **Mi Grupo**, **Guardia**, **Tardías**, **Fichar**, **Ausencias** y **Registros**
+- 7 pestañas: **Mi Grupo**, **Guardia**, **Tardías**, **Fichar**, **Ausencias**, **Registros** y **Mensajes**
 - Mi Grupo: lista de alumnos del grupo asignado, subida de fotos desde cámara, compartir carnet digital
 - Guardia: verificación de salida con QR, búsqueda y salida acompañada
 - Tardías: registro de entradas tardías
 - Fichar: fichaje de guardia con firma digital
 - Ausencias: registro y consulta de ausencias propias
 - Registros: historial de salidas y tardías del grupo
+- Mensajes: avisos del administrador (Avisos) + chat con el equipo educativo del grupo (Equipo)
 - Búsqueda de alumnos dentro del grupo
 
 ### Gestión de contraseñas
@@ -196,7 +199,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Sistema de permisos granulares
 - El administrador puede asignar permisos específicos a cada profesor desde la página de Profesores
-- 15 claves de permiso: Alumnos, Grupos, Profesores, Calendario, Entradas Tardías, Historial Salidas, Historial Entradas, Guardias Prof., Reg. Guardias, Ausencias, Horarios, Imprimir Carnets, Verificación QR, Cursos Archivados, Ajustes
+- 17 claves de permiso: Alumnos, Grupos, Profesores, Calendario, Entradas Tardías, Historial Salidas, Historial Entradas, Guardias Prof., Reg. Guardias, Ausencias, Horarios, Imprimir Carnets, Verificación QR, Cursos Archivados, Ajustes, Notificaciones, Mensajería
 - Los profesores con permisos asignados ven el **panel de administración** en lugar de la vista de staff, con el menú lateral filtrado mostrando solo las secciones permitidas
 - Protección por ruta: componente `PermissionGate` en el frontend impide acceso a secciones no autorizadas
 - Protección en el backend: middleware `requirePermission()` valida cada petición API
@@ -266,9 +269,9 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 | Rol | Acceso | Dispositivo |
 |-----|--------|-------------|
-| **Admin** | Panel completo: alumnos, grupos, profesores, horarios, calendario, historial, impresión, escáner, guardias, ausencias, permisos, cursos archivados, ajustes | PC |
-| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + registro de tardías + fichar guardia + registrar ausencias. Con permisos: acceso al panel admin filtrado | Tablet |
-| **Tutor** | Gestión de su grupo + verificación + tardías + fichar guardia + ausencias + historial de registros de su grupo. Con permisos: acceso al panel admin filtrado | Móvil |
+| **Admin** | Panel completo: alumnos, grupos, profesores, horarios, calendario, historial, impresión, escáner, guardias, ausencias, notificaciones, mensajería, permisos, cursos archivados, ajustes | PC |
+| **Guardia** | Verificación de salida (QR + búsqueda + acompañada) + tardías + fichar guardia + ausencias + mensajes (avisos + chat). Con permisos: acceso al panel admin filtrado | Tablet |
+| **Tutor** | Mi Grupo + verificación + tardías + fichar guardia + ausencias + registros + mensajes (avisos + chat). Con permisos: acceso al panel admin filtrado | Móvil |
 
 ---
 
