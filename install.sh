@@ -153,6 +153,18 @@ DATABASE_URL="postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME"
 
 mkdir -p "$CONFIG_DIR"
 if [ "$IS_UPDATE" = false ]; then
+    print_status "Generando claves VAPID para notificaciones push..."
+    VAPID_KEYS=$(cd "$APP_DIR" && node -e "const w=require('web-push');const k=w.generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>/dev/null || echo "")
+    if [ -n "$VAPID_KEYS" ]; then
+        VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | awk '{print $1}')
+        VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | awk '{print $2}')
+        print_success "Claves VAPID generadas"
+    else
+        print_warning "No se pudieron generar claves VAPID (se generarán tras npm install)"
+        VAPID_PUBLIC_KEY=""
+        VAPID_PRIVATE_KEY=""
+    fi
+
     cat > "$CONFIG_DIR/env" << ENVEOF
 NODE_ENV=production
 PORT=$APP_PORT
@@ -162,10 +174,35 @@ SECURE_COOKIES=false
 ADMIN_USER=$ADMIN_USER
 ADMIN_PASS=$ADMIN_PASS
 ADMIN_NAME=$ADMIN_NAME
+VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY
+VAPID_SUBJECT=mailto:admin@safeexit.local
 ENVEOF
 else
     sed -i "s|^NODE_ENV=.*|NODE_ENV=production|" "$CONFIG_DIR/env"
     sed -i "s|^PORT=.*|PORT=$APP_PORT|" "$CONFIG_DIR/env"
+
+    if ! grep -q "^VAPID_PUBLIC_KEY=" "$CONFIG_DIR/env" 2>/dev/null; then
+        print_status "Generando claves VAPID para notificaciones push..."
+        VAPID_KEYS=$(cd "$APP_DIR" && node -e "const w=require('web-push');const k=w.generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>/dev/null || echo "")
+        if [ -z "$VAPID_KEYS" ]; then
+            cd "$APP_DIR"
+            npm install --legacy-peer-deps --silent 2>/dev/null
+            VAPID_KEYS=$(node -e "const w=require('web-push');const k=w.generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>/dev/null || echo "")
+        fi
+        if [ -n "$VAPID_KEYS" ]; then
+            VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | awk '{print $1}')
+            VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | awk '{print $2}')
+            echo "VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY" >> "$CONFIG_DIR/env"
+            echo "VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY" >> "$CONFIG_DIR/env"
+            echo "VAPID_SUBJECT=mailto:admin@safeexit.local" >> "$CONFIG_DIR/env"
+            print_success "Claves VAPID generadas y añadidas"
+        else
+            print_warning "No se pudieron generar claves VAPID. Añádelas manualmente a $CONFIG_DIR/env"
+        fi
+    else
+        print_status "Claves VAPID existentes conservadas"
+    fi
 fi
 chmod 600 "$CONFIG_DIR/env"
 chown root:root "$CONFIG_DIR/env"
@@ -173,6 +210,25 @@ chown root:root "$CONFIG_DIR/env"
 print_status "Instalando dependencias npm..."
 cd "$APP_DIR"
 sudo -u "$APP_USER" bash -c "source $CONFIG_DIR/env 2>/dev/null; cd $APP_DIR && npm install --legacy-peer-deps 2>&1" | tail -3
+
+if grep -q "^VAPID_PUBLIC_KEY=$" "$CONFIG_DIR/env" 2>/dev/null || ! grep -q "^VAPID_PUBLIC_KEY=" "$CONFIG_DIR/env" 2>/dev/null; then
+    print_status "Generando claves VAPID para notificaciones push..."
+    VAPID_KEYS=$(cd "$APP_DIR" && node -e "const w=require('web-push');const k=w.generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>/dev/null || echo "")
+    if [ -n "$VAPID_KEYS" ]; then
+        VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | awk '{print $1}')
+        VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | awk '{print $2}')
+        sed -i "s|^VAPID_PUBLIC_KEY=.*|VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY|" "$CONFIG_DIR/env"
+        sed -i "s|^VAPID_PRIVATE_KEY=.*|VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY|" "$CONFIG_DIR/env"
+        if ! grep -q "^VAPID_PUBLIC_KEY=" "$CONFIG_DIR/env"; then
+            echo "VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY" >> "$CONFIG_DIR/env"
+            echo "VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY" >> "$CONFIG_DIR/env"
+            echo "VAPID_SUBJECT=mailto:admin@safeexit.local" >> "$CONFIG_DIR/env"
+        fi
+        print_success "Claves VAPID generadas"
+    else
+        print_warning "No se pudieron generar claves VAPID"
+    fi
+fi
 
 print_status "Compilando frontend y backend..."
 sudo -u "$APP_USER" bash -c "export $(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npm run build 2>&1" | tail -5
