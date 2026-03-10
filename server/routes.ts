@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { differenceInYears } from "date-fns";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+import memorystore from "memorystore";
 import bcrypt from "bcrypt";
 import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, type User, exitLogs, students, groups, users, teacherAbsencePeriods, teacherAbsences } from "@shared/schema";
 import { db } from "./db";
@@ -86,7 +86,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  const pgSession = connectPgSimple(session);
+  const MemoryStore = memorystore(session);
 
   app.set("trust proxy", 1);
 
@@ -95,14 +95,11 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "safeexit-secret-key",
       resave: false,
       saveUninitialized: false,
-      store: new pgSession({
-        conString: process.env.DATABASE_URL,
-        tableName: "session",
-        createTableIfMissing: true,
-      }),
+      store: new MemoryStore({ checkPeriod: 86400000 }),
+      proxy: true,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000,
-        secure: "auto" as any,
+        secure: process.env.SECURE_COOKIES === "true",
         sameSite: "lax",
         httpOnly: true,
       },
