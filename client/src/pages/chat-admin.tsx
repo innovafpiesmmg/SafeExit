@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MessageSquare, Send, Paperclip, FileIcon, X, ArrowUpDown } from "lucide-react";
+import { MessageSquare, Send, Paperclip, FileIcon, X, ArrowUpDown, Trash2, Download } from "lucide-react";
 import { EmojiPicker } from "@/components/emoji-picker";
 import type { Group } from "@shared/schema";
 
@@ -82,6 +82,23 @@ export default function ChatAdminPage() {
       setFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/chat", selectedGroupId, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/chat/groups"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMsgMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/chat/messages/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        const t = await res.json();
+        throw new Error(t.message);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat", selectedGroupId, "messages"] });
+      toast({ title: "Mensaje eliminado" });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -194,8 +211,16 @@ export default function ChatAdminPage() {
                 {messages.map(msg => {
                   const isMe = msg.senderId === user?.id;
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`} data-testid={`chat-msg-${msg.id}`}>
-                      <div className={`max-w-[75%] rounded-xl px-3 py-2 ${isMe ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group`} data-testid={`chat-msg-${msg.id}`}>
+                      <div className={`max-w-[75%] rounded-xl px-3 py-2 relative ${isMe ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                        <button
+                          onClick={() => deleteMsgMutation.mutate(msg.id)}
+                          className={`absolute -top-2 ${isMe ? "-left-2" : "-right-2"} w-5 h-5 rounded-full bg-destructive text-destructive-foreground items-center justify-center text-[10px] hidden group-hover:flex`}
+                          title="Eliminar mensaje"
+                          data-testid={`button-delete-msg-${msg.id}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                         {!isMe && (
                           <p className="text-xs font-semibold mb-1 opacity-80">
                             {msg.senderName}
@@ -205,12 +230,13 @@ export default function ChatAdminPage() {
                         {msg.message && <p className="text-sm whitespace-pre-wrap">{msg.message}</p>}
                         {msg.fileUrl && (
                           <a
-                            href={msg.fileUrl}
+                            href={`/api/download/${msg.fileUrl.split("/").pop()}`}
                             target="_blank"
                             rel="noreferrer"
                             className={`flex items-center gap-1 text-xs mt-1 ${isMe ? "text-primary-foreground/80 hover:text-primary-foreground" : "text-primary hover:underline"}`}
+                            data-testid={`link-chat-download-${msg.id}`}
                           >
-                            <FileIcon className="w-3 h-3" />
+                            <Download className="w-3 h-3" />
                             {msg.fileName || "Archivo"}
                           </a>
                         )}

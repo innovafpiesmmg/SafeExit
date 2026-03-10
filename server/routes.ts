@@ -2866,6 +2866,17 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/notifications/:id/dismiss", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const notifId = parseInt(req.params.id);
+      await storage.dismissNotificationForUser(notifId, user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const chatUpload = multer({
     storage: multerStorage,
     limits: { fileSize: 10 * 1024 * 1024 },
@@ -2957,6 +2968,28 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/chat/messages/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const msgId = parseInt(req.params.id);
+      const allGroups = await storage.getGroupsForChat(user.id, user.role, user.groupId);
+      const allMessages: any[] = [];
+      for (const gid of allGroups) {
+        const msgs = await storage.getChatMessages(gid, 200);
+        allMessages.push(...msgs);
+      }
+      const msg = allMessages.find(m => m.id === msgId);
+      if (!msg) return res.status(404).json({ message: "Mensaje no encontrado" });
+      if (msg.senderId !== user.id && user.role !== "admin") {
+        return res.status(403).json({ message: "Solo puedes eliminar tus propios mensajes" });
+      }
+      await storage.deleteChatMessage(msgId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/chat/:groupId/read", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user!;
@@ -3025,6 +3058,15 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  });
+
+  app.get("/api/download/:filename", requireAuth, (req: Request, res: Response) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(uploadsDir, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Archivo no encontrado" });
+    }
+    res.download(filePath, filename);
   });
 
   return httpServer;

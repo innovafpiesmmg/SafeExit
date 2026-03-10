@@ -368,6 +368,7 @@ export const notificationReads = pgTable("notification_reads", {
   notificationId: integer("notification_id").notNull(),
   userId: integer("user_id").notNull(),
   readAt: timestamp("read_at").notNull().defaultNow(),
+  dismissed: boolean("dismissed").notNull().default(false),
 });
 
 export const insertNotificationReadSchema = createInsertSchema(notificationReads).omit({ id: true, readAt: true });

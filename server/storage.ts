@@ -139,8 +139,10 @@ export interface IStorage {
   markNotificationRead(notificationId: number, userId: number): Promise<void>;
   getUnreadNotificationCount(userId: number, role: string, groupId?: number | null): Promise<number>;
   deleteNotification(id: number): Promise<void>;
+  dismissNotificationForUser(notificationId: number, userId: number): Promise<void>;
 
   createChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
+  deleteChatMessage(id: number): Promise<void>;
   getChatMessages(groupId: number, limit?: number, beforeId?: number): Promise<any[]>;
   markChatRead(groupId: number, userId: number): Promise<void>;
   getUnreadChatCounts(userId: number, groupIds: number[]): Promise<Record<number, number>>;
@@ -906,10 +908,11 @@ export class DatabaseStorage implements IStorage {
     });
     const reads = await db.select().from(notificationReads).where(eq(notificationReads.userId, userId));
     const readMap = new Set(reads.map(r => r.notificationId));
+    const dismissedSet = new Set(reads.filter(r => r.dismissed).map(r => r.notificationId));
     const senderIds = [...new Set(filtered.map(n => n.senderId))];
     const senders = senderIds.length > 0 ? await db.select().from(users).where(inArray(users.id, senderIds)) : [];
     const senderMap = new Map(senders.map(s => [s.id, s.fullName]));
-    return filtered.map(n => ({
+    return filtered.filter(n => !dismissedSet.has(n.id)).map(n => ({
       ...n,
       read: readMap.has(n.id),
       senderName: senderMap.get(n.senderId) || "Sistema",
@@ -978,6 +981,23 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: number): Promise<void> {
     await db.delete(notificationReads).where(eq(notificationReads.notificationId, id));
     await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  async dismissNotificationForUser(notificationId: number, userId: number): Promise<void> {
+    const existing = await db.select().from(notificationReads).where(
+      and(eq(notificationReads.notificationId, notificationId), eq(notificationReads.userId, userId))
+    );
+    if (existing.length > 0) {
+      await db.update(notificationReads)
+        .set({ dismissed: true })
+        .where(and(eq(notificationReads.notificationId, notificationId), eq(notificationReads.userId, userId)));
+    } else {
+      await db.insert(notificationReads).values({ notificationId, userId, dismissed: true });
+    }
+  }
+
+  async deleteChatMessage(id: number): Promise<void> {
+    await db.delete(chatMessages).where(eq(chatMessages.id, id));
   }
 
   async createChatMessage(data: InsertChatMessage): Promise<ChatMessage> {
