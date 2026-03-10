@@ -1,0 +1,137 @@
+oot@safeexit:/var/www/safeexit# cd /var/www/safeexit && sudo bash install.sh
+
+═══════════════════════════════════════════
+  SafeExit - Instalador Automatizado
+═══════════════════════════════════════════
+
+  Sistema de Control de Salida Escolar
+  Repositorio: https://github.com/innovafpiesmmg/SafeExit.git
+
+[AVISO] Instalación existente detectada. Se realizará una ACTUALIZACIÓN.
+[INFO] Las credenciales y la base de datos se conservarán.
+
+
+═══════════════════════════════════════════
+  1/9 - Actualizando sistema operativo
+═══════════════════════════════════════════
+
+[INFO] Actualizando repositorios y paquetes del sistema...
+[OK] Sistema actualizado
+
+═══════════════════════════════════════════
+  2/9 - Instalando dependencias del sistema
+═══════════════════════════════════════════
+
+[INFO] Instalando paquetes necesarios...
+nginx was already set to manually installed.
+postgresql was already set to manually installed.
+postgresql-contrib can not be marked as it is not installed.
+build-essential was already set to manually installed.
+[OK] Dependencias del sistema instaladas
+
+═══════════════════════════════════════════
+  3/9 - Instalando Node.js 20.x
+═══════════════════════════════════════════
+
+[INFO] Node.js ya instalado: v20.20.1
+[OK] Node.js v20.20.1 instalado
+
+═══════════════════════════════════════════
+  4/9 - Configurando PostgreSQL
+═══════════════════════════════════════════
+
+Synchronizing state of postgresql.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable postgresql
+[INFO] Base de datos existente conservada
+
+═══════════════════════════════════════════
+  5/9 - Configurando usuario del sistema
+═══════════════════════════════════════════
+
+[OK] Usuario 'safeexit' configurado
+
+═══════════════════════════════════════════
+  6/9 - Descargando aplicación
+═══════════════════════════════════════════
+
+[INFO] Actualizando código desde GitHub...
+Removing uploads/
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 7 (delta 6), reused 7 (delta 6), pack-reused 0 (from 0)
+Unpacking objects: 100% (7/7), 2.01 KiB | 34.00 KiB/s, done.
+From https://github.com/innovafpiesmmg/SafeExit
+ * branch            main       -> FETCH_HEAD
+   dc93dde..081cc66  main       -> origin/main
+Updating dc93dde..081cc66
+Fast-forward
+ install.sh       | 56 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ server/routes.ts | 15 ++++++++++-----
+ 2 files changed, 66 insertions(+), 5 deletions(-)
+[OK] Código descargado en /var/www/safeexit
+
+═══════════════════════════════════════════
+  7/9 - Compilando aplicación
+═══════════════════════════════════════════
+
+[INFO] Instalando dependencias npm...
+a different dependency.
+
+Run `npm audit` for details.
+[INFO] Compilando frontend y backend...
+building server...
+
+  dist/index.cjs  2.8mb ⚠️
+
+⚡ Done in 1142ms
+[INFO] Ejecutando migraciones de base de datos...
+[⣽] Pulling schema from database...
+[✓] Pulling schema from database...
+[i] No changes detected
+[OK] Aplicación compilada
+
+═══════════════════════════════════════════
+  8/9 - Configurando DNS local (safeexit.local)
+═══════════════════════════════════════════
+
+[INFO] Instalando dnsmasq para resolución de nombre local...
+[OK] DNS local configurado: safeexit.local -> 192.168.1.84
+[INFO] Los dispositivos de la red deben usar este servidor como DNS
+[INFO] o configurar su router para apuntar DNS a 192.168.1.84
+
+═══════════════════════════════════════════
+  9/9 - Configurando servicios
+═══════════════════════════════════════════
+
+[OK] Servicio safeexit configurado y arrancado
+[OK] Nginx configurado como proxy inverso
+
+Token de Cloudflare Tunnel (Enter para omitir): 
+
+
+═══════════════════════════════════════════
+  INSTALACIÓN COMPLETADA
+═══════════════════════════════════════════
+
+  SafeExit está funcionando correctamente
+
+  URL de acceso:  http://safeexit.local
+  URL alternativa:  http://192.168.1.84
+
+  DNS local:
+    dnsmasq resuelve safeexit.local -> 192.168.1.84
+    Para que funcione, configura el DNS del router
+    apuntando a 192.168.1.84, o usa la IP directamente.
+
+  Comandos útiles:
+    Estado:      systemctl status safeexit
+    Logs:        journalctl -u safeexit -f
+    Reiniciar:   systemctl restart safeexit
+    Actualizar:  cd /var/www/safeexit && sudo bash install.sh
+
+  Configuración:  /etc/safeexit/env
+  Aplicación:     /var/www/safeexit
+
+root@safeexit:/var/www/safeexit# grep VAPID /etc/safeexit/env
+root@safeexit:/var/www/safeexit# 
