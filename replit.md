@@ -101,6 +101,7 @@ A PWA web application for managing student departures from a school using QR cod
 - `client/src/pages/calendar.tsx` - Date-based exit permission calendar
 - `client/src/pages/teacher-absences.tsx` - Teacher absence registration/view (staff view tab)
 - `client/src/pages/absence-management.tsx` - Admin absence management + guard engine panel
+- `client/src/pages/teacher-schedules.tsx` - Admin teacher schedule management (weekly grid + Excel import)
 - `client/src/pages/` - Other page components (login, dashboard, students, groups, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
 - `client/src/components/footer.tsx` - Footer with ASD logo
