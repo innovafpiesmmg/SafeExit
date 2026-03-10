@@ -2417,6 +2417,35 @@ export async function registerRoutes(
         absencePeriodId: absencePeriodId || null,
         createdBy: user.id,
       });
+
+      try {
+        const settingsData = await storage.getAllSettings();
+        let timeSlotsConfig = getDefaultTimeSlotsConfig();
+        if (settingsData.timeSlots) {
+          try { timeSlotsConfig = JSON.parse(settingsData.timeSlots); } catch {}
+        }
+        const d = new Date(date + "T00:00:00");
+        const dow = d.getDay() === 0 ? 7 : d.getDay();
+        const daySlots = getTimeSlotsForDay(timeSlotsConfig, dow);
+        const origSlot = daySlots.find(s => s.id === originalSlotId);
+        const destSlot = daySlots.find(s => s.id === targetSlotId);
+        const origLabel = origSlot ? `${origSlot.start} - ${origSlot.end}` : `Tramo ${originalSlotId}`;
+        const destLabel = destSlot ? `${destSlot.start} - ${destSlot.end}` : `Tramo ${targetSlotId}`;
+        const groupName = group!.name;
+        const dayNames = ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+        const dateStr = `${dayNames[dow] || ""} ${date.split("-").reverse().join("/")}`;
+
+        await storage.createNotification({
+          senderId: user.id,
+          title: `Adelanto de clase — ${groupName}`,
+          message: `Tu clase con el grupo ${groupName} ha sido adelantada del tramo ${destLabel} al tramo ${origLabel} (${dateStr}).`,
+          targetType: "user",
+          targetId: teacherUserId,
+        });
+      } catch (notifErr) {
+        console.error("Error sending advancement notification:", notifErr);
+      }
+
       res.json(advancement);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
