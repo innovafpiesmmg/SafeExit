@@ -3,6 +3,7 @@ import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
+  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -15,6 +16,10 @@ import {
   type GuardZone, type InsertGuardZone,
   type GuardDutyAssignment, type InsertGuardDutyAssignment,
   type GuardDutyRegistration, type InsertGuardDutyRegistration,
+  type TeacherAbsence, type InsertTeacherAbsence,
+  type TeacherAbsencePeriod, type InsertTeacherAbsencePeriod,
+  type TeacherAbsenceAttachment, type InsertTeacherAbsenceAttachment,
+  type GuardCoverage, type InsertGuardCoverage,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -93,6 +98,19 @@ export interface IStorage {
   getGuardDutyRegistrations(filters?: { dateFrom?: string; dateTo?: string; buildingNumber?: number; zoneId?: number; userId?: number }): Promise<any[]>;
   createGuardDutyRegistration(reg: InsertGuardDutyRegistration): Promise<GuardDutyRegistration>;
   getGuardDutyRegistrationsByUserAndDate(userId: number, date: string): Promise<GuardDutyRegistration[]>;
+
+  createTeacherAbsence(absence: InsertTeacherAbsence, periods: Omit<InsertTeacherAbsencePeriod, "absenceId">[]): Promise<TeacherAbsence>;
+  getTeacherAbsences(filters?: { dateFrom?: string; dateTo?: string; userId?: number; status?: string }): Promise<any[]>;
+  getTeacherAbsenceById(id: number): Promise<any>;
+  updateTeacherAbsenceStatus(id: number, status: string): Promise<TeacherAbsence | undefined>;
+  deleteTeacherAbsence(id: number): Promise<void>;
+  getAbsenceAttachments(absenceId: number): Promise<TeacherAbsenceAttachment[]>;
+  addAbsenceAttachment(data: InsertTeacherAbsenceAttachment): Promise<TeacherAbsenceAttachment>;
+  deleteAbsenceAttachment(id: number): Promise<void>;
+  getUnattendedSlots(date: string): Promise<any[]>;
+  createGuardCoverage(data: InsertGuardCoverage): Promise<GuardCoverage>;
+  getGuardCoverages(date: string): Promise<any[]>;
+  deleteGuardCoverage(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -576,6 +594,151 @@ export class DatabaseStorage implements IStorage {
   async getGuardDutyRegistrationsByUserAndDate(userId: number, date: string): Promise<GuardDutyRegistration[]> {
     return db.select().from(guardDutyRegistrations)
       .where(and(eq(guardDutyRegistrations.userId, userId), eq(guardDutyRegistrations.date, date)));
+  }
+
+  async createTeacherAbsence(absence: InsertTeacherAbsence, periods: Omit<InsertTeacherAbsencePeriod, "absenceId">[]): Promise<TeacherAbsence> {
+    const [created] = await db.insert(teacherAbsences).values(absence).returning();
+    if (periods.length > 0) {
+      await db.insert(teacherAbsencePeriods).values(
+        periods.map(p => ({ ...p, absenceId: created.id }))
+      );
+    }
+    return created;
+  }
+
+  async getTeacherAbsences(filters?: { dateFrom?: string; dateTo?: string; userId?: number; status?: string }): Promise<any[]> {
+    const allAbsences = await db.select().from(teacherAbsences).orderBy(desc(teacherAbsences.date));
+    const allPeriods = await db.select().from(teacherAbsencePeriods);
+    const allUsers = await db.select().from(users);
+    const allGroups = await db.select().from(groups);
+    const allAttachments = await db.select().from(teacherAbsenceAttachments);
+
+    let result = allAbsences.map(a => {
+      const user = allUsers.find(u => u.id === a.userId);
+      const creator = allUsers.find(u => u.id === a.createdBy);
+      const absPeriods = allPeriods.filter(p => p.absenceId === a.id).map(p => {
+        const group = allGroups.find(g => g.id === p.groupId);
+        return { ...p, groupName: group?.name || "?" };
+      });
+      const absAttachments = allAttachments.filter(at => at.absenceId === a.id);
+      return {
+        ...a,
+        userName: user?.fullName || "?",
+        createdByName: creator?.fullName || "?",
+        periods: absPeriods,
+        attachments: absAttachments,
+      };
+    });
+
+    if (filters?.dateFrom) result = result.filter(r => r.date >= filters.dateFrom!);
+    if (filters?.dateTo) result = result.filter(r => r.date <= filters.dateTo!);
+    if (filters?.userId) result = result.filter(r => r.userId === filters.userId);
+    if (filters?.status) result = result.filter(r => r.status === filters.status);
+
+    return result;
+  }
+
+  async getTeacherAbsenceById(id: number): Promise<any> {
+    const [absence] = await db.select().from(teacherAbsences).where(eq(teacherAbsences.id, id));
+    if (!absence) return null;
+    const allUsers = await db.select().from(users);
+    const allGroups = await db.select().from(groups);
+    const periods = await db.select().from(teacherAbsencePeriods).where(eq(teacherAbsencePeriods.absenceId, id));
+    const attachments = await db.select().from(teacherAbsenceAttachments).where(eq(teacherAbsenceAttachments.absenceId, id));
+    const user = allUsers.find(u => u.id === absence.userId);
+    const creator = allUsers.find(u => u.id === absence.createdBy);
+    return {
+      ...absence,
+      userName: user?.fullName || "?",
+      createdByName: creator?.fullName || "?",
+      periods: periods.map(p => {
+        const group = allGroups.find(g => g.id === p.groupId);
+        return { ...p, groupName: group?.name || "?" };
+      }),
+      attachments,
+    };
+  }
+
+  async updateTeacherAbsenceStatus(id: number, status: string): Promise<TeacherAbsence | undefined> {
+    const [updated] = await db.update(teacherAbsences).set({ status }).where(eq(teacherAbsences.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTeacherAbsence(id: number): Promise<void> {
+    const periods = await db.select().from(teacherAbsencePeriods).where(eq(teacherAbsencePeriods.absenceId, id));
+    for (const p of periods) {
+      await db.delete(guardCoverages).where(eq(guardCoverages.absencePeriodId, p.id));
+    }
+    await db.delete(teacherAbsencePeriods).where(eq(teacherAbsencePeriods.absenceId, id));
+    await db.delete(teacherAbsenceAttachments).where(eq(teacherAbsenceAttachments.absenceId, id));
+    await db.delete(teacherAbsences).where(eq(teacherAbsences.id, id));
+  }
+
+  async getAbsenceAttachments(absenceId: number): Promise<TeacherAbsenceAttachment[]> {
+    return db.select().from(teacherAbsenceAttachments).where(eq(teacherAbsenceAttachments.absenceId, absenceId));
+  }
+
+  async addAbsenceAttachment(data: InsertTeacherAbsenceAttachment): Promise<TeacherAbsenceAttachment> {
+    const [created] = await db.insert(teacherAbsenceAttachments).values(data).returning();
+    return created;
+  }
+
+  async deleteAbsenceAttachment(id: number): Promise<void> {
+    await db.delete(teacherAbsenceAttachments).where(eq(teacherAbsenceAttachments.id, id));
+  }
+
+  async getUnattendedSlots(date: string): Promise<any[]> {
+    const absences = await db.select().from(teacherAbsences)
+      .where(and(eq(teacherAbsences.date, date), ne(teacherAbsences.status, "rejected")));
+    const absenceIds = absences.map(a => a.id);
+    if (absenceIds.length === 0) return [];
+
+    const allPeriods = await db.select().from(teacherAbsencePeriods);
+    const relevantPeriods = allPeriods.filter(p => absenceIds.includes(p.absenceId));
+    const allGroups = await db.select().from(groups);
+    const allUsers = await db.select().from(users);
+    const allCoverages = await db.select().from(guardCoverages).where(eq(guardCoverages.date, date));
+
+    return relevantPeriods.map(p => {
+      const absence = absences.find(a => a.id === p.absenceId);
+      const teacher = allUsers.find(u => u.id === absence?.userId);
+      const group = allGroups.find(g => g.id === p.groupId);
+      const coverage = allCoverages.find(c => c.absencePeriodId === p.id);
+      const coverGuard = coverage ? allUsers.find(u => u.id === coverage.guardUserId) : null;
+      return {
+        periodId: p.id,
+        absenceId: p.absenceId,
+        timeSlotId: p.timeSlotId,
+        groupId: p.groupId,
+        groupName: group?.name || "?",
+        absentTeacherId: absence?.userId,
+        absentTeacherName: teacher?.fullName || "?",
+        absenceStatus: absence?.status || "pending",
+        coverage: coverage ? {
+          id: coverage.id,
+          guardUserId: coverage.guardUserId,
+          guardUserName: coverGuard?.fullName || "?",
+        } : null,
+      };
+    });
+  }
+
+  async createGuardCoverage(data: InsertGuardCoverage): Promise<GuardCoverage> {
+    const [created] = await db.insert(guardCoverages).values(data).returning();
+    return created;
+  }
+
+  async getGuardCoverages(date: string): Promise<any[]> {
+    const coverages = await db.select().from(guardCoverages).where(eq(guardCoverages.date, date));
+    const allUsers = await db.select().from(users);
+    return coverages.map(c => {
+      const guard = allUsers.find(u => u.id === c.guardUserId);
+      return { ...c, guardUserName: guard?.fullName || "?" };
+    });
+  }
+
+  async deleteGuardCoverage(id: number): Promise<void> {
+    await db.delete(guardCoverages).where(eq(guardCoverages.id, id));
   }
 }
 

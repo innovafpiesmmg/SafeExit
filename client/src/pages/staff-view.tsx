@@ -3,16 +3,17 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
-  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield,
+  ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX,
 } from "lucide-react";
 import GuardView from "./guard-view";
 import TutorView from "./tutor-view";
 import LateArrivalsPage from "./late-arrivals";
 import TutorRecords from "./tutor-records";
 import GuardDutySignIn from "./guard-duty-signin";
+import TeacherAbsencesPage from "./teacher-absences";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
-type TabId = "group" | "guard" | "late" | "records" | "duty";
+type TabId = "group" | "guard" | "late" | "records" | "duty" | "absences";
 
 interface StaffViewProps {
   showGroupTab: boolean;
@@ -50,6 +51,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   tabs.push({ id: "guard", label: "Guardia", icon: ShieldCheck });
   tabs.push({ id: "late", label: "Tardías", icon: Clock });
   tabs.push({ id: "duty", label: "Fichar", icon: Shield });
+  tabs.push({ id: "absences", label: "Ausencias", icon: UserX });
   if (showGroupTab) {
     tabs.push({ id: "records", label: "Registros", icon: FileText });
   }
@@ -110,6 +112,7 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
         )}
         {activeTab === "late" && <LateArrivalsPage embedded />}
         {activeTab === "duty" && <GuardDutySignIn />}
+        {activeTab === "absences" && <TeacherAbsencesPage />}
         {activeTab === "records" && <TutorRecords embedded />}
       </div>
 

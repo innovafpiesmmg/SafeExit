@@ -22,6 +22,10 @@ A PWA web application for managing student departures from a school using QR cod
 - `guard_zones` - Guard duty zones per building (buildingNumber 1-3, zoneName, zoneOrder, max 6 per building)
 - `guard_duty_assignments` - Default teacher-to-zone/period assignments per day of week
 - `guard_duty_registrations` - Teacher sign-in records with signature, date, zone, period, timestamp
+- `teacher_absences` - Teacher absence records (userId, date, status: pending/confirmed/rejected, notes, createdBy)
+- `teacher_absence_periods` - Absence detail: which time slot and group is left unattended per absence
+- `teacher_absence_attachments` - File attachments for absence justification
+- `guard_coverages` - Guard-to-absent-period assignments (admin assigns available guard to cover unattended slot)
 - `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle)
 
 ## Key Features
@@ -43,6 +47,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Sound Feedback**: Default beep/alert sounds, with optional custom audio upload per result (authorized/denied) from admin settings. MP3/WAV/OGG supported, max 5MB.
 - **Guard Duty Management**: Admin configures buildings (1-3) with up to 6 guard zones each. Assigns teachers to zones/periods per day of week, including break periods (recreos) shown with amber-highlighted rows and ☕ emoji. Teachers sign in ("Fichar Guardia" tab in staff view) during their assigned period (+5 min grace) by selecting name, zone, and signing. **Substitution mode**: unassigned teachers can register via "Sustitución corta" button — select teacher from all staff, any zone, and enter a substitution plan (min 3 chars). Server validates: no prior assignment for that slot (must use normal sign-in if assigned). Substitution plan shown in registry table ("Plan sust." column) and included in PDF. Admin views registry (/guard-duty-registry) with filters (date, building, zone, teacher). PDF declaration document downloadable per registration.
 - **Incident Reporting**: Optional note creation on authorized exits
+- **Teacher Absence Management**: Teachers register absences via "Ausencias" tab in staff view (date, periods, groups, notes). 12h advance rule for non-admins. Admin manages all absences from /absence-management page with "Motor de Guardias" panel — shows unattended slots per period, assigns available guards to cover classes. Confirm/reject absence requests. Guard coverage tracking.
 - **Guard View**: Dedicated full-screen tablet-optimized view for guards (no sidebar, large buttons, live stats, clock, WiFi indicator)
 - **Tutor→Guard Switch**: Tutors have a shield button in header to enter guard scanner mode (/guard route)
 
@@ -59,8 +64,8 @@ A PWA web application for managing student departures from a school using QR cod
 
 ## Roles & Views
 - **admin**: Full sidebar layout with all features (management, calendar, history, print, scan, late arrivals, settings). Can enter guard/tutor mode via QR URLs (?mode=guard or ?mode=tutor), with back-to-admin button.
-- **guard**: StaffView with bottom tab navigation — 3 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in). No sidebar, mobile/tablet optimized.
-- **tutor**: StaffView with bottom tab navigation — 5 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in) + "Registros" (exit logs and late arrivals history for their group). No sidebar, mobile optimized.
+- **guard**: StaffView with bottom tab navigation — 4 tabs: "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in) + "Ausencias" (register/view own absences). No sidebar, mobile/tablet optimized.
+- **tutor**: StaffView with bottom tab navigation — 6 tabs: "Mi Grupo" (student management, photos, carnet sharing) + "Guardia" (QR verification) + "Tardías" (late arrivals) + "Fichar" (guard duty sign-in) + "Ausencias" (register/view own absences) + "Registros" (exit logs and late arrivals history for their group). No sidebar, mobile optimized.
 - **StaffView** (staff-view.tsx): Unified wrapper for guard/tutor roles with shared header (app name, user, WiFi, logout) and bottom tab bar. GuardView and TutorView accept `embedded` prop to strip their headers. Guard fullscreen result overlays tabs using fixed positioning.
 
 ## Default Credentials (dev only)
@@ -92,6 +97,8 @@ A PWA web application for managing student departures from a school using QR cod
 - `client/src/pages/settings.tsx` - Admin settings (school name, academic year, time slots, SMTP config, accompanied exit email, archive/reset)
 - `client/src/pages/archives.tsx` - Archived academic years browser (list + detail viewer with tabs)
 - `client/src/pages/calendar.tsx` - Date-based exit permission calendar
+- `client/src/pages/teacher-absences.tsx` - Teacher absence registration/view (staff view tab)
+- `client/src/pages/absence-management.tsx` - Admin absence management + guard engine panel
 - `client/src/pages/` - Other page components (login, dashboard, students, groups, scanner, history, print)
 - `client/src/components/app-sidebar.tsx` - Navigation sidebar (admin only)
 - `client/src/components/footer.tsx` - Footer with ASD logo

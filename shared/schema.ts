@@ -231,3 +231,53 @@ export const DAYS_OF_WEEK = [
   { id: 4, label: "Jueves" },
   { id: 5, label: "Viernes" },
 ] as const;
+
+export const teacherAbsences = pgTable("teacher_absences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  date: text("date").notNull(),
+  createdBy: integer("created_by").notNull(),
+  status: text("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertTeacherAbsenceSchema = createInsertSchema(teacherAbsences).omit({ id: true, createdAt: true });
+export type InsertTeacherAbsence = z.infer<typeof insertTeacherAbsenceSchema>;
+export type TeacherAbsence = typeof teacherAbsences.$inferSelect;
+
+export const teacherAbsencePeriods = pgTable("teacher_absence_periods", {
+  id: serial("id").primaryKey(),
+  absenceId: integer("absence_id").notNull(),
+  timeSlotId: integer("time_slot_id").notNull(),
+  groupId: integer("group_id").notNull(),
+});
+
+export const insertTeacherAbsencePeriodSchema = createInsertSchema(teacherAbsencePeriods).omit({ id: true });
+export type InsertTeacherAbsencePeriod = z.infer<typeof insertTeacherAbsencePeriodSchema>;
+export type TeacherAbsencePeriod = typeof teacherAbsencePeriods.$inferSelect;
+
+export const teacherAbsenceAttachments = pgTable("teacher_absence_attachments", {
+  id: serial("id").primaryKey(),
+  absenceId: integer("absence_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+});
+
+export const insertTeacherAbsenceAttachmentSchema = createInsertSchema(teacherAbsenceAttachments).omit({ id: true, uploadedAt: true });
+export type InsertTeacherAbsenceAttachment = z.infer<typeof insertTeacherAbsenceAttachmentSchema>;
+export type TeacherAbsenceAttachment = typeof teacherAbsenceAttachments.$inferSelect;
+
+export const guardCoverages = pgTable("guard_coverages", {
+  id: serial("id").primaryKey(),
+  absencePeriodId: integer("absence_period_id").notNull(),
+  guardUserId: integer("guard_user_id").notNull(),
+  date: text("date").notNull(),
+  assignedBy: integer("assigned_by").notNull(),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+});
+
+export const insertGuardCoverageSchema = createInsertSchema(guardCoverages).omit({ id: true, assignedAt: true });
+export type InsertGuardCoverage = z.infer<typeof insertGuardCoverageSchema>;
+export type GuardCoverage = typeof guardCoverages.$inferSelect;

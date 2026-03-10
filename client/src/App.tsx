@@ -24,6 +24,7 @@ import SettingsPage from "@/pages/settings";
 import ArchivesPage from "@/pages/archives";
 import GuardDutyAdminPage from "@/pages/guard-duty-admin";
 import GuardDutyRegistryPage from "@/pages/guard-duty-registry";
+import AbsenceManagementPage from "@/pages/absence-management";
 import CarnetPublicPage from "@/pages/carnet-public";
 import { Footer } from "@/components/footer";
 
@@ -43,6 +44,7 @@ function AdminRouter() {
       <Route path="/settings" component={SettingsPage} />
       <Route path="/guard-duty" component={GuardDutyAdminPage} />
       <Route path="/guard-duty-registry" component={GuardDutyRegistryPage} />
+      <Route path="/absence-management" component={AbsenceManagementPage} />
       <Route path="/archives" component={ArchivesPage} />
       <Route component={NotFound} />
     </Switch>

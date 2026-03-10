@@ -101,10 +101,15 @@ export async function registerRoutes(
     })
   );
 
-  function requireAuth(req: Request, res: Response, next: Function) {
+  async function requireAuth(req: Request, res: Response, next: Function) {
     if (!(req.session as any).userId) {
       return res.status(401).json({ message: "No autenticado" });
     }
+    const user = await storage.getUser((req.session as any).userId);
+    if (!user) {
+      return res.status(401).json({ message: "Usuario no encontrado" });
+    }
+    (req as any).user = user;
     next();
   }
 
@@ -1939,6 +1944,219 @@ export async function registerRoutes(
       if (!res.headersSent) {
         res.status(500).json({ message: error.message });
       }
+    }
+  });
+
+  // ==================== TEACHER ABSENCES ====================
+
+  const absenceFileStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `absence-${Date.now()}${ext}`);
+    },
+  });
+  const absenceUpload = multer({
+    storage: absenceFileStorage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+  });
+
+  app.post("/api/teacher-absences", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const { userId, date, notes, periods } = req.body;
+
+      const targetUserId = user.role === "admin" ? (userId || user.id) : user.id;
+
+      if (user.role !== "admin") {
+        const absenceDate = new Date(date + "T00:00:00");
+        const now = new Date();
+        const diffMs = absenceDate.getTime() - now.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        if (diffHours < 12) {
+          return res.status(400).json({ message: "Las ausencias deben registrarse con al menos 12 horas de antelación. Contacte con un administrador." });
+        }
+      }
+
+      if (!date || !periods || !Array.isArray(periods) || periods.length === 0) {
+        return res.status(400).json({ message: "Fecha y periodos son obligatorios" });
+      }
+
+      const absence = await storage.createTeacherAbsence(
+        { userId: targetUserId, date, createdBy: user.id, status: user.role === "admin" ? "confirmed" : "pending", notes: notes || null },
+        periods
+      );
+
+      res.json(absence);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/teacher-absences", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const filters: any = {};
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo;
+      if (req.query.status) filters.status = req.query.status;
+
+      if (user.role !== "admin") {
+        filters.userId = user.id;
+      } else if (req.query.userId) {
+        filters.userId = Number(req.query.userId);
+      }
+
+      const absences = await storage.getTeacherAbsences(filters);
+      res.json(absences);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/teacher-absences/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const absence = await storage.getTeacherAbsenceById(Number(req.params.id));
+      if (!absence) return res.status(404).json({ message: "Ausencia no encontrada" });
+      if (user.role !== "admin" && absence.userId !== user.id) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+      res.json(absence);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/teacher-absences/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { status } = req.body;
+      if (!["pending", "confirmed", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Estado no válido" });
+      }
+      const updated = await storage.updateTeacherAbsenceStatus(Number(req.params.id), status);
+      if (!updated) return res.status(404).json({ message: "Ausencia no encontrada" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/teacher-absences/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const absence = await storage.getTeacherAbsenceById(Number(req.params.id));
+      if (!absence) return res.status(404).json({ message: "Ausencia no encontrada" });
+
+      if (user.role !== "admin" && (absence.userId !== user.id || absence.status !== "pending")) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+
+      for (const att of (absence.attachments || [])) {
+        const filePath = path.join(uploadsDir, path.basename(att.fileUrl));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+
+      await storage.deleteTeacherAbsence(Number(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/teacher-absences/:id/attachments", requireAuth, absenceUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      if (!req.file) return res.status(400).json({ message: "No se ha subido ningún archivo" });
+      const absence = await storage.getTeacherAbsenceById(Number(req.params.id));
+      if (!absence) return res.status(404).json({ message: "Ausencia no encontrada" });
+      if (user.role !== "admin" && absence.userId !== user.id) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+
+      const fileUrl = `/uploads/${req.file.filename}`;
+      const attachment = await storage.addAbsenceAttachment({
+        absenceId: Number(req.params.id),
+        fileName: req.file.originalname,
+        fileUrl,
+      });
+      res.json(attachment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/teacher-absence-attachments/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const attId = Number(req.params.id);
+      const { teacherAbsenceAttachments } = await import("@shared/schema");
+      const attachments = await db.select().from(teacherAbsenceAttachments).where(eq(teacherAbsenceAttachments.id, attId));
+      
+      if (attachments.length === 0) return res.status(404).json({ message: "Archivo no encontrado" });
+
+      const absence = await storage.getTeacherAbsenceById(attachments[0].absenceId);
+      if (absence && user.role !== "admin" && absence.userId !== user.id) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+
+      const filePath = path.join(uploadsDir, path.basename(attachments[0].fileUrl));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+      await storage.deleteAbsenceAttachment(attId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/absences/unattended", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const date = req.query.date as string;
+      if (!date) return res.status(400).json({ message: "Fecha requerida" });
+      const slots = await storage.getUnattendedSlots(date);
+      res.json(slots);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/guard-coverages", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const { absencePeriodId, guardUserId, date } = req.body;
+      if (!absencePeriodId || !guardUserId || !date) {
+        return res.status(400).json({ message: "Datos incompletos" });
+      }
+      const coverage = await storage.createGuardCoverage({
+        absencePeriodId,
+        guardUserId,
+        date,
+        assignedBy: user.id,
+      });
+      res.json(coverage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/guard-coverages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const date = req.query.date as string;
+      if (!date) return res.status(400).json({ message: "Fecha requerida" });
+      const coverages = await storage.getGuardCoverages(date);
+      res.json(coverages);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/guard-coverages/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteGuardCoverage(Number(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

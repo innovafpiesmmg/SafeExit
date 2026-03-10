@@ -1,0 +1,41 @@
+Prompt de Desarrollo: Módulo "SafeExit - Gestión de Guardias y Ausencias"
+Contexto: Implementar una nueva funcionalidad dentro de la arquitectura de SafeExit para centralizar la comunicación de ausencias docentes y la optimización de las horas de guardia.
+
+1. Perfiles y Permisos
+Docente: Puede registrar sus propias ausencias y ver sus guardias asignadas.
+
+Administrador (Jefatura de Estudios): Control total. Puede registrar ausencias de terceros, modificar asignaciones y autorizar cambios de horario.
+
+2. Flujo de Registro de Ausencias
+Input del Docente: Formulario para indicar fecha(s), tramos horarios (periodos) y los grupos/clases específicos que quedarán desatendidos.
+
+Restricción Temporal: El sistema debe validar que el registro se realice con al menos 12 horas de antelación respecto al inicio de la jornada escolar del día de la falta. Si es posterior, solo el Administrador podrá realizar el registro.
+
+Adjuntos: Opción para subir tareas o instrucciones para el profesor de guardia (opcional).
+
+3. Panel de Control del Administrador (Motor de Guardias)
+Visibilidad: Panel dinámico que muestre los grupos desatendidos por hora.
+
+Algoritmo de Optimización de Salida:
+
+El sistema debe detectar si un grupo tiene las últimas horas del día desatendidas.
+
+Permitir al administrador "adelantar horas": si el profesor de una hora intermedia falta, pero el de la última hora está disponible, permitir el intercambio para que el grupo pueda salir antes del centro (SafeExit).
+
+Asignación de Guardias: Herramienta para asignar profesores de guardia disponibles a los huecos generados, con sistema de arrastrar y soltar (drag & drop).
+
+4. Automatización y Salidas (Outputs)
+Notificaciones: Envío automático de correos electrónicos a los profesores asignados a la guardia en el momento en que el administrador confirme el cuadrante.
+
+Publicación de Documentación:
+
+Generación de un PDF diario con el cuadrante de guardias para su impresión o publicación en tablón de anuncios digital.
+
+Registro histórico de faltas para exportación (CSV/PDF) con fines administrativos.
+
+Sincronización: Actualización en tiempo real del estado de salida de los alumnos en SafeExit si se ha autorizado el adelanto de horas.
+
+5. Interfaz de Usuario (UI)
+Diseño limpio y responsive (móvil/desktop).
+
+Calendario visual para los administradores donde se marquen los "puntos críticos" (horas con exceso de faltas).
