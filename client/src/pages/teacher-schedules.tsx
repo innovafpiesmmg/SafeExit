@@ -27,18 +27,113 @@ function getSlotTypeInfo(type: string) {
   return SLOT_TYPES.find(s => s.value === type) || SLOT_TYPES[0];
 }
 
+const ENTITY_PALETTE = [
+  { bg: "hsl(210, 80%, 92%)", bgDark: "hsl(210, 50%, 18%)", text: "hsl(210, 70%, 35%)", textDark: "hsl(210, 70%, 75%)" },
+  { bg: "hsl(150, 70%, 90%)", bgDark: "hsl(150, 40%, 18%)", text: "hsl(150, 60%, 30%)", textDark: "hsl(150, 60%, 70%)" },
+  { bg: "hsl(280, 65%, 92%)", bgDark: "hsl(280, 40%, 18%)", text: "hsl(280, 55%, 40%)", textDark: "hsl(280, 55%, 75%)" },
+  { bg: "hsl(30, 85%, 90%)", bgDark: "hsl(30, 50%, 18%)", text: "hsl(30, 70%, 35%)", textDark: "hsl(30, 70%, 70%)" },
+  { bg: "hsl(340, 75%, 92%)", bgDark: "hsl(340, 45%, 18%)", text: "hsl(340, 60%, 38%)", textDark: "hsl(340, 60%, 72%)" },
+  { bg: "hsl(180, 65%, 90%)", bgDark: "hsl(180, 40%, 18%)", text: "hsl(180, 55%, 30%)", textDark: "hsl(180, 55%, 70%)" },
+  { bg: "hsl(60, 70%, 88%)", bgDark: "hsl(60, 40%, 16%)", text: "hsl(60, 55%, 28%)", textDark: "hsl(60, 55%, 68%)" },
+  { bg: "hsl(240, 65%, 93%)", bgDark: "hsl(240, 40%, 18%)", text: "hsl(240, 50%, 42%)", textDark: "hsl(240, 50%, 75%)" },
+  { bg: "hsl(0, 70%, 93%)", bgDark: "hsl(0, 40%, 18%)", text: "hsl(0, 55%, 38%)", textDark: "hsl(0, 55%, 72%)" },
+  { bg: "hsl(90, 60%, 90%)", bgDark: "hsl(90, 35%, 18%)", text: "hsl(90, 50%, 30%)", textDark: "hsl(90, 50%, 68%)" },
+  { bg: "hsl(320, 60%, 92%)", bgDark: "hsl(320, 35%, 18%)", text: "hsl(320, 50%, 40%)", textDark: "hsl(320, 50%, 72%)" },
+  { bg: "hsl(195, 75%, 90%)", bgDark: "hsl(195, 45%, 18%)", text: "hsl(195, 60%, 30%)", textDark: "hsl(195, 60%, 70%)" },
+  { bg: "hsl(45, 80%, 88%)", bgDark: "hsl(45, 45%, 16%)", text: "hsl(45, 65%, 28%)", textDark: "hsl(45, 65%, 65%)" },
+  { bg: "hsl(260, 55%, 93%)", bgDark: "hsl(260, 35%, 18%)", text: "hsl(260, 45%, 42%)", textDark: "hsl(260, 45%, 75%)" },
+  { bg: "hsl(120, 55%, 90%)", bgDark: "hsl(120, 30%, 18%)", text: "hsl(120, 45%, 28%)", textDark: "hsl(120, 45%, 68%)" },
+  { bg: "hsl(15, 80%, 91%)", bgDark: "hsl(15, 45%, 18%)", text: "hsl(15, 65%, 35%)", textDark: "hsl(15, 65%, 70%)" },
+  { bg: "hsl(225, 70%, 93%)", bgDark: "hsl(225, 40%, 18%)", text: "hsl(225, 55%, 40%)", textDark: "hsl(225, 55%, 75%)" },
+  { bg: "hsl(165, 60%, 90%)", bgDark: "hsl(165, 35%, 18%)", text: "hsl(165, 50%, 28%)", textDark: "hsl(165, 50%, 68%)" },
+  { bg: "hsl(300, 50%, 92%)", bgDark: "hsl(300, 30%, 18%)", text: "hsl(300, 40%, 40%)", textDark: "hsl(300, 40%, 72%)" },
+  { bg: "hsl(75, 65%, 88%)", bgDark: "hsl(75, 35%, 16%)", text: "hsl(75, 50%, 28%)", textDark: "hsl(75, 50%, 65%)" },
+];
+
+function buildColorMap(ids: number[]): Record<number, typeof ENTITY_PALETTE[0]> {
+  const sorted = [...new Set(ids)].sort((a, b) => a - b);
+  const map: Record<number, typeof ENTITY_PALETTE[0]> = {};
+  sorted.forEach((id, i) => {
+    map[id] = ENTITY_PALETTE[i % ENTITY_PALETTE.length];
+  });
+  return map;
+}
+
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
+}
+
+function EntityColorCell({ color, label }: { color: typeof ENTITY_PALETTE[0]; label: string }) {
+  const isDark = useIsDark();
+  return (
+    <div
+      className="rounded-md px-2 py-1.5 text-xs font-medium"
+      style={{
+        backgroundColor: isDark ? color.bgDark : color.bg,
+        color: isDark ? color.textDark : color.text,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function ColorLegend({ colorMap, nameMap, title }: {
+  colorMap: Record<number, typeof ENTITY_PALETTE[0]>;
+  nameMap: Record<number, string>;
+  title: string;
+}) {
+  const isDark = useIsDark();
+  const entries = Object.entries(colorMap).filter(([id]) => nameMap[Number(id)]);
+  if (entries.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-1 py-2">
+      <span className="text-xs text-muted-foreground font-medium">{title}:</span>
+      {entries.map(([id, color]) => (
+        <span
+          key={id}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full px-2.5 py-0.5"
+          style={{
+            backgroundColor: isDark ? color.bgDark : color.bg,
+            color: isDark ? color.textDark : color.text,
+          }}
+        >
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: isDark ? color.textDark : color.text }}
+          />
+          {nameMap[Number(id)]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 interface CellData {
   slotType: string;
   groupId: number | null;
 }
 
-function ScheduleCell({ cell, groups, onChange }: {
+function ScheduleCell({ cell, groups, onChange, groupColorMap }: {
   cell: CellData;
   groups: Group[];
   onChange: (slotType: string, groupId: number | null) => void;
+  groupColorMap: Record<number, typeof ENTITY_PALETTE[0]>;
 }) {
   const typeInfo = getSlotTypeInfo(cell.slotType);
   const isClass = cell.slotType === "class";
+  const isDark = useIsDark();
+  const groupColor = isClass && cell.groupId ? groupColorMap[cell.groupId] : null;
 
   return (
     <div className="space-y-1">
@@ -74,7 +169,15 @@ function ScheduleCell({ cell, groups, onChange }: {
           value={cell.groupId ? String(cell.groupId) : "empty"}
           onValueChange={v => onChange("class", v === "empty" ? null : Number(v))}
         >
-          <SelectTrigger className="h-7 text-[11px] bg-blue-50 dark:bg-blue-950 border-blue-200">
+          <SelectTrigger
+            className="h-7 text-[11px] font-medium"
+            style={groupColor ? {
+              backgroundColor: isDark ? groupColor.bgDark : groupColor.bg,
+              color: isDark ? groupColor.textDark : groupColor.text,
+              borderColor: isDark ? groupColor.textDark : groupColor.text,
+              borderWidth: "1.5px",
+            } : undefined}
+          >
             <SelectValue placeholder="Grupo..." />
           </SelectTrigger>
           <SelectContent>
@@ -126,29 +229,12 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
     return allSchedules.filter((s: any) => s.groupId === selectedGroupId && s.slotType === "class").length;
   }, [allSchedules, selectedGroupId]);
 
-  const teacherColors = useMemo(() => {
-    const colors = [
-      "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300",
-      "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300",
-      "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300",
-      "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300",
-      "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300",
-      "bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300",
-      "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300",
-      "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300",
-      "bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300",
-      "bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300",
-    ];
-    const map: Record<number, string> = {};
-    let idx = 0;
-    Object.values(groupGrid).forEach(v => {
-      if (v && !(v.userId in map)) {
-        map[v.userId] = colors[idx % colors.length];
-        idx++;
-      }
-    });
-    return map;
-  }, [groupGrid]);
+  const teacherColorMap = useMemo(() => {
+    const teacherIds = allSchedules
+      .filter((s: any) => s.groupId === selectedGroupId && s.slotType === "class")
+      .map((s: any) => s.userId);
+    return buildColorMap(teacherIds);
+  }, [allSchedules, selectedGroupId]);
 
   if (isLoading) return <Skeleton className="h-64" />;
 
@@ -184,6 +270,7 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
       </Card>
 
       {selectedGroupId ? (
+        <>
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -219,8 +306,10 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
                       const entry = groupGrid[key];
                       return (
                         <td key={day} className="p-1 text-center" data-testid={`group-cell-${day}-${slot.id}`}>
-                          {entry ? (
-                            <div className={`rounded-md px-2 py-1.5 text-xs font-medium ${teacherColors[entry.userId] || "bg-muted"}`}>
+                          {entry && teacherColorMap[entry.userId] ? (
+                            <EntityColorCell color={teacherColorMap[entry.userId]} label={entry.teacherName} />
+                          ) : entry ? (
+                            <div className="rounded-md px-2 py-1.5 text-xs font-medium bg-muted">
                               {entry.teacherName}
                             </div>
                           ) : (
@@ -237,6 +326,14 @@ function GroupScheduleView({ groups, allSchedules, staffList, isLoading }: {
             </table>
           </CardContent>
         </Card>
+        {Object.keys(teacherColorMap).length > 0 && (
+          <ColorLegend
+            colorMap={teacherColorMap}
+            nameMap={Object.fromEntries(staffList.map(s => [s.id, s.fullName]))}
+            title="Colores de profesores"
+          />
+        )}
+      </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -403,6 +500,13 @@ export default function TeacherSchedulesPage() {
     return ids.size;
   }, [allSchedules]);
 
+  const groupColorMap = useMemo(() => {
+    const groupIds = Object.values(grid)
+      .filter(c => c.slotType === "class" && c.groupId)
+      .map(c => c.groupId as number);
+    return buildColorMap(groupIds);
+  }, [grid]);
+
   const getTeacherSummary = (entries: any[]) => {
     const classes = entries.filter((e: any) => (e.slotType || "class") === "class").length;
     const guards = entries.filter((e: any) => e.slotType === "guard").length;
@@ -538,45 +642,55 @@ export default function TeacherSchedulesPage() {
           {isLoading ? (
             <Skeleton className="h-64" />
           ) : selectedTeacherId ? (
-            <Card>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm" data-testid="table-schedule">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-2 text-left font-medium w-[120px]">Tramo</th>
-                      {DAY_NAMES.map((day, i) => (
-                        <th key={i} className="p-2 text-center font-medium">{day}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classSlots.map(slot => (
-                      <tr key={slot.id} className="border-b hover:bg-muted/30">
-                        <td className="p-2">
-                          <span className="text-xs font-medium">{slot.label}</span>
-                          <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0">
-                            {slot.period === "morning" ? "M" : "T"}{slot.id <= 6 ? slot.id : slot.id - 6}
-                          </Badge>
-                        </td>
-                        {[1, 2, 3, 4, 5].map(day => {
-                          const key = `${day}-${slot.id}`;
-                          const cell = grid[key] || { slotType: "empty", groupId: null };
-                          return (
-                            <td key={day} className="p-1 text-center" data-testid={`cell-${day}-${slot.id}`}>
-                              <ScheduleCell
-                                cell={cell}
-                                groups={groups}
-                                onChange={(st, gid) => handleCellChange(day, slot.id, st, gid)}
-                              />
-                            </td>
-                          );
-                        })}
+            <>
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <table className="w-full text-sm" data-testid="table-schedule">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-2 text-left font-medium w-[120px]">Tramo</th>
+                        {DAY_NAMES.map((day, i) => (
+                          <th key={i} className="p-2 text-center font-medium">{day}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                    </thead>
+                    <tbody>
+                      {classSlots.map(slot => (
+                        <tr key={slot.id} className="border-b hover:bg-muted/30">
+                          <td className="p-2">
+                            <span className="text-xs font-medium">{slot.label}</span>
+                            <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0">
+                              {slot.period === "morning" ? "M" : "T"}{slot.id <= 6 ? slot.id : slot.id - 6}
+                            </Badge>
+                          </td>
+                          {[1, 2, 3, 4, 5].map(day => {
+                            const key = `${day}-${slot.id}`;
+                            const cell = grid[key] || { slotType: "empty", groupId: null };
+                            return (
+                              <td key={day} className="p-1 text-center" data-testid={`cell-${day}-${slot.id}`}>
+                                <ScheduleCell
+                                  cell={cell}
+                                  groups={groups}
+                                  onChange={(st, gid) => handleCellChange(day, slot.id, st, gid)}
+                                  groupColorMap={groupColorMap}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+              {Object.keys(groupColorMap).length > 0 && (
+                <ColorLegend
+                  colorMap={groupColorMap}
+                  nameMap={Object.fromEntries(groups.map(g => [g.id, g.name]))}
+                  title="Colores de grupos"
+                />
+              )}
+            </>
           ) : (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">

@@ -19,7 +19,7 @@ SafeExit is built as a Progressive Web Application (PWA) using a modern web stac
 -   **Technical Implementations & Feature Specifications**:
     -   **Student & Group Management**: Comprehensive CRUD operations for students (with photo upload, parental/bus authorization toggles) and groups (with schedule types, `allowAdvancement` toggle). Bulk import/export functionality via Excel for students and teachers.
     -   **Authentication & Authorization**: Role-based access control with granular permissions for admin panel sections. Password management includes self-service changes and token-based reset via email.
-    -   **Calendar & Scheduling**: A date-based calendar system allows configuration of 12 time slots for exit permissions per group. Admins can manage weekly schedules per teacher, which auto-populates absence forms.
+    -   **Calendar & Scheduling**: A date-based calendar system allows configuration of 12 time slots for exit permissions per group. Admins can manage weekly schedules per teacher, which auto-populates absence forms. Schedule views use a consistent 20-color HSL palette (`ENTITY_PALETTE`) via `buildColorMap()` and `EntityColorCell`/`ColorLegend` components for both teacher-by-group and group-by-teacher color coding.
     -   **QR Verification Algorithm**: A multi-step algorithm verifies student exits based on age, parental authorization, schedule adherence, bus authorization, and defined time slots.
     -   **Attendance & Incident Reporting**: Features include late arrival registration with optional email notifications and incident reporting tied to exit logs.
     -   **Accompanied Exit**: Guards can verify authorized pickup persons via DNI/NIE (manual input or barcode scan), generating an exit log and optional incidents.
