@@ -337,37 +337,42 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
         )}
       </div>
 
-      {!guardFullscreen && (
+      {!guardFullscreen && tabs.length > 0 && (
         <nav
           className="fixed bottom-0 left-0 right-0 bg-card border-t z-50"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           data-testid="nav-bottom-tabs"
         >
-          <div className="flex">
+          <div
+            className={`flex ${tabs.length > 5 ? "overflow-x-auto scrollbar-none" : ""}`}
+            style={tabs.length > 5 ? { WebkitOverflowScrolling: "touch" } : undefined}
+          >
             {tabs.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
               const showBadge = tab.id === "messages" && totalUnread > 0;
+              const compact = tabs.length > 5;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors relative ${
+                  className={`${compact ? "min-w-[56px] px-1" : "flex-1 px-2"} flex flex-col items-center gap-0.5 py-2 transition-colors relative ${
                     active
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
+                  style={compact ? { flex: `1 0 ${100 / Math.min(tabs.length, 7)}%` } : undefined}
                   data-testid={`tab-${tab.id}`}
                 >
                   <div className="relative">
-                    <Icon className="w-5 h-5" />
+                    <Icon className={compact ? "w-4 h-4" : "w-5 h-5"} />
                     {showBadge && (
                       <span className="absolute -top-1.5 -right-2.5 bg-destructive text-destructive-foreground text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                         {totalUnread > 99 ? "99+" : totalUnread}
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-medium">{tab.label}</span>
+                  <span className={`${compact ? "text-[9px]" : "text-[11px]"} font-medium leading-tight text-center truncate w-full`}>{tab.label}</span>
                 </button>
               );
             })}
