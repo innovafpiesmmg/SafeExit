@@ -250,18 +250,27 @@ export default function TeacherAbsencesPage() {
                       <p className="text-sm text-muted-foreground mt-1">{a.notes}</p>
                     )}
                   </div>
-                  {a.status === "pending" && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => deleteMutation.mutate(a.id)}
-                      disabled={deleteMutation.isPending}
-                      data-testid={`button-delete-absence-${a.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                  {a.status === "pending" && (() => {
+                    const absenceDate = new Date(a.date + "T00:00:00");
+                    const diffHours = (absenceDate.getTime() - Date.now()) / (1000 * 60 * 60);
+                    const canModify = user?.role === "admin" || diffHours >= 12;
+                    return canModify ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => deleteMutation.mutate(a.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-absence-${a.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-300" data-testid={`badge-locked-${a.id}`}>
+                        Bloqueada
+                      </Badge>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

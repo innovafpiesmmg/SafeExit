@@ -2048,8 +2048,15 @@ export async function registerRoutes(
       const absence = await storage.getTeacherAbsenceById(Number(req.params.id));
       if (!absence) return res.status(404).json({ message: "Ausencia no encontrada" });
 
-      if (user.role !== "admin" && (absence.userId !== user.id || absence.status !== "pending")) {
-        return res.status(403).json({ message: "No autorizado" });
+      if (user.role !== "admin") {
+        if (absence.userId !== user.id || absence.status !== "pending") {
+          return res.status(403).json({ message: "No autorizado" });
+        }
+        const absenceDate = new Date(absence.date + "T00:00:00");
+        const diffHours = (absenceDate.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (diffHours < 12) {
+          return res.status(403).json({ message: "No se puede eliminar una ausencia con menos de 12 horas de antelación. Contacte con un administrador." });
+        }
       }
 
       for (const att of (absence.attachments || [])) {
@@ -2072,6 +2079,13 @@ export async function registerRoutes(
       if (!absence) return res.status(404).json({ message: "Ausencia no encontrada" });
       if (user.role !== "admin" && absence.userId !== user.id) {
         return res.status(403).json({ message: "No autorizado" });
+      }
+      if (user.role !== "admin") {
+        const absenceDate = new Date(absence.date + "T00:00:00");
+        const diffHours = (absenceDate.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (diffHours < 12) {
+          return res.status(403).json({ message: "No se puede modificar una ausencia con menos de 12 horas de antelación. Contacte con un administrador." });
+        }
       }
 
       const fileUrl = `/uploads/${req.file.filename}`;
@@ -2098,6 +2112,13 @@ export async function registerRoutes(
       const absence = await storage.getTeacherAbsenceById(attachments[0].absenceId);
       if (absence && user.role !== "admin" && absence.userId !== user.id) {
         return res.status(403).json({ message: "No autorizado" });
+      }
+      if (absence && user.role !== "admin") {
+        const absenceDate = new Date(absence.date + "T00:00:00");
+        const diffHours = (absenceDate.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (diffHours < 12) {
+          return res.status(403).json({ message: "No se puede modificar una ausencia con menos de 12 horas de antelación. Contacte con un administrador." });
+        }
       }
 
       const filePath = path.join(uploadsDir, path.basename(attachments[0].fileUrl));
