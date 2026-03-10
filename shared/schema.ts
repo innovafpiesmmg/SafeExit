@@ -400,6 +400,21 @@ export const insertChatReadSchema = createInsertSchema(chatReads).omit({ id: tru
 export type InsertChatRead = z.infer<typeof insertChatReadSchema>;
 export type ChatRead = typeof chatReads.$inferSelect;
 
+export const directMessages = pgTable("direct_messages", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").notNull(),
+  receiverId: integer("receiver_id").notNull(),
+  message: text("message").notNull(),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertDirectMessageSchema = createInsertSchema(directMessages).omit({ id: true, readAt: true, createdAt: true });
+export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
+export type DirectMessage = typeof directMessages.$inferSelect;
+
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),

@@ -3060,6 +3060,107 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dm/conversations", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const conversations = await storage.getDirectConversations(req.user!.id);
+      res.json(conversations);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/dm/unread-count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const count = await storage.getUnreadDirectMessageCount(req.user!.id);
+      res.json({ count });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/dm/:userId/messages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const partnerId = parseInt(req.params.userId);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const beforeId = req.query.beforeId ? parseInt(req.query.beforeId as string) : undefined;
+      const messages = await storage.getDirectMessages(req.user!.id, partnerId, limit, beforeId);
+      res.json(messages);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/dm/:userId/messages", requireAuth, chatUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const senderId = req.user!.id;
+      const receiverId = parseInt(req.params.userId);
+      const { message } = req.body;
+      if (!message && !req.file) return res.status(400).json({ message: "Mensaje vacío" });
+
+      const receiver = await storage.getUser(receiverId);
+      if (!receiver) return res.status(404).json({ message: "Usuario no encontrado" });
+
+      const data: any = { senderId, receiverId, message: message || "" };
+      if (req.file) {
+        data.fileUrl = `/uploads/${req.file.filename}`;
+        data.fileName = req.file.originalname;
+      }
+
+      const created = await storage.sendDirectMessage(data);
+
+      const sender = await storage.getUser(senderId);
+      const senderName = sender?.fullName || "Alguien";
+      try {
+        await sendPushToUser(receiverId, {
+          title: `Mensaje de ${senderName}`,
+          body: message ? (message.length > 100 ? message.substring(0, 100) + "..." : message) : "📎 Archivo adjunto",
+          tag: `dm-${senderId}`,
+        });
+      } catch (e) {}
+
+      res.json(created);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/dm/:userId/read", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const senderId = parseInt(req.params.userId);
+      await storage.markDirectMessagesRead(senderId, req.user!.id);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/dm/messages/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const msgId = parseInt(req.params.id);
+      const msg = await storage.getDirectMessage(msgId);
+      if (!msg) return res.status(404).json({ message: "Mensaje no encontrado" });
+      if (msg.senderId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Solo puedes eliminar tus propios mensajes" });
+      }
+      await storage.deleteDirectMessage(msgId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/staff-users", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const staffUsers = allUsers
+        .filter(u => u.id !== req.user!.id)
+        .map(u => ({ id: u.id, fullName: u.fullName, role: u.role }));
+      res.json(staffUsers);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/download/:filename", requireAuth, (req: Request, res: Response) => {
     const filename = path.basename(req.params.filename);
     const filePath = path.join(uploadsDir, filename);
