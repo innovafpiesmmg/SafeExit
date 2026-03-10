@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -19,41 +18,77 @@ export function PushPermissionBanner() {
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
+    checkPushStatus();
+  }, []);
+
+  async function checkPushStatus() {
     if (!("Notification" in window)) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     if (window.location.protocol !== "https:") return;
 
+    if (Notification.permission === "denied") return;
+
     if (Notification.permission === "default") {
       const dismissed = sessionStorage.getItem("push_banner_dismissed");
-      if (!dismissed) {
-        setVisible(true);
-      }
+      if (!dismissed) setVisible(true);
+      return;
     }
-  }, []);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const dismissed = sessionStorage.getItem("push_banner_dismissed");
+        if (!dismissed) setVisible(true);
+      }
+    } catch {}
+  }
 
   const handleEnable = async () => {
     setRequesting(true);
     try {
       const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        const res = await fetch("/api/push/vapid-public-key");
-        const { publicKey } = await res.json();
-        if (publicKey) {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-          const subJson = subscription.toJSON();
-          await apiRequest("POST", "/api/push/subscribe", {
-            endpoint: subJson.endpoint,
-            keys: subJson.keys,
-          });
-        }
+      if (permission !== "granted") {
+        setVisible(false);
+        setRequesting(false);
+        return;
       }
+
+      const res = await fetch("/api/push/vapid-public-key");
+      const { publicKey } = await res.json();
+      if (!publicKey) {
+        setVisible(false);
+        setRequesting(false);
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
+
+      const subJson = subscription.toJSON();
+      const subRes = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+        credentials: "include",
+      });
+
+      if (subRes.ok) {
+        console.log("[PUSH] Subscription registered successfully");
+      } else {
+        console.error("[PUSH] Failed to register subscription:", subRes.status);
+      }
+
       setVisible(false);
     } catch (err) {
-      console.error("Push permission error:", err);
+      console.error("[PUSH] Permission/subscription error:", err);
       setVisible(false);
     }
     setRequesting(false);
