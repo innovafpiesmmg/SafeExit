@@ -2176,6 +2176,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "El tramo destino debe ser posterior al tramo origen" });
       }
 
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo no encontrado" });
+      }
+      if (group.allowAdvancement === false) {
+        return res.status(400).json({ message: `El grupo "${group.name}" no permite adelantos de horas` });
+      }
+
       const existing = await storage.getHourAdvancements(date);
       const conflict = existing.find((a: any) =>
         a.groupId === groupId && (a.originalSlotId === originalSlotId || a.targetSlotId === targetSlotId)

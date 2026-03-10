@@ -761,7 +761,7 @@ function UnattendedSlotRow({
                   )}
                 </SelectContent>
               </Select>
-              {laterSlots.length > 0 && (
+              {laterSlots.length > 0 && slot.allowAdvancement !== false && (
                 <Button
                   size="sm"
                   variant="outline"

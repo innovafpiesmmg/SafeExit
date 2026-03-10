@@ -12,7 +12,7 @@ A PWA web application for managing student departures from a school using QR cod
 
 ## Data Models
 - `users` - Admin and guard/teacher accounts with roles
-- `groups` - School class groups (e.g., "1A", "2B")
+- `groups` - School class groups (e.g., "1A", "2B") with `allowAdvancement` boolean (default true) to control whether hour advancements can be applied to this group
 - `students` - Student records with QR codes, photos, parental authorization, email (for notifications)
 - `group_schedules` - Exit permission calendar per specific date (date + timeSlot per group)
 - `exit_logs` - Audit log of all QR scan events (includes optional `signatureData` for accompanied exit signatures)
@@ -31,7 +31,7 @@ A PWA web application for managing student departures from a school using QR cod
 ## Key Features
 - **Student Management**: CRUD with photo upload, parental/bus authorization toggles, email field
 - **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation (includes Email column)
-- **Group Management**: Create/edit groups with course assignment and schedule type (morning/afternoon/full). Schedule determines which time slots appear in the calendar.
+- **Group Management**: Create/edit groups with course assignment, schedule type (morning/afternoon/full), and `allowAdvancement` toggle. Schedule determines which time slots appear in the calendar. Groups with advancement disabled show an orange "Sin adelantos" badge and cannot have hour advancements applied (enforced both in UI and server-side).
 - **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns), photo upload (file picker or camera capture) per teacher with hover overlay on avatar
 - **Academic Year Archive & Reset**: Two options in Settings: 1) "Archivar y Comenzar Nuevo Curso" — saves all data as JSON archive, then clears DB (requires "ARCHIVAR CURSO" confirmation). 2) "Eliminar sin archivar" — deletes all without saving (requires "NUEVO CURSO" confirmation). Archives browsable from /archives page.
 - **Archived Courses**: Admin-only page (/archives) to browse archived academic years. Shows summary stats (students, groups, exits, etc.). Click "Consultar" to view full data with tabbed interface (Alumnos, Grupos, Salidas, Tardías, Incidencias) + search filter. Can permanently delete archives.

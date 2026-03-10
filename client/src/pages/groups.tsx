@@ -10,14 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Sun, Moon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Pencil, Trash2, Users, Sun, Moon, MoveRight } from "lucide-react";
 import type { Group } from "@shared/schema";
 
 export default function GroupsPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Group | null>(null);
-  const [form, setForm] = useState({ name: "", course: "", schedule: "morning" });
+  const [form, setForm] = useState({ name: "", course: "", schedule: "morning", allowAdvancement: true });
 
   const { data: groups, isLoading } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
   const { data: students } = useQuery<any[]>({ queryKey: ["/api/students"] });
@@ -49,9 +50,9 @@ export default function GroupsPage() {
     },
   });
 
-  const resetForm = () => { setForm({ name: "", course: "", schedule: "morning" }); setEditing(null); setDialogOpen(false); };
+  const resetForm = () => { setForm({ name: "", course: "", schedule: "morning", allowAdvancement: true }); setEditing(null); setDialogOpen(false); };
 
-  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course, schedule: g.schedule || "morning" }); setDialogOpen(true); };
+  const handleEdit = (g: Group) => { setEditing(g); setForm({ name: g.name, course: g.course, schedule: g.schedule || "morning", allowAdvancement: g.allowAdvancement !== false }); setDialogOpen(true); };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +97,17 @@ export default function GroupsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label>Permitir adelantos</Label>
+                  <p className="text-xs text-muted-foreground">Si se pueden adelantar horas de clase para este grupo</p>
+                </div>
+                <Switch
+                  checked={form.allowAdvancement}
+                  onCheckedChange={v => setForm(f => ({ ...f, allowAdvancement: v }))}
+                  data-testid="switch-allow-advancement"
+                />
+              </div>
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="secondary" onClick={resetForm} className="flex-1">Cancelar</Button>
                 <Button type="submit" data-testid="button-save-group" className="flex-1">{editing ? "Guardar" : "Crear"}</Button>
@@ -134,6 +146,11 @@ export default function GroupsPage() {
                            group.schedule === "afternoon" ? <><Moon className="w-3 h-3 mr-0.5 text-indigo-500" />Tarde</> :
                            <><Sun className="w-3 h-3 mr-0.5 text-amber-500" />Completo</>}
                         </Badge>
+                        {group.allowAdvancement === false && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-600" data-testid={`badge-no-advance-${group.id}`}>
+                            <MoveRight className="w-3 h-3 mr-0.5" />Sin adelantos
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">

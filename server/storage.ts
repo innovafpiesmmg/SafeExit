@@ -719,6 +719,7 @@ export class DatabaseStorage implements IStorage {
         timeSlotId: p.timeSlotId,
         groupId: p.groupId,
         groupName: group?.name || "?",
+        allowAdvancement: group?.allowAdvancement !== false,
         absentTeacherId: absence?.userId,
         absentTeacherName: teacher?.fullName || "?",
         absenceStatus: absence?.status || "pending",
