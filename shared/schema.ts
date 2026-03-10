@@ -298,3 +298,15 @@ export const hourAdvancements = pgTable("hour_advancements", {
 export const insertHourAdvancementSchema = createInsertSchema(hourAdvancements).omit({ id: true, createdAt: true });
 export type InsertHourAdvancement = z.infer<typeof insertHourAdvancementSchema>;
 export type HourAdvancement = typeof hourAdvancements.$inferSelect;
+
+export const teacherSchedules = pgTable("teacher_schedules", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  groupId: integer("group_id").notNull(),
+  timeSlotId: integer("time_slot_id").notNull(),
+  dayOfWeek: integer("day_of_week").notNull(),
+});
+
+export const insertTeacherScheduleSchema = createInsertSchema(teacherSchedules).omit({ id: true });
+export type InsertTeacherSchedule = z.infer<typeof insertTeacherScheduleSchema>;
+export type TeacherSchedule = typeof teacherSchedules.$inferSelect;

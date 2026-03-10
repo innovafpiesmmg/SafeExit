@@ -2302,5 +2302,179 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== TEACHER SCHEDULES ====================
+
+  app.get("/api/teacher-schedules", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const userId = req.query.userId ? Number(req.query.userId) : undefined;
+      if (userId && user.role !== "admin") {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+      const schedules = userId
+        ? await storage.getTeacherSchedulesByUser(userId)
+        : user.role === "admin"
+          ? await storage.getAllTeacherSchedules()
+          : await storage.getTeacherSchedulesByUser(user.id);
+      const allUsers = await storage.getAllUsers();
+      const allGroups = await storage.getAllGroups();
+      const enriched = schedules.map(s => ({
+        ...s,
+        teacherName: allUsers.find(u => u.id === s.userId)?.fullName || "?",
+        groupName: allGroups.find(g => g.id === s.groupId)?.name || "?",
+      }));
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/teacher-schedules/:userId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.userId);
+      const entries = req.body;
+      if (!Array.isArray(entries)) {
+        return res.status(400).json({ message: "Se esperaba un array de entradas" });
+      }
+      for (const entry of entries) {
+        if (!entry.dayOfWeek || !entry.timeSlotId || !entry.groupId) {
+          return res.status(400).json({ message: "Cada entrada necesita dayOfWeek, timeSlotId y groupId" });
+        }
+        if (entry.dayOfWeek < 1 || entry.dayOfWeek > 5) {
+          return res.status(400).json({ message: "dayOfWeek debe ser entre 1 (lunes) y 5 (viernes)" });
+        }
+      }
+      const mapped = entries.map((e: any) => ({
+        userId,
+        dayOfWeek: e.dayOfWeek,
+        timeSlotId: e.timeSlotId,
+        groupId: e.groupId,
+      }));
+      const result = await storage.setTeacherSchedules(userId, mapped);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/teacher-schedules/:userId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteTeacherSchedulesByUser(Number(req.params.userId));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/teacher-schedules/template", requireAuth, requireAdmin, (_req: Request, res: Response) => {
+    const wb = XLSX.utils.book_new();
+    const headers = [
+      ["Profesor", "Día", "Tramo", "Grupo"],
+      ["María García Fernández", "Lunes", "1", "1A"],
+      ["María García Fernández", "Lunes", "2", "2B"],
+      ["María García Fernández", "Martes", "1", "1A"],
+      ["Carlos López Martín", "Miércoles", "3", "3A"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Horarios");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=plantilla_horarios.xlsx");
+    res.send(Buffer.from(buf));
+  });
+
+  app.post("/api/teacher-schedules/import", requireAuth, requireAdmin, upload.single("file"), async (req: Request, res: Response) => {
+    const filePath = req.file?.path;
+    try {
+      if (!req.file || !filePath) return res.status(400).json({ message: "No se subió archivo" });
+
+      const wb = XLSX.readFile(filePath);
+      const sheetName = wb.SheetNames[0];
+      const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+
+      if (!rows.length) return res.status(400).json({ message: "El archivo está vacío" });
+
+      const requiredCols = ["Profesor", "Día", "Tramo", "Grupo"];
+      const headersFound = Object.keys(rows[0]);
+      const missing = requiredCols.filter(c => !headersFound.includes(c));
+      if (missing.length) {
+        return res.status(400).json({ message: `Columnas requeridas no encontradas: ${missing.join(", ")}. Descarga la plantilla para ver el formato correcto.` });
+      }
+
+      const dayNameMap: Record<string, number> = {
+        "lunes": 1, "martes": 2, "miércoles": 3, "miercoles": 3,
+        "jueves": 4, "viernes": 5,
+      };
+
+      const allUsers = await storage.getAllUsers();
+      const allGroups = await storage.getAllGroups();
+
+      const byTeacher = new Map<number, { dayOfWeek: number; timeSlotId: number; groupId: number; userId: number }[]>();
+      const errors: string[] = [];
+      let imported = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+        const teacherName = String(row["Profesor"] || "").trim();
+        const dayStr = String(row["Día"] || row["Dia"] || "").trim().toLowerCase();
+        const slotId = parseInt(String(row["Tramo"] || ""));
+        const groupName = String(row["Grupo"] || "").trim();
+
+        if (!teacherName || !dayStr || !slotId || !groupName) {
+          errors.push(`Fila ${rowNum}: campos incompletos`);
+          continue;
+        }
+
+        const dayOfWeek = dayNameMap[dayStr] || parseInt(dayStr);
+        if (!dayOfWeek || dayOfWeek < 1 || dayOfWeek > 5) {
+          errors.push(`Fila ${rowNum}: día no válido "${row["Día"] || row["Dia"]}"`);
+          continue;
+        }
+
+        const teacher = allUsers.find(u => u.fullName.toLowerCase() === teacherName.toLowerCase());
+        if (!teacher) {
+          errors.push(`Fila ${rowNum}: profesor "${teacherName}" no encontrado`);
+          continue;
+        }
+
+        const group = allGroups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+        if (!group) {
+          errors.push(`Fila ${rowNum}: grupo "${groupName}" no encontrado`);
+          continue;
+        }
+
+        if (!byTeacher.has(teacher.id)) {
+          byTeacher.set(teacher.id, []);
+        }
+        byTeacher.get(teacher.id)!.push({
+          userId: teacher.id,
+          dayOfWeek,
+          timeSlotId: slotId,
+          groupId: group.id,
+        });
+      }
+
+      for (const [userId, entries] of byTeacher) {
+        await storage.setTeacherSchedules(userId, entries);
+        imported += entries.length;
+      }
+
+      res.json({
+        message: `${imported} entrada(s) de horario importada(s) para ${byTeacher.size} profesor(es)`,
+        imported,
+        teachers: byTeacher.size,
+        errors,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: `Error procesando archivo: ${error.message}` });
+    } finally {
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+
   return httpServer;
 }

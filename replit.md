@@ -26,6 +26,7 @@ A PWA web application for managing student departures from a school using QR cod
 - `teacher_absence_periods` - Absence detail: which time slot and group is left unattended per absence
 - `teacher_absence_attachments` - File attachments for absence justification
 - `guard_coverages` - Guard-to-absent-period assignments (admin assigns available guard to cover unattended slot)
+- `teacher_schedules` - Weekly schedule per teacher: maps userId + dayOfWeek + timeSlotId to groupId. Used for auto-filling absence periods and informing guard/advancement assignment.
 - `app_settings` - Key-value settings (school name, academic year, SMTP config, time slots config, accompanied exit email toggle)
 
 ## Key Features
@@ -33,6 +34,7 @@ A PWA web application for managing student departures from a school using QR cod
 - **Excel Import (Students)**: Download template, bulk import students from .xlsx with auto group creation (includes Email column)
 - **Group Management**: Create/edit groups with course assignment, schedule type (morning/afternoon/full), and `allowAdvancement` toggle. Schedule determines which time slots appear in the calendar. Groups with advancement disabled show an orange "Sin adelantos" badge and cannot have hour advancements applied (enforced both in UI and server-side).
 - **Guard/Teacher Management**: CRUD with auto-generated usernames, shared password defined by admin, Excel import (Nombre/Apellidos columns), photo upload (file picker or camera capture) per teacher with hover overlay on avatar
+- **Teacher Schedule Management**: Admin page (/teacher-schedules) for managing weekly schedules per teacher. Weekly grid (days × time slots) with group selector per cell. Manual entry with save/clear. Excel import (Profesor/Día/Tramo/Grupo columns) with template download. Summary view shows all teachers' schedule status. When teachers create absences, a "Rellenar desde horario" button auto-populates periods from their schedule for that day of week.
 - **Academic Year Archive & Reset**: Two options in Settings: 1) "Archivar y Comenzar Nuevo Curso" — saves all data as JSON archive, then clears DB (requires "ARCHIVAR CURSO" confirmation). 2) "Eliminar sin archivar" — deletes all without saving (requires "NUEVO CURSO" confirmation). Archives browsable from /archives page.
 - **Archived Courses**: Admin-only page (/archives) to browse archived academic years. Shows summary stats (students, groups, exits, etc.). Click "Consultar" to view full data with tabbed interface (Alumnos, Grupos, Salidas, Tardías, Incidencias) + search filter. Can permanently delete archives.
 - **Calendar System**: Date-based calendar — select a specific date, configure 12 time slots for exit permissions per group. Green dots indicate dates with permissions. Weekends disabled.

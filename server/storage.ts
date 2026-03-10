@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   users, students, groups, groupSchedules, exitLogs, incidents, appSettings, lateArrivals, authorizedPickups, academicArchives,
   guardZones, guardDutyAssignments, guardDutyRegistrations,
-  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements,
+  teacherAbsences, teacherAbsencePeriods, teacherAbsenceAttachments, guardCoverages, hourAdvancements, teacherSchedules,
   type User, type InsertUser,
   type Student, type InsertStudent,
   type Group, type InsertGroup,
@@ -21,6 +21,7 @@ import {
   type TeacherAbsenceAttachment, type InsertTeacherAbsenceAttachment,
   type GuardCoverage, type InsertGuardCoverage,
   type HourAdvancement, type InsertHourAdvancement,
+  type TeacherSchedule, type InsertTeacherSchedule,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -116,6 +117,12 @@ export interface IStorage {
   getHourAdvancements(date: string): Promise<any[]>;
   deleteHourAdvancement(id: number): Promise<void>;
   getGroupFreeSlots(date: string, groupId: number): Promise<number[]>;
+
+  getAllTeacherSchedules(): Promise<TeacherSchedule[]>;
+  getTeacherSchedulesByUser(userId: number): Promise<TeacherSchedule[]>;
+  getTeacherSchedulesByDay(dayOfWeek: number): Promise<TeacherSchedule[]>;
+  setTeacherSchedules(userId: number, entries: InsertTeacherSchedule[]): Promise<TeacherSchedule[]>;
+  deleteTeacherSchedulesByUser(userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -817,6 +824,29 @@ export class DatabaseStorage implements IStorage {
     }
 
     return Array.from(freeSlots).sort((a, b) => a - b);
+  }
+
+  async getAllTeacherSchedules(): Promise<TeacherSchedule[]> {
+    return db.select().from(teacherSchedules);
+  }
+
+  async getTeacherSchedulesByUser(userId: number): Promise<TeacherSchedule[]> {
+    return db.select().from(teacherSchedules).where(eq(teacherSchedules.userId, userId));
+  }
+
+  async getTeacherSchedulesByDay(dayOfWeek: number): Promise<TeacherSchedule[]> {
+    return db.select().from(teacherSchedules).where(eq(teacherSchedules.dayOfWeek, dayOfWeek));
+  }
+
+  async setTeacherSchedules(userId: number, entries: InsertTeacherSchedule[]): Promise<TeacherSchedule[]> {
+    await db.delete(teacherSchedules).where(eq(teacherSchedules.userId, userId));
+    if (entries.length === 0) return [];
+    const created = await db.insert(teacherSchedules).values(entries).returning();
+    return created;
+  }
+
+  async deleteTeacherSchedulesByUser(userId: number): Promise<void> {
+    await db.delete(teacherSchedules).where(eq(teacherSchedules.userId, userId));
   }
 }
 

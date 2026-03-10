@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-  AlertTriangle, CalendarDays, Clock, FileUp, Plus, Trash2, X, Loader2,
+  AlertTriangle, CalendarDays, Clock, FileUp, Plus, Trash2, X, Loader2, Wand2,
 } from "lucide-react";
 
 interface AbsencePeriod {
@@ -38,6 +38,10 @@ export default function TeacherAbsencesPage() {
 
   const { data: allGroups = [] } = useQuery<any[]>({
     queryKey: ["/api/groups"],
+  });
+
+  const { data: mySchedule = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher-schedules"],
   });
 
   const createMutation = useMutation({
@@ -80,6 +84,23 @@ export default function TeacherAbsencesPage() {
     setSelectedSlots(prev =>
       prev.includes(slotId) ? prev.filter(s => s !== slotId) : [...prev, slotId]
     );
+  }
+
+  function autoFillFromSchedule() {
+    if (!date || mySchedule.length === 0) return;
+    const d = new Date(date + "T00:00:00");
+    const jsDay = d.getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+    const dayEntries = mySchedule.filter((s: any) => s.dayOfWeek === dayOfWeek);
+    if (dayEntries.length === 0) {
+      toast({ title: "Sin horario", description: "No tiene clases registradas para ese día de la semana", variant: "destructive" });
+      return;
+    }
+    const slots = dayEntries.map((e: any) => e.timeSlotId);
+    const groups: Record<number, number> = {};
+    dayEntries.forEach((e: any) => { groups[e.timeSlotId] = e.groupId; });
+    setSelectedSlots(slots);
+    setPeriodGroups(groups);
   }
 
   function canSubmit12h(): boolean {
@@ -161,7 +182,22 @@ export default function TeacherAbsencesPage() {
             )}
 
             <div>
-              <Label>Periodos de ausencia</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Periodos de ausencia</Label>
+                {date && mySchedule.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={autoFillFromSchedule}
+                    className="h-7 text-xs"
+                    data-testid="button-autofill-schedule"
+                  >
+                    <Wand2 className="w-3 h-3 mr-1" />
+                    Rellenar desde horario
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-1 gap-2 mt-2">
                 {classSlots.map(slot => (
                   <div key={slot.id} className="flex items-center gap-3 p-2 rounded border">
