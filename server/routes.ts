@@ -99,7 +99,7 @@ export async function registerRoutes(
       proxy: true,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000,
-        secure: process.env.SECURE_COOKIES === "true",
+        secure: false,
         sameSite: "lax",
         httpOnly: true,
       },
