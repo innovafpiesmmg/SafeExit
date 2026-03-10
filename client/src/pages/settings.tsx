@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const [schoolName, setSchoolName] = useState("");
   const [accompaniedExitEmailEnabled, setAccompaniedExitEmailEnabled] = useState(false);
   const [extraordinaryExitEnabled, setExtraordinaryExitEnabled] = useState(false);
+  const [staffGuardTabVisible, setStaffGuardTabVisible] = useState(true);
   const [academicYear, setAcademicYear] = useState(() => {
     const now = new Date();
     const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -57,6 +58,7 @@ export default function SettingsPage() {
       setSchoolName(settings.schoolName || "");
       setAccompaniedExitEmailEnabled(settings.accompaniedExitEmailEnabled === "true");
       setExtraordinaryExitEnabled(settings.extraordinaryExitEnabled === "true");
+      setStaffGuardTabVisible(settings.staffGuardTabVisible !== "false");
       if (settings.academicYear) {
         setAcademicYear(settings.academicYear);
       }
@@ -81,6 +83,7 @@ export default function SettingsPage() {
         academicYear,
         accompaniedExitEmailEnabled: accompaniedExitEmailEnabled ? "true" : "false",
         extraordinaryExitEnabled: extraordinaryExitEnabled ? "true" : "false",
+        staffGuardTabVisible: staffGuardTabVisible ? "true" : "false",
         timeSlots: JSON.stringify(timeSlots),
       };
       for (const [key, value] of Object.entries(entries)) {
@@ -523,6 +526,19 @@ export default function SettingsPage() {
               checked={extraordinaryExitEnabled}
               onCheckedChange={setExtraordinaryExitEnabled}
               data-testid="switch-extraordinary-exit"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
+            <div className="space-y-0.5">
+              <Label>Pestaña "Guardia" visible para profesores</Label>
+              <p className="text-xs text-muted-foreground">
+                Si se desactiva, los profesores no verán la pestaña de verificación QR en su vista
+              </p>
+            </div>
+            <Switch
+              checked={staffGuardTabVisible}
+              onCheckedChange={setStaffGuardTabVisible}
+              data-testid="switch-staff-guard-tab"
             />
           </div>
         </CardContent>

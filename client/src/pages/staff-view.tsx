@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -40,15 +41,31 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   const [, setLocation] = useLocation();
   const online = useOnlineStatus();
 
-  const defaultTab: TabId = showGroupTab ? "group" : "guard";
+  const { data: settings } = useQuery<Record<string, string>>({
+    queryKey: ["/api/settings"],
+  });
+  const guardTabVisible = settings ? settings.staffGuardTabVisible !== "false" : false;
+
+  const defaultTab: TabId = showGroupTab ? "group" : (guardTabVisible ? "guard" : "duty");
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
   const [guardFullscreen, setGuardFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!guardTabVisible && activeTab === "guard") {
+      setActiveTab(showGroupTab ? "group" : "duty");
+    }
+    if (guardTabVisible && !showGroupTab && activeTab === "duty" && settings) {
+      setActiveTab("guard");
+    }
+  }, [guardTabVisible, activeTab, showGroupTab, settings]);
 
   const tabs: { id: TabId; label: string; icon: typeof ShieldCheck }[] = [];
   if (showGroupTab) {
     tabs.push({ id: "group", label: "Mi Grupo", icon: GraduationCap });
   }
-  tabs.push({ id: "guard", label: "Guardia", icon: ShieldCheck });
+  if (guardTabVisible) {
+    tabs.push({ id: "guard", label: "Guardia", icon: ShieldCheck });
+  }
   tabs.push({ id: "late", label: "Tardías", icon: Clock });
   tabs.push({ id: "duty", label: "Fichar", icon: Shield });
   tabs.push({ id: "absences", label: "Ausencias", icon: UserX });
