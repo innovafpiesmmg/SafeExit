@@ -145,7 +145,24 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">10. Notificaciones Push</h2>
+            <h2 className="text-lg font-semibold">10. Uso de Cookies</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              SafeExit utiliza exclusivamente cookies técnicas estrictamente necesarias para el funcionamiento
+              de la aplicación. No se utilizan cookies con fines publicitarios, analíticos ni de seguimiento.
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+              <li><strong>Cookie de sesión</strong> (<code className="text-xs bg-muted px-1 rounded">safeexit.sid</code>): Identifica la sesión del usuario autenticado. Es una cookie httpOnly (no accesible desde JavaScript), con una duración máxima de 30 días. Se elimina al cerrar sesión o al expirar el plazo.</li>
+              <li><strong>Preferencia de tema</strong>: Se almacena en el almacenamiento local del navegador (localStorage) la preferencia de modo claro/oscuro. No se transmite al servidor ni contiene datos personales.</li>
+            </ul>
+            <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+              De acuerdo con el artículo 22.2 de la LSSI-CE, las cookies técnicas necesarias para la prestación
+              del servicio están exentas del requisito de consentimiento informado. Al tratarse únicamente de
+              cookies esenciales, no se requiere un banner de aceptación de cookies.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">11. Notificaciones Push</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               SafeExit utiliza notificaciones push para informar al personal del centro sobre eventos relevantes
               (coberturas de guardia, mensajes, avisos). La activación de las notificaciones push es voluntaria
