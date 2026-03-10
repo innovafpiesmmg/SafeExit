@@ -176,9 +176,10 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 
 ### Vista de tutor (móvil)
 - Vista optimizada para móvil con navegación por pestañas inferiores
-- 7 pestañas: **Mi Grupo**, **Guardia**, **Tardías**, **Fichar**, **Ausencias**, **Registros** y **Mensajes**
+- Hasta 7 pestañas (configurables por el admin): **Mi Grupo**, **Guardia**, **Tardías**, **Fichar**, **Ausencias**, **Registros** y **Mensajes**
+- **Navegación adaptativa**: cuando hay más de 5 pestañas, los iconos y textos se reducen automáticamente y la barra permite deslizamiento horizontal para que todas las pestañas queden accesibles sin cortarse
 - Mi Grupo: lista de alumnos del grupo asignado, subida de fotos desde cámara, compartir carnet digital
-- Guardia: verificación de salida con QR, búsqueda y salida acompañada
+- Guardia: verificación de salida con QR, búsqueda y salida acompañada (visibilidad configurable globalmente y por profesor individual)
 - Tardías: registro de entradas tardías
 - Fichar: fichaje de guardia con firma digital
 - Ausencias: registro y consulta de ausencias propias
