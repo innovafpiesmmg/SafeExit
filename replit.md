@@ -13,7 +13,7 @@ SafeExit is built as a Progressive Web Application (PWA) using a modern web stac
 -   **Database**: PostgreSQL is used for data storage, with Drizzle ORM facilitating database interactions.
 -   **UI/UX Decisions**: The application features distinct views optimized for different user roles and devices:
     -   **Admin View**: A full sidebar layout provides access to all administrative functionalities, designed for PC use.
-    -   **Staff View (Guard/Tutor)**: A unified, mobile/tablet-optimized view with bottom tab navigation, designed for on-the-go use by guards and tutors. It features large buttons, live stats, and a clock.
+    -   **Staff View (Guard/Tutor)**: A unified, mobile/tablet-optimized view with bottom tab navigation, designed for on-the-go use by guards and tutors. It features large buttons, live stats, and a clock. Tab visibility is configurable by the admin (settings keys: `staffGuardTabVisible`, `staffLateTabVisible`, `staffDutyTabVisible`, `staffAbsencesTabVisible`, `staffRecordsTabVisible`, `staffMessagesTabVisible`). All default to visible. Fail-closed: tabs hidden while settings load.
     -   **Carnet Design**: Digital and printable carnets include a student photo, group badge, and a 22mm QR code, adhering to a 2x5 grid layout (85x55mm cards) with a distinct blue header.
     -   **Sound Feedback**: Configurable audio cues (beep/alert) are provided for QR scan results, with options for custom audio uploads.
 -   **Technical Implementations & Feature Specifications**:

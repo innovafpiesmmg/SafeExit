@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee, ArrowUp, ArrowDown, Volume2, Upload } from "lucide-react";
+import { Mail, Server, Lock, Send, CheckCircle2, XCircle, Loader2, AlertTriangle, Trash2, CalendarDays, UserCheck, Clock, Archive, Plus, X, Coffee, ArrowUp, ArrowDown, Volume2, Upload, ShieldCheck, Shield, UserX, FileText, MessageSquare, Smartphone, ToggleLeft, ToggleRight, Eye, EyeOff } from "lucide-react";
 import { type TimeSlotsConfig, type TimeSlotConfig, getDefaultTimeSlotsConfig } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -33,6 +33,11 @@ export default function SettingsPage() {
   const [accompaniedExitEmailEnabled, setAccompaniedExitEmailEnabled] = useState(false);
   const [extraordinaryExitEnabled, setExtraordinaryExitEnabled] = useState(false);
   const [staffGuardTabVisible, setStaffGuardTabVisible] = useState(true);
+  const [staffLateTabVisible, setStaffLateTabVisible] = useState(true);
+  const [staffDutyTabVisible, setStaffDutyTabVisible] = useState(true);
+  const [staffAbsencesTabVisible, setStaffAbsencesTabVisible] = useState(true);
+  const [staffRecordsTabVisible, setStaffRecordsTabVisible] = useState(true);
+  const [staffMessagesTabVisible, setStaffMessagesTabVisible] = useState(true);
   const [academicYear, setAcademicYear] = useState(() => {
     const now = new Date();
     const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -59,6 +64,11 @@ export default function SettingsPage() {
       setAccompaniedExitEmailEnabled(settings.accompaniedExitEmailEnabled === "true");
       setExtraordinaryExitEnabled(settings.extraordinaryExitEnabled === "true");
       setStaffGuardTabVisible(settings.staffGuardTabVisible !== "false");
+      setStaffLateTabVisible(settings.staffLateTabVisible !== "false");
+      setStaffDutyTabVisible(settings.staffDutyTabVisible !== "false");
+      setStaffAbsencesTabVisible(settings.staffAbsencesTabVisible !== "false");
+      setStaffRecordsTabVisible(settings.staffRecordsTabVisible !== "false");
+      setStaffMessagesTabVisible(settings.staffMessagesTabVisible !== "false");
       if (settings.academicYear) {
         setAcademicYear(settings.academicYear);
       }
@@ -84,6 +94,11 @@ export default function SettingsPage() {
         accompaniedExitEmailEnabled: accompaniedExitEmailEnabled ? "true" : "false",
         extraordinaryExitEnabled: extraordinaryExitEnabled ? "true" : "false",
         staffGuardTabVisible: staffGuardTabVisible ? "true" : "false",
+        staffLateTabVisible: staffLateTabVisible ? "true" : "false",
+        staffDutyTabVisible: staffDutyTabVisible ? "true" : "false",
+        staffAbsencesTabVisible: staffAbsencesTabVisible ? "true" : "false",
+        staffRecordsTabVisible: staffRecordsTabVisible ? "true" : "false",
+        staffMessagesTabVisible: staffMessagesTabVisible ? "true" : "false",
         timeSlots: JSON.stringify(timeSlots),
       };
       for (const [key, value] of Object.entries(entries)) {
@@ -528,17 +543,119 @@ export default function SettingsPage() {
               data-testid="switch-extraordinary-exit"
             />
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
-            <div className="space-y-0.5">
-              <Label>Pestaña "Guardia" visible para profesores</Label>
-              <p className="text-xs text-muted-foreground">
-                Si se desactiva, los profesores no verán la pestaña de verificación QR en su vista
-              </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Smartphone className="w-5 h-5" />
+            Pestañas visibles para profesores
+          </CardTitle>
+          <CardDescription>
+            Controla qué pestañas pueden ver los profesores en su vista móvil/tablet. Las pestañas desactivadas no aparecerán en la navegación inferior.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-tabs-all"
+              onClick={() => {
+                setStaffGuardTabVisible(true);
+                setStaffLateTabVisible(true);
+                setStaffDutyTabVisible(true);
+                setStaffAbsencesTabVisible(true);
+                setStaffRecordsTabVisible(true);
+                setStaffMessagesTabVisible(true);
+              }}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Mostrar todas
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-tabs-none"
+              onClick={() => {
+                setStaffGuardTabVisible(false);
+                setStaffLateTabVisible(false);
+                setStaffDutyTabVisible(false);
+                setStaffAbsencesTabVisible(false);
+                setStaffRecordsTabVisible(false);
+                setStaffMessagesTabVisible(false);
+              }}
+            >
+              <EyeOff className="w-4 h-4 mr-1" />
+              Ocultar todas
+            </Button>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Guardia</Label>
             </div>
             <Switch
               checked={staffGuardTabVisible}
               onCheckedChange={setStaffGuardTabVisible}
               data-testid="switch-staff-guard-tab"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Tardías</Label>
+            </div>
+            <Switch
+              checked={staffLateTabVisible}
+              onCheckedChange={setStaffLateTabVisible}
+              data-testid="switch-staff-late-tab"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Fichar</Label>
+            </div>
+            <Switch
+              checked={staffDutyTabVisible}
+              onCheckedChange={setStaffDutyTabVisible}
+              data-testid="switch-staff-duty-tab"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <UserX className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Ausencias</Label>
+            </div>
+            <Switch
+              checked={staffAbsencesTabVisible}
+              onCheckedChange={setStaffAbsencesTabVisible}
+              data-testid="switch-staff-absences-tab"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Registros</Label>
+              <span className="text-xs text-muted-foreground">(solo tutores)</span>
+            </div>
+            <Switch
+              checked={staffRecordsTabVisible}
+              onCheckedChange={setStaffRecordsTabVisible}
+              data-testid="switch-staff-records-tab"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Mensajes</Label>
+            </div>
+            <Switch
+              checked={staffMessagesTabVisible}
+              onCheckedChange={setStaffMessagesTabVisible}
+              data-testid="switch-staff-messages-tab"
             />
           </div>
         </CardContent>

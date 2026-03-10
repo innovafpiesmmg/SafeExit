@@ -202,7 +202,13 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   const { data: settings } = useQuery<Record<string, string>>({
     queryKey: ["/api/settings"],
   });
+  const settingsLoaded = !!settings;
   const guardTabVisible = settings ? settings.staffGuardTabVisible !== "false" : false;
+  const lateTabVisible = settings ? settings.staffLateTabVisible !== "false" : false;
+  const dutyTabVisible = settings ? settings.staffDutyTabVisible !== "false" : false;
+  const absencesTabVisible = settings ? settings.staffAbsencesTabVisible !== "false" : false;
+  const recordsTabVisible = settings ? settings.staffRecordsTabVisible !== "false" : false;
+  const messagesTabVisible = settings ? settings.staffMessagesTabVisible !== "false" : false;
 
   const { data: unreadNotifData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
@@ -214,19 +220,6 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   });
   const totalUnread = (unreadNotifData?.count || 0) + Object.values(chatUnreadData || {}).reduce((s, v) => s + v, 0);
 
-  const defaultTab: TabId = showGroupTab ? "group" : (guardTabVisible ? "guard" : "duty");
-  const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
-  const [guardFullscreen, setGuardFullscreen] = useState(false);
-
-  useEffect(() => {
-    if (!guardTabVisible && activeTab === "guard") {
-      setActiveTab(showGroupTab ? "group" : "duty");
-    }
-    if (guardTabVisible && !showGroupTab && activeTab === "duty" && settings) {
-      setActiveTab("guard");
-    }
-  }, [guardTabVisible, activeTab, showGroupTab, settings]);
-
   const tabs: { id: TabId; label: string; icon: typeof ShieldCheck }[] = [];
   if (showGroupTab) {
     tabs.push({ id: "group", label: "Mi Grupo", icon: GraduationCap });
@@ -234,13 +227,32 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
   if (guardTabVisible) {
     tabs.push({ id: "guard", label: "Guardia", icon: ShieldCheck });
   }
-  tabs.push({ id: "late", label: "Tardías", icon: Clock });
-  tabs.push({ id: "duty", label: "Fichar", icon: Shield });
-  tabs.push({ id: "absences", label: "Ausencias", icon: UserX });
-  if (showGroupTab) {
+  if (lateTabVisible) {
+    tabs.push({ id: "late", label: "Tardías", icon: Clock });
+  }
+  if (dutyTabVisible) {
+    tabs.push({ id: "duty", label: "Fichar", icon: Shield });
+  }
+  if (absencesTabVisible) {
+    tabs.push({ id: "absences", label: "Ausencias", icon: UserX });
+  }
+  if (showGroupTab && recordsTabVisible) {
     tabs.push({ id: "records", label: "Registros", icon: FileText });
   }
-  tabs.push({ id: "messages", label: "Mensajes", icon: MessageSquare });
+  if (messagesTabVisible) {
+    tabs.push({ id: "messages", label: "Mensajes", icon: MessageSquare });
+  }
+
+  const [activeTab, setActiveTab] = useState<TabId>("group");
+  const [guardFullscreen, setGuardFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    if (tabs.length === 0) return;
+    if (!tabs.find(t => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [settingsLoaded, guardTabVisible, lateTabVisible, dutyTabVisible, absencesTabVisible, recordsTabVisible, messagesTabVisible, activeTab, showGroupTab]);
 
   const handleBackToAdmin = () => {
     sessionStorage.removeItem("safeexit_view_mode");
@@ -301,15 +313,27 @@ export default function StaffView({ showGroupTab, showBackToAdmin }: StaffViewPr
       <PwaInstallBanner />
 
       <div className={`flex-1 overflow-auto ${guardFullscreen ? "" : "pb-16"}`}>
-        {activeTab === "group" && showGroupTab && <TutorView embedded />}
-        {activeTab === "guard" && (
-          <GuardView embedded onFullscreenChange={setGuardFullscreen} />
+        {!settingsLoaded ? (
+          <div className="flex items-center justify-center h-full p-8">
+            <p className="text-muted-foreground">Cargando...</p>
+          </div>
+        ) : tabs.length === 0 ? (
+          <div className="flex items-center justify-center h-full p-8">
+            <p className="text-muted-foreground text-center" data-testid="text-no-tabs">No tienes pestañas disponibles. Contacta con el administrador.</p>
+          </div>
+        ) : (
+          <>
+            {activeTab === "group" && showGroupTab && <TutorView embedded />}
+            {activeTab === "guard" && (
+              <GuardView embedded onFullscreenChange={setGuardFullscreen} />
+            )}
+            {activeTab === "late" && <LateArrivalsPage embedded />}
+            {activeTab === "duty" && <GuardDutySignIn />}
+            {activeTab === "absences" && <TeacherAbsencesPage />}
+            {activeTab === "records" && <TutorRecords embedded />}
+            {activeTab === "messages" && <StaffMessages />}
+          </>
         )}
-        {activeTab === "late" && <LateArrivalsPage embedded />}
-        {activeTab === "duty" && <GuardDutySignIn />}
-        {activeTab === "absences" && <TeacherAbsencesPage />}
-        {activeTab === "records" && <TutorRecords embedded />}
-        {activeTab === "messages" && <StaffMessages />}
       </div>
 
       {!guardFullscreen && (
