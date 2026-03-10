@@ -113,6 +113,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Al autorizar, se crean permisos de salida grupal automáticos: los alumnos de ese grupo podrán salir al escanear su QR en esos tramos
 - **Validaciones del servidor**: el tramo destino debe ser posterior al origen, no puede haber adelantos duplicados, y los grupos con "Sin adelantos" activado no pueden recibir adelantos
 - Los huecos cubiertos por guardia aparecen en verde, los cubiertos por adelanto en azul, y los sin cubrir en rojo
+- **Notificación automática al profesor de guardia**: cuando el administrador asigna un profesor para cubrir un hueco, se le envía una notificación automática indicando el grupo, el tramo horario, la fecha y el nombre del profesor al que sustituye
 
 ### Gestión de guardias de profesorado
 - El administrador configura edificios (1-3) con hasta 6 zonas de guardia cada uno

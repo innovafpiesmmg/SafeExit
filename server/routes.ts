@@ -5,7 +5,7 @@ import { differenceInYears } from "date-fns";
 import session from "express-session";
 import memorystore from "memorystore";
 import bcrypt from "bcrypt";
-import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, type User, exitLogs, students, groups, users } from "@shared/schema";
+import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlotsConfig, type TimeSlotConfig, type User, exitLogs, students, groups, users, teacherAbsencePeriods, teacherAbsences } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection, sendPasswordResetEmail } from "./email";
@@ -2314,6 +2314,42 @@ export async function registerRoutes(
         date,
         assignedBy: user.id,
       });
+
+      try {
+        const allPeriods = await db.select().from(teacherAbsencePeriods);
+        const period = allPeriods.find(p => p.id === absencePeriodId);
+        if (period) {
+          const allAbsences = await db.select().from(teacherAbsences);
+          const absence = allAbsences.find(a => a.id === period.absenceId);
+          const absentTeacher = absence ? await storage.getUser(absence.userId) : null;
+          const group = await storage.getGroup(period.groupId);
+          const settingsData = await storage.getAllSettings();
+          let timeSlotsConfig = getDefaultTimeSlotsConfig();
+          if (settingsData.timeSlots) {
+            try { timeSlotsConfig = JSON.parse(settingsData.timeSlots); } catch {}
+          }
+          const d = new Date(date + "T00:00:00");
+          const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay();
+          const daySlots = getTimeSlotsForDay(timeSlotsConfig, dayOfWeek);
+          const slot = daySlots.find(s => s.id === period.timeSlotId);
+          const slotLabel = slot ? `${slot.start} - ${slot.end}` : `Tramo ${period.timeSlotId}`;
+          const groupName = group?.name || "?";
+          const absentName = absentTeacher?.fullName || "profesor ausente";
+          const dayNames = ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+          const dateStr = `${dayNames[dayOfWeek] || ""} ${date.split("-").reverse().join("/")}`;
+
+          await storage.createNotification({
+            senderId: user.id,
+            title: `Guardia asignada — ${groupName}`,
+            message: `Se te ha asignado cubrir la guardia del grupo ${groupName} en el tramo ${slotLabel} (${dateStr}), sustituyendo a ${absentName}.`,
+            targetType: "user",
+            targetId: guardUserId,
+          });
+        }
+      } catch (notifErr) {
+        console.error("Error sending guard coverage notification:", notifErr);
+      }
+
       res.json(coverage);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
