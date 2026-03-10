@@ -24,7 +24,6 @@ export function PushPermissionBanner() {
   async function checkPushStatus() {
     if (!("Notification" in window)) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    if (window.location.protocol !== "https:") return;
 
     if (Notification.permission === "denied") return;
 

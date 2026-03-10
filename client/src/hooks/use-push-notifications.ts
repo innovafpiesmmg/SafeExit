@@ -15,8 +15,10 @@ export function usePushNotifications(isAuthenticated: boolean, userId: number | 
   const lastUserIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    if (window.location.protocol !== "https:") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.log("[PUSH] Browser does not support push notifications");
+      return;
+    }
 
     if (!isAuthenticated || !userId) {
       if (lastUserIdRef.current !== null) {
@@ -28,27 +30,39 @@ export function usePushNotifications(isAuthenticated: boolean, userId: number | 
     if (userId === lastUserIdRef.current) return;
     lastUserIdRef.current = userId;
 
+    console.log("[PUSH] User logged in, ensuring subscription...", { userId, protocol: window.location.protocol });
     ensureSubscription();
   }, [isAuthenticated, userId]);
 }
 
 async function ensureSubscription() {
   try {
-    if (Notification.permission !== "granted") return;
+    if (Notification.permission !== "granted") {
+      console.log("[PUSH] Permission not granted:", Notification.permission);
+      return;
+    }
 
     const registration = await navigator.serviceWorker.ready;
+    console.log("[PUSH] Service worker ready");
+
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
+      console.log("[PUSH] No existing subscription, creating one...");
       const res = await fetch("/api/push/vapid-public-key");
       const { publicKey } = await res.json();
-      if (!publicKey) return;
+      if (!publicKey) {
+        console.error("[PUSH] No VAPID public key from server");
+        return;
+      }
 
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       console.log("[PUSH] Created new push subscription");
+    } else {
+      console.log("[PUSH] Found existing subscription, re-registering...");
     }
 
     const subJson = subscription.toJSON();
@@ -59,9 +73,10 @@ async function ensureSubscription() {
       credentials: "include",
     });
     if (res.ok) {
-      console.log("[PUSH] Subscription registered with server");
+      console.log("[PUSH] Subscription registered with server successfully");
     } else {
-      console.error("[PUSH] Server rejected subscription:", res.status);
+      const text = await res.text();
+      console.error("[PUSH] Server rejected subscription:", res.status, text);
     }
   } catch (err) {
     console.error("[PUSH] ensureSubscription failed:", err);
