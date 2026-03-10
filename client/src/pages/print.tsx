@@ -82,6 +82,14 @@ function StudentCard({ student, group, qrDataUrl, barcodeDataUrl, schoolName, ac
                 )}
               </div>
               <p className="text-[8px] text-muted-foreground mt-0.5">{student.course}</p>
+              <div className="flex flex-wrap gap-0.5 mt-0.5">
+                {student.parentalAuthorization && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[6px] font-medium px-1 py-0 rounded" data-testid={`badge-auth-${student.id}`}>✓ Salida</span>
+                )}
+                {student.busAuthorization && (
+                  <span className="bg-blue-100 text-blue-800 text-[6px] font-medium px-1 py-0 rounded" data-testid={`badge-bus-${student.id}`}>🚌 Guagua</span>
+                )}
+              </div>
             </div>
             <div className="flex items-end justify-between">
               <div className="flex flex-col gap-1">
@@ -313,16 +321,31 @@ export default function PrintPage() {
       doc.setFont("helvetica", "normal");
       doc.text(student.course, textX, contentY + 10);
 
+      let authY = contentY + 13;
+      doc.setFontSize(5);
+      if (student.parentalAuthorization) {
+        doc.setTextColor(22, 163, 74);
+        doc.setFont("helvetica", "bold");
+        doc.text("✓ Salida autorizada", textX, authY);
+        authY += 3;
+      }
+      if (student.busAuthorization) {
+        doc.setTextColor(37, 99, 235);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Guagua (${student.busExitMinutes || 5} min antes)`, textX, authY);
+        authY += 3;
+      }
+
       const barcodeDataUrl = generateBarcodeDataUrl(student.qrCode, { width: 1, height: 18, displayValue: false });
       if (barcodeDataUrl) {
         const bcW = 25;
-        const bcH = 6;
-        doc.addImage(barcodeDataUrl, "PNG", textX, contentY + 12, bcW, bcH);
+        const bcH = 5;
+        doc.addImage(barcodeDataUrl, "PNG", textX, authY, bcW, bcH);
       }
 
       doc.setFontSize(5);
       doc.setTextColor(160);
-      doc.text(`ID: ${student.id}`, textX, contentY + 22);
+      doc.text(`ID: ${student.id}`, textX, authY + 7);
 
       if (qrUrls[student.id]) {
         const qrSize = 22;

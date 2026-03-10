@@ -1160,6 +1160,37 @@ export async function registerRoutes(
       const group = await storage.getGroup(student.groupId);
       const schoolName = await storage.getSetting("schoolName");
       const academicYear = await storage.getSetting("academicYear");
+
+      let busExitTime: string | null = null;
+      if (student.busAuthorization && group) {
+        const timeSlotsRaw = await storage.getSetting("timeSlots");
+        const timeSlotsConfig = timeSlotsRaw ? JSON.parse(timeSlotsRaw) : null;
+        const { getDefaultTimeSlotsConfig } = await import("@shared/schema");
+        const config = timeSlotsConfig || getDefaultTimeSlotsConfig();
+        const daySlots: any[] = config["1"] || [];
+        const classSlots = daySlots.filter((s: any) => !s.isBreak);
+        const busMinutes = student.busExitMinutes || 5;
+
+        const schedule = group.schedule || "morning";
+        if (schedule === "morning" || schedule === "full") {
+          const morningSlots = classSlots.filter((s: any) => s.id <= 6);
+          const lastMorning = morningSlots.length > 0 ? morningSlots[morningSlots.length - 1] : null;
+          if (lastMorning) {
+            const [h, m] = lastMorning.end.split(":").map(Number);
+            const totalMin = h * 60 + m - busMinutes;
+            busExitTime = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+          }
+        } else if (schedule === "afternoon") {
+          const afternoonSlots = classSlots.filter((s: any) => s.id > 6);
+          const lastAfternoon = afternoonSlots.length > 0 ? afternoonSlots[afternoonSlots.length - 1] : null;
+          if (lastAfternoon) {
+            const [h, m] = lastAfternoon.end.split(":").map(Number);
+            const totalMin = h * 60 + m - busMinutes;
+            busExitTime = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+          }
+        }
+      }
+
       res.json({
         firstName: student.firstName,
         lastName: student.lastName,
@@ -1170,6 +1201,10 @@ export async function registerRoutes(
         dateOfBirth: student.dateOfBirth,
         schoolName: schoolName || "",
         academicYear: academicYear || "",
+        parentalAuthorization: student.parentalAuthorization,
+        busAuthorization: student.busAuthorization,
+        busExitMinutes: student.busExitMinutes,
+        busExitTime,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

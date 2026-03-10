@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Shield, GraduationCap, Download, Bookmark } from "lucide-react";
+import { Shield, GraduationCap, Download, Bookmark, Bus, CheckCircle2, XCircle } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
@@ -21,6 +21,10 @@ interface CarnetData {
   dateOfBirth: string;
   schoolName: string;
   academicYear: string;
+  parentalAuthorization: boolean;
+  busAuthorization: boolean;
+  busExitMinutes: number | null;
+  busExitTime: string | null;
 }
 
 function useDisablePwa() {
@@ -160,6 +164,29 @@ export default function CarnetPublicPage() {
                 <span className="text-sm text-muted-foreground">{data.course}</span>
                 {isAdult && <Badge className="text-xs">+18</Badge>}
               </div>
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2" data-testid="section-carnet-authorizations">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Autorizaciones</p>
+              <div className="flex items-center gap-2">
+                {data.parentalAuthorization ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                )}
+                <span className="text-sm" data-testid="text-carnet-parental-auth">
+                  Salida autónoma: {data.parentalAuthorization ? "Autorizada" : "No autorizada"}
+                </span>
+              </div>
+              {data.busAuthorization && (
+                <div className="flex items-center gap-2">
+                  <Bus className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <span className="text-sm" data-testid="text-carnet-bus-auth">
+                    Guagua: Salida a las {data.busExitTime || "—"}
+                    <span className="text-muted-foreground"> ({data.busExitMinutes || 5} min antes)</span>
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center">
