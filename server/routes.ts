@@ -114,10 +114,20 @@ export async function registerRoutes(
   }
 
   function requireAdmin(req: Request, res: Response, next: Function) {
-    if ((req.session as any).role !== "admin") {
-      return res.status(403).json({ message: "Acceso denegado" });
-    }
-    next();
+    const user = (req as any).user;
+    if (user?.role === "admin") return next();
+    return res.status(403).json({ message: "Acceso denegado" });
+  }
+
+  function requirePermission(...permissions: string[]) {
+    return (req: Request, res: Response, next: Function) => {
+      const user = (req as any).user;
+      if (!user) return res.status(401).json({ message: "No autenticado" });
+      if (user.role === "admin") return next();
+      const userPerms: string[] = user.permissions || [];
+      if (permissions.some(p => userPerms.includes(p))) return next();
+      return res.status(403).json({ message: "No tienes permiso para esta acción" });
+    };
   }
 
   app.post("/api/auth/login", async (req, res) => {
@@ -131,7 +141,7 @@ export async function registerRoutes(
 
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [] });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -149,7 +159,7 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [] });
   });
 
   app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {
@@ -231,9 +241,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/guards", requireAuth, requireAdmin, async (_req, res) => {
+  app.get("/api/guards", requireAuth, requirePermission("teachers", "schedules", "absences", "guard_duty", "guard_registry"), async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email, permissions: g.permissions || [] })));
   });
 
   app.get("/api/staff-list", requireAuth, async (_req, res) => {
@@ -397,6 +407,21 @@ export async function registerRoutes(
     res.json({ message: "Profesor eliminado" });
   });
 
+  app.put("/api/guards/:id/permissions", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { permissions } = req.body;
+      if (!Array.isArray(permissions)) return res.status(400).json({ message: "Permisos inválidos" });
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.role === "admin") return res.status(400).json({ message: "No se pueden modificar permisos del administrador" });
+      await storage.updateUser(id, { permissions });
+      res.json({ message: "Permisos actualizados" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const guardPhotoUpload = multer({
     storage: multerStorage,
     fileFilter: (_req, file, cb) => {
@@ -447,7 +472,7 @@ export async function registerRoutes(
     res.json(allGroups);
   });
 
-  app.post("/api/groups", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/groups", requireAuth, requirePermission("groups"), async (req, res) => {
     try {
       const group = await storage.createGroup(req.body);
       res.json(group);
@@ -465,13 +490,13 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/groups/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/groups/:id", requireAuth, requirePermission("groups"), async (req, res) => {
     const group = await storage.updateGroup(parseInt(req.params.id), req.body);
     if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
     res.json(group);
   });
 
-  app.delete("/api/groups/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/groups/:id", requireAuth, requirePermission("groups"), async (req, res) => {
     await storage.deleteGroup(parseInt(req.params.id));
     res.json({ message: "Grupo eliminado" });
   });
@@ -481,7 +506,7 @@ export async function registerRoutes(
     res.json(allStudents);
   });
 
-  app.get("/api/students/template", requireAuth, requireAdmin, (_req, res) => {
+  app.get("/api/students/template", requireAuth, requirePermission("students"), (_req, res) => {
     const wb = XLSX.utils.book_new();
     const headers = [
       [
@@ -508,7 +533,7 @@ export async function registerRoutes(
     res.send(Buffer.from(buf));
   });
 
-  app.post("/api/students/import", requireAuth, requireAdmin, upload.single("file"), async (req, res) => {
+  app.post("/api/students/import", requireAuth, requirePermission("students"), upload.single("file"), async (req, res) => {
     const filePath = req.file?.path;
     try {
       if (!req.file || !filePath) return res.status(400).json({ message: "No se subió archivo" });
@@ -638,7 +663,7 @@ export async function registerRoutes(
     res.json(student);
   });
 
-  app.post("/api/students", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/students", requireAuth, requirePermission("students"), async (req, res) => {
     try {
       if (req.body.busExitMinutes !== undefined) {
         req.body.busExitMinutes = Math.max(5, Math.min(30, parseInt(req.body.busExitMinutes) || 5));
@@ -650,7 +675,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/students/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/students/:id", requireAuth, requirePermission("students"), async (req, res) => {
     if (req.body.busExitMinutes !== undefined) {
       req.body.busExitMinutes = Math.max(5, Math.min(30, parseInt(req.body.busExitMinutes) || 5));
     }
@@ -659,7 +684,7 @@ export async function registerRoutes(
     res.json(student);
   });
 
-  app.delete("/api/students/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/students/:id", requireAuth, requirePermission("students"), async (req, res) => {
     await storage.deleteStudent(parseInt(req.params.id));
     res.json({ message: "Alumno eliminado" });
   });
@@ -669,7 +694,7 @@ export async function registerRoutes(
     res.json({ url: `/uploads/${req.file.filename}` });
   });
 
-  app.post("/api/upload-sound/:type", requireAuth, requireAdmin, audioUpload.single("audio"), async (req, res) => {
+  app.post("/api/upload-sound/:type", requireAuth, requirePermission("settings"), audioUpload.single("audio"), async (req, res) => {
     try {
       const type = req.params.type;
       if (type !== "authorized" && type !== "denied") {
@@ -691,7 +716,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/upload-sound/:type", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/upload-sound/:type", requireAuth, requirePermission("settings"), async (req, res) => {
     try {
       const type = req.params.type;
       if (type !== "authorized" && type !== "denied") {
@@ -772,7 +797,7 @@ export async function registerRoutes(
     res.json(dates);
   });
 
-  app.post("/api/schedules", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/schedules", requireAuth, requirePermission("calendar"), async (req, res) => {
     try {
       const { schedules } = req.body;
       await storage.bulkSetGroupSchedules(schedules);
@@ -980,7 +1005,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/exit-logs", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/exit-logs", requireAuth, requirePermission("history"), async (req, res) => {
     const { dateFrom, dateTo, groupId, studentName } = req.query;
     const logs = await storage.getExitLogs({
       dateFrom: dateFrom as string,
@@ -1078,7 +1103,7 @@ export async function registerRoutes(
     res.json(settings);
   });
 
-  app.put("/api/settings", requireAuth, requireAdmin, async (req, res) => {
+  app.put("/api/settings", requireAuth, requirePermission("settings"), async (req, res) => {
     const { key, value } = req.body;
     if (!key) return res.status(400).json({ message: "Clave requerida" });
     await storage.setSetting(key, String(value));
@@ -1086,7 +1111,7 @@ export async function registerRoutes(
     res.json(settings);
   });
 
-  app.get("/api/exit-logs/export", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/exit-logs/export", requireAuth, requirePermission("history"), async (req, res) => {
     const { dateFrom, dateTo, groupId, studentName } = req.query;
     const format = (req.query.format as string) || "xlsx";
     const logs = await storage.getExitLogs({
@@ -1151,7 +1176,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/students/generate-tokens", requireAuth, requireAdmin, async (_req, res) => {
+  app.post("/api/students/generate-tokens", requireAuth, requirePermission("students"), async (_req, res) => {
     try {
       const count = await storage.generateCarnetTokens();
       res.json({ message: `Tokens generados para ${count} alumno(s)`, count });
@@ -1160,7 +1185,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/archive-academic-year", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/archive-academic-year", requireAuth, requirePermission("archives"), async (req, res) => {
     try {
       const { confirmation, yearName } = req.body;
       if (confirmation !== "ARCHIVAR CURSO") {
@@ -1177,7 +1202,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/reset-academic-year", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/reset-academic-year", requireAuth, requirePermission("archives"), async (req, res) => {
     try {
       const { confirmation } = req.body;
       if (confirmation !== "NUEVO CURSO") {
@@ -1191,7 +1216,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/archives", requireAuth, requireAdmin, async (_req, res) => {
+  app.get("/api/admin/archives", requireAuth, requirePermission("archives"), async (_req, res) => {
     try {
       const archives = await storage.getAcademicArchives();
       const summary = archives.map(a => ({
@@ -1213,7 +1238,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/archives/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/admin/archives/:id", requireAuth, requirePermission("archives"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1225,7 +1250,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/admin/archives/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/admin/archives/:id", requireAuth, requirePermission("archives"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1309,7 +1334,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/late-arrivals/export", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/late-arrivals/export", requireAuth, requirePermission("late_history"), async (req, res) => {
     try {
       const filters: any = {};
       if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
@@ -1355,7 +1380,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/settings/test-smtp", requireAuth, requireAdmin, async (_req, res) => {
+  app.post("/api/settings/test-smtp", requireAuth, requirePermission("settings"), async (_req, res) => {
     try {
       const result = await testSmtpConnection();
       res.json(result);
@@ -1364,7 +1389,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/students/:id/authorized-pickups", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/students/:id/authorized-pickups", requireAuth, requirePermission("students"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1375,7 +1400,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/students/:id/authorized-pickups", requireAuth, requireAdmin, async (req, res) => {
+  app.put("/api/students/:id/authorized-pickups", requireAuth, requirePermission("students"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1515,7 +1540,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/exit-logs/:id/pdf", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/exit-logs/:id/pdf", requireAuth, requirePermission("history"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1661,7 +1686,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/guard-zones", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/guard-zones", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const { buildingNumber, zoneName, zoneOrder } = req.body;
       if (!buildingNumber || !zoneName) {
@@ -1685,7 +1710,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/guard-zones/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/guard-zones/:id", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1697,7 +1722,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/guard-zones/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/guard-zones/:id", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1724,7 +1749,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/guard-duty-assignments", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/guard-duty-assignments", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const { userId, dayOfWeek, timeSlotId, zoneId } = req.body;
       if (!userId || !dayOfWeek || !timeSlotId || !zoneId) {
@@ -1737,7 +1762,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/guard-duty-assignments/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/guard-duty-assignments/:id", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -1748,7 +1773,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/guard-duty-assignments/day/:day", requireAuth, requireAdmin, async (req, res) => {
+  app.put("/api/guard-duty-assignments/day/:day", requireAuth, requirePermission("guard_duty"), async (req, res) => {
     try {
       const day = parseInt(req.params.day);
       if (isNaN(day) || day < 1 || day > 5) {
@@ -1900,7 +1925,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/guard-duty-registrations/:id/pdf", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/guard-duty-registrations/:id/pdf", requireAuth, requirePermission("guard_registry"), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -2107,7 +2132,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/teacher-absences/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.patch("/api/teacher-absences/:id/status", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
       if (!["pending", "confirmed", "rejected"].includes(status)) {
@@ -2210,7 +2235,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/absences/unattended", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.get("/api/absences/unattended", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       const date = req.query.date as string;
       if (!date) return res.status(400).json({ message: "Fecha requerida" });
@@ -2221,7 +2246,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/guard-coverages", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/guard-coverages", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       const user = req.user as User;
       const { absencePeriodId, guardUserId, date } = req.body;
@@ -2251,7 +2276,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/guard-coverages/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/guard-coverages/:id", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       await storage.deleteGuardCoverage(Number(req.params.id));
       res.json({ success: true });
@@ -2262,7 +2287,7 @@ export async function registerRoutes(
 
   // ==================== HOUR ADVANCEMENTS ====================
 
-  app.post("/api/hour-advancements", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/hour-advancements", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       const user = req.user as User;
       const { date, groupId, originalSlotId, targetSlotId, teacherUserId, absencePeriodId } = req.body;
@@ -2318,7 +2343,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/hour-advancements/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/hour-advancements/:id", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       await storage.deleteHourAdvancement(Number(req.params.id));
       res.json({ success: true });
@@ -2339,7 +2364,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/authorize-early-exit", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/authorize-early-exit", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
     try {
       const { date, groupId, fromSlot } = req.body;
       if (!date || !groupId || !fromSlot) {
@@ -2408,7 +2433,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/teacher-schedules/:userId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.put("/api/teacher-schedules/:userId", requireAuth, requirePermission("schedules"), async (req: Request, res: Response) => {
     try {
       const userId = Number(req.params.userId);
       const entries = req.body;
@@ -2436,7 +2461,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/teacher-schedules/:userId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/teacher-schedules/:userId", requireAuth, requirePermission("schedules"), async (req: Request, res: Response) => {
     try {
       await storage.deleteTeacherSchedulesByUser(Number(req.params.userId));
       res.json({ success: true });
@@ -2445,7 +2470,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/teacher-schedules/template", requireAuth, requireAdmin, (_req: Request, res: Response) => {
+  app.get("/api/teacher-schedules/template", requireAuth, requirePermission("schedules"), (_req: Request, res: Response) => {
     const wb = XLSX.utils.book_new();
     const headers = [
       ["Profesor", "Día", "Tramo", "Grupo"],
@@ -2463,7 +2488,7 @@ export async function registerRoutes(
     res.send(Buffer.from(buf));
   });
 
-  app.post("/api/teacher-schedules/import", requireAuth, requireAdmin, upload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/teacher-schedules/import", requireAuth, requirePermission("schedules"), upload.single("file"), async (req: Request, res: Response) => {
     const filePath = req.file?.path;
     try {
       if (!req.file || !filePath) return res.status(400).json({ message: "No se subió archivo" });

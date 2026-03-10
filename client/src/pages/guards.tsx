@@ -19,14 +19,18 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
-  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2,
+  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2, ShieldAlert,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
+import { ADMIN_PERMISSIONS, type AdminPermission } from "@shared/schema";
+import { useAuth } from "@/lib/auth";
 
-type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null };
+type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null; email: string | null; permissions: string[] };
 
 export default function GuardsPage() {
+  const { user: currentUser } = useAuth();
+  const isCurrentAdmin = currentUser?.role === "admin";
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -36,6 +40,8 @@ export default function GuardsPage() {
   const [importing, setImporting] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [permissionsGuard, setPermissionsGuard] = useState<Guard | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({ firstName: "", lastName: "", isTutor: false, groupId: "" });
@@ -125,6 +131,27 @@ export default function GuardsPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const permissionsMutation = useMutation({
+    mutationFn: ({ id, permissions }: { id: number; permissions: string[] }) =>
+      apiRequest("PUT", `/api/guards/${id}/permissions`, { permissions }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+      toast({ title: "Permisos actualizados" });
+      setPermissionsGuard(null);
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openPermissions = (guard: Guard) => {
+    setPermissionsGuard(guard);
+    setSelectedPermissions(guard.permissions || []);
+  };
+
+  const togglePermission = (perm: string) => {
+    setSelectedPermissions(prev =>
+      prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]
+    );
+  };
 
   const resetForm = () => {
     setForm({ firstName: "", lastName: "", isTutor: false, groupId: "" });
@@ -194,14 +221,19 @@ export default function GuardsPage() {
           <p className="text-muted-foreground text-sm mt-1">{guards?.length || 0} profesores registrados (guardias y tutores)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-guard-password">
-            <Key className="w-4 h-4 mr-2" />
-            Contraseña
-          </Button>
-          <Button variant="secondary" onClick={() => setImportDialogOpen(true)} data-testid="button-import-guards">
-            <Upload className="w-4 h-4 mr-2" />
-            Importar Excel
-          </Button>
+          {isCurrentAdmin && (
+            <>
+              <Button variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-guard-password">
+                <Key className="w-4 h-4 mr-2" />
+                Contraseña
+              </Button>
+              <Button variant="secondary" onClick={() => setImportDialogOpen(true)} data-testid="button-import-guards">
+                <Upload className="w-4 h-4 mr-2" />
+                Importar Excel
+              </Button>
+            </>
+          )}
+          {isCurrentAdmin && (
           <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-guard" disabled={!hasPassword}>
@@ -254,39 +286,42 @@ export default function GuardsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
-      {!hasPassword ? (
-        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Contraseña no definida</p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                Debes definir una contraseña común antes de poder añadir o importar profesores de guardia.
-              </p>
-              <Button size="sm" variant="outline" className="mt-2" onClick={() => setPasswordDialogOpen(true)} data-testid="button-set-password-cta">
-                <Key className="w-3 h-3 mr-1" /> Definir contraseña
+      {isCurrentAdmin && (
+        !hasPassword ? (
+          <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+            <CardContent className="p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Contraseña no definida</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  Debes definir una contraseña común antes de poder añadir o importar profesores de guardia.
+                </p>
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => setPasswordDialogOpen(true)} data-testid="button-set-password-cta">
+                  <Key className="w-3 h-3 mr-1" /> Definir contraseña
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-emerald-300/50 bg-emerald-50/50 dark:bg-emerald-950/10 dark:border-emerald-800/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Contraseña actual: <code className="bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded text-sm font-mono" data-testid="text-current-password">{settings?.guardPassword}</code></p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  Todos los profesores usan esta contraseña con su usuario asignado para iniciar sesión.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-change-password">
+                <Key className="w-3 h-3 mr-1" /> Cambiar
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-emerald-300/50 bg-emerald-50/50 dark:bg-emerald-950/10 dark:border-emerald-800/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Contraseña actual: <code className="bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded text-sm font-mono" data-testid="text-current-password">{settings?.guardPassword}</code></p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                Todos los profesores usan esta contraseña con su usuario asignado para iniciar sesión.
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => setPasswordDialogOpen(true)} data-testid="button-change-password">
-              <Key className="w-3 h-3 mr-1" /> Cambiar
-            </Button>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )
       )}
 
       <div className="relative max-w-sm">
@@ -322,6 +357,8 @@ export default function GuardsPage() {
               groups={groups}
               onEdit={handleEdit}
               onDelete={(id) => { if (confirm("¿Eliminar este profesor?")) deleteMutation.mutate(id); }}
+              onPermissions={openPermissions}
+              isAdmin={isCurrentAdmin}
             />
           ))}
         </div>
@@ -495,6 +532,69 @@ export default function GuardsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!permissionsGuard} onOpenChange={(v) => { if (!v) setPermissionsGuard(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-permissions-title">
+              Permisos — {permissionsGuard?.fullName}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Selecciona las secciones del panel de administración a las que este profesor tendrá acceso.
+          </p>
+          <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+            {Object.entries(ADMIN_PERMISSIONS).map(([key, label]) => (
+              <label
+                key={key}
+                className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                  selectedPermissions.includes(key) ? "bg-primary/10 border-primary" : "hover:bg-muted"
+                }`}
+                data-testid={`checkbox-permission-${key}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedPermissions.includes(key)}
+                  onChange={() => togglePermission(key)}
+                  className="rounded"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-between items-center pt-2">
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedPermissions(Object.keys(ADMIN_PERMISSIONS))}
+                data-testid="button-select-all-permissions"
+              >
+                Todos
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedPermissions([])}
+                data-testid="button-clear-permissions"
+              >
+                Ninguno
+              </Button>
+            </div>
+            <Button
+              onClick={() => {
+                if (permissionsGuard) {
+                  permissionsMutation.mutate({ id: permissionsGuard.id, permissions: selectedPermissions });
+                }
+              }}
+              disabled={permissionsMutation.isPending}
+              data-testid="button-save-permissions"
+            >
+              {permissionsMutation.isPending ? "Guardando..." : "Guardar permisos"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
@@ -504,11 +604,15 @@ function GuardCard({
   groups,
   onEdit,
   onDelete,
+  onPermissions,
+  isAdmin,
 }: {
   guard: Guard;
   groups: Group[] | undefined;
   onEdit: (guard: Guard) => void;
   onDelete: (id: number) => void;
+  onPermissions: (guard: Guard) => void;
+  isAdmin: boolean;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -652,14 +756,28 @@ function GuardCard({
             {guard.role === "tutor" ? "Tutor" : "Guardia"}
           </Badge>
         </div>
-        <div className="flex gap-1 mt-3 pt-3 border-t">
-          <Button size="sm" variant="secondary" data-testid={`button-edit-guard-${guard.id}`} onClick={() => onEdit(guard)} className="flex-1">
-            <Pencil className="w-3 h-3 mr-1" /> Editar
-          </Button>
-          <Button size="sm" variant="destructive" data-testid={`button-delete-guard-${guard.id}`} onClick={() => onDelete(guard.id)} className="flex-1">
-            <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-          </Button>
-        </div>
+        {isAdmin && (
+          <div className="flex flex-col gap-1 mt-3 pt-3 border-t">
+            <div className="flex gap-1">
+              <Button size="sm" variant="secondary" data-testid={`button-edit-guard-${guard.id}`} onClick={() => onEdit(guard)} className="flex-1">
+                <Pencil className="w-3 h-3 mr-1" /> Editar
+              </Button>
+              <Button size="sm" variant="destructive" data-testid={`button-delete-guard-${guard.id}`} onClick={() => onDelete(guard.id)} className="flex-1">
+                <Trash2 className="w-3 h-3 mr-1" /> Eliminar
+              </Button>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid={`button-permissions-guard-${guard.id}`}
+              onClick={() => onPermissions(guard)}
+              className="w-full"
+            >
+              <ShieldAlert className="w-3 h-3 mr-1" />
+              Permisos {guard.permissions?.length ? `(${guard.permissions.length})` : ""}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

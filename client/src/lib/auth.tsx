@@ -8,6 +8,7 @@ interface AuthUser {
   role: string;
   groupId: number | null;
   email: string | null;
+  permissions: string[];
 }
 
 interface AuthContextType {

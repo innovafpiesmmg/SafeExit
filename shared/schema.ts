@@ -12,7 +12,28 @@ export const users = pgTable("users", {
   groupId: integer("group_id"),
   photoUrl: text("photo_url"),
   email: text("email"),
+  permissions: text("permissions").array(),
 });
+
+export const ADMIN_PERMISSIONS = {
+  students: "Alumnos",
+  groups: "Grupos",
+  teachers: "Profesores",
+  calendar: "Calendario",
+  late_arrivals: "Entradas Tardías",
+  history: "Historial Salidas",
+  late_history: "Historial Entradas",
+  print: "Imprimir Carnets",
+  scan: "Verificación QR",
+  guard_duty: "Guardias Prof.",
+  guard_registry: "Reg. Guardias",
+  absences: "Ausencias",
+  schedules: "Horarios",
+  archives: "Cursos Archivados",
+  settings: "Ajustes",
+} as const;
+
+export type AdminPermission = keyof typeof ADMIN_PERMISSIONS;
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),

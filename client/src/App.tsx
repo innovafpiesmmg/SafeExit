@@ -29,26 +29,45 @@ import TeacherSchedulesPage from "@/pages/teacher-schedules";
 import CarnetPublicPage from "@/pages/carnet-public";
 import ResetPasswordPage from "@/pages/reset-password";
 import { Footer } from "@/components/footer";
+import { Card, CardContent } from "@/components/ui/card";
+import { ShieldAlert } from "lucide-react";
+
+function PermissionGate({ permission, children }: { permission: string | null; children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return null;
+  if (user.role === "admin") return <>{children}</>;
+  if (permission === null) return <>{children}</>;
+  if (user.permissions?.includes(permission)) return <>{children}</>;
+  return (
+    <Card className="max-w-md mx-auto mt-12">
+      <CardContent className="flex flex-col items-center gap-3 py-8">
+        <ShieldAlert className="w-12 h-12 text-muted-foreground" />
+        <p className="text-lg font-medium" data-testid="text-no-permission">Sin acceso</p>
+        <p className="text-sm text-muted-foreground text-center">No tienes permisos para acceder a esta sección.</p>
+      </CardContent>
+    </Card>
+  );
+}
 
 function AdminRouter() {
   return (
     <Switch>
-      <Route path="/" component={DashboardPage} />
-      <Route path="/students" component={StudentsPage} />
-      <Route path="/groups" component={GroupsPage} />
-      <Route path="/calendar" component={CalendarPage} />
-      <Route path="/scan" component={ScannerPage} />
-      <Route path="/guards" component={GuardsPage} />
-      <Route path="/late-arrivals" component={LateArrivalsPage} />
-      <Route path="/late-arrivals-history" component={LateArrivalsHistoryPage} />
-      <Route path="/history" component={HistoryPage} />
-      <Route path="/print" component={PrintPage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/guard-duty" component={GuardDutyAdminPage} />
-      <Route path="/guard-duty-registry" component={GuardDutyRegistryPage} />
-      <Route path="/absence-management" component={AbsenceManagementPage} />
-      <Route path="/teacher-schedules" component={TeacherSchedulesPage} />
-      <Route path="/archives" component={ArchivesPage} />
+      <Route path="/">{() => <PermissionGate permission={null}><DashboardPage /></PermissionGate>}</Route>
+      <Route path="/students">{() => <PermissionGate permission="students"><StudentsPage /></PermissionGate>}</Route>
+      <Route path="/groups">{() => <PermissionGate permission="groups"><GroupsPage /></PermissionGate>}</Route>
+      <Route path="/calendar">{() => <PermissionGate permission="calendar"><CalendarPage /></PermissionGate>}</Route>
+      <Route path="/scan">{() => <PermissionGate permission="scan"><ScannerPage /></PermissionGate>}</Route>
+      <Route path="/guards">{() => <PermissionGate permission="teachers"><GuardsPage /></PermissionGate>}</Route>
+      <Route path="/late-arrivals">{() => <PermissionGate permission="late_arrivals"><LateArrivalsPage /></PermissionGate>}</Route>
+      <Route path="/late-arrivals-history">{() => <PermissionGate permission="late_history"><LateArrivalsHistoryPage /></PermissionGate>}</Route>
+      <Route path="/history">{() => <PermissionGate permission="history"><HistoryPage /></PermissionGate>}</Route>
+      <Route path="/print">{() => <PermissionGate permission="print"><PrintPage /></PermissionGate>}</Route>
+      <Route path="/settings">{() => <PermissionGate permission="settings"><SettingsPage /></PermissionGate>}</Route>
+      <Route path="/guard-duty">{() => <PermissionGate permission="guard_duty"><GuardDutyAdminPage /></PermissionGate>}</Route>
+      <Route path="/guard-duty-registry">{() => <PermissionGate permission="guard_registry"><GuardDutyRegistryPage /></PermissionGate>}</Route>
+      <Route path="/absence-management">{() => <PermissionGate permission="absences"><AbsenceManagementPage /></PermissionGate>}</Route>
+      <Route path="/teacher-schedules">{() => <PermissionGate permission="schedules"><TeacherSchedulesPage /></PermissionGate>}</Route>
+      <Route path="/archives">{() => <PermissionGate permission="archives"><ArchivesPage /></PermissionGate>}</Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -98,12 +117,13 @@ function AppLayout() {
   }
 
   const viewMode = sessionStorage.getItem("safeexit_view_mode");
+  const hasAdminPermissions = user.permissions && user.permissions.length > 0;
 
-  if (user.role === "guard") {
+  if (user.role === "guard" && !hasAdminPermissions) {
     return <StaffView showGroupTab={false} />;
   }
 
-  if (user.role === "tutor") {
+  if (user.role === "tutor" && !hasAdminPermissions) {
     return <StaffView showGroupTab={true} />;
   }
 
@@ -113,6 +133,10 @@ function AppLayout() {
 
   if (viewMode === "tutor") {
     return <StaffView showGroupTab={true} showBackToAdmin />;
+  }
+
+  if (viewMode === "staff" && hasAdminPermissions && user.role !== "admin") {
+    return <StaffView showGroupTab={user.role === "tutor"} showBackToAdmin />;
   }
 
   const style = {

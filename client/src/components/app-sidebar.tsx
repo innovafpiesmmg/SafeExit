@@ -22,31 +22,31 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, QrCode,
-  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock, KeyRound, Eye, EyeOff,
+  History, Printer, LogOut, UserCheck, Clock, Settings, ClipboardList, Archive, Shield, ClipboardCheck, UserX, CalendarClock, KeyRound, Eye, EyeOff, ArrowLeftRight,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
 
 const adminItems = [
-  { title: "Panel de Control", url: "/", icon: LayoutDashboard },
-  { title: "Alumnos", url: "/students", icon: Users },
-  { title: "Grupos", url: "/groups", icon: GraduationCap },
-  { title: "Profesores", url: "/guards", icon: UserCheck },
-  { title: "Calendario", url: "/calendar", icon: CalendarDays },
-  { title: "Entradas Tardías", url: "/late-arrivals", icon: Clock },
-  { title: "Historial Salidas", url: "/history", icon: History },
-  { title: "Historial Entradas", url: "/late-arrivals-history", icon: ClipboardList },
-  { title: "Guardias Prof.", url: "/guard-duty", icon: Shield },
-  { title: "Reg. Guardias", url: "/guard-duty-registry", icon: ClipboardCheck },
-  { title: "Ausencias", url: "/absence-management", icon: UserX },
-  { title: "Horarios", url: "/teacher-schedules", icon: CalendarClock },
-  { title: "Imprimir Carnets", url: "/print", icon: Printer },
-  { title: "Cursos Archivados", url: "/archives", icon: Archive },
-  { title: "Ajustes", url: "/settings", icon: Settings },
+  { title: "Panel de Control", url: "/", icon: LayoutDashboard, permission: null },
+  { title: "Alumnos", url: "/students", icon: Users, permission: "students" },
+  { title: "Grupos", url: "/groups", icon: GraduationCap, permission: "groups" },
+  { title: "Profesores", url: "/guards", icon: UserCheck, permission: "teachers" },
+  { title: "Calendario", url: "/calendar", icon: CalendarDays, permission: "calendar" },
+  { title: "Entradas Tardías", url: "/late-arrivals", icon: Clock, permission: "late_arrivals" },
+  { title: "Historial Salidas", url: "/history", icon: History, permission: "history" },
+  { title: "Historial Entradas", url: "/late-arrivals-history", icon: ClipboardList, permission: "late_history" },
+  { title: "Guardias Prof.", url: "/guard-duty", icon: Shield, permission: "guard_duty" },
+  { title: "Reg. Guardias", url: "/guard-duty-registry", icon: ClipboardCheck, permission: "guard_registry" },
+  { title: "Ausencias", url: "/absence-management", icon: UserX, permission: "absences" },
+  { title: "Horarios", url: "/teacher-schedules", icon: CalendarClock, permission: "schedules" },
+  { title: "Imprimir Carnets", url: "/print", icon: Printer, permission: "print" },
+  { title: "Cursos Archivados", url: "/archives", icon: Archive, permission: "archives" },
+  { title: "Ajustes", url: "/settings", icon: Settings, permission: "settings" },
 ];
 
 const guardItems = [
-  { title: "Verificación", url: "/scan", icon: QrCode },
+  { title: "Verificación", url: "/scan", icon: QrCode, permission: "scan" },
 ];
 
 function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -157,7 +157,15 @@ export function AppSidebar() {
   const [location] = useLocation();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
-  const items = user?.role === "admin" ? [...adminItems, ...guardItems] : guardItems;
+  const userPerms = user?.permissions || [];
+  const isAdmin = user?.role === "admin";
+  const allItems = [...adminItems, ...guardItems];
+
+  const items = isAdmin
+    ? allItems
+    : allItems.filter(item =>
+        item.permission === null || userPerms.includes(item.permission)
+      );
 
   return (
     <Sidebar>
@@ -194,6 +202,21 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
+        {!isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mb-2"
+            onClick={() => {
+              sessionStorage.setItem("safeexit_view_mode", "staff");
+              window.location.href = "/";
+            }}
+            data-testid="button-switch-staff-view"
+          >
+            <ArrowLeftRight className="w-4 h-4 mr-2" />
+            Vista de profesor
+          </Button>
+        )}
         <div className="flex items-center gap-3">
           <Avatar className="w-8 h-8 flex-shrink-0">
             <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -203,7 +226,7 @@ export function AppSidebar() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.fullName}</p>
             <Badge variant="secondary" className="text-[10px]">
-              {user?.role === "admin" ? "Administrador" : "Profesor"}
+              {isAdmin ? "Administrador" : "Profesor"}
             </Badge>
           </div>
           <Button size="icon" variant="ghost" onClick={() => setPasswordDialogOpen(true)} data-testid="button-admin-account" title="Cambiar contraseña">
