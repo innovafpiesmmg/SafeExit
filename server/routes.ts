@@ -3025,5 +3025,23 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/push/test", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, user.id));
+      if (subs.length === 0) {
+        return res.json({ success: false, message: "No hay suscripciones push para tu usuario", subsCount: 0 });
+      }
+      await sendPushToUser(user.id, {
+        title: "SafeExit - Test",
+        body: "¡Las notificaciones push funcionan correctamente!",
+        tag: "test",
+      });
+      res.json({ success: true, message: `Push enviado a ${subs.length} dispositivo(s)`, subsCount: subs.length });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
