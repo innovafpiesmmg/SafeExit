@@ -25,22 +25,18 @@ export function PushPermissionBanner() {
     if (!("Notification" in window)) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-    if (Notification.permission === "denied") return;
-
-    if (Notification.permission === "default") {
-      const dismissed = sessionStorage.getItem("push_banner_dismissed");
-      if (!dismissed) setVisible(true);
-      return;
+    if (Notification.permission === "granted") {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) return;
+      } catch {}
     }
 
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        const dismissed = sessionStorage.getItem("push_banner_dismissed");
-        if (!dismissed) setVisible(true);
-      }
-    } catch {}
+    if (Notification.permission === "denied") return;
+
+    const dismissed = localStorage.getItem("push_banner_dismissed");
+    if (!dismissed) setVisible(true);
   }
 
   const handleEnable = async () => {
@@ -81,6 +77,7 @@ export function PushPermissionBanner() {
 
       if (subRes.ok) {
         console.log("[PUSH] Subscription registered successfully");
+        localStorage.setItem("push_banner_dismissed", "1");
       } else {
         console.error("[PUSH] Failed to register subscription:", subRes.status);
       }
@@ -94,7 +91,7 @@ export function PushPermissionBanner() {
   };
 
   const handleDismiss = () => {
-    sessionStorage.setItem("push_banner_dismissed", "1");
+    localStorage.setItem("push_banner_dismissed", "1");
     setVisible(false);
   };
 
