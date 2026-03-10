@@ -19,14 +19,14 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle2, Key, ShieldCheck, UserPlus, AlertTriangle, GraduationCap,
-  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2, ShieldAlert, Eye, EyeOff,
+  QrCode, Tablet, Smartphone, Copy, Check, Camera, ImagePlus, X, Loader2, ShieldAlert, Eye, EyeOff, Clock, Shield,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import type { Group } from "@shared/schema";
 import { ADMIN_PERMISSIONS, type AdminPermission } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
 
-type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null; email: string | null; permissions: string[]; guardTabVisible: boolean | null };
+type Guard = { id: number; username: string; fullName: string; role: string; groupId: number | null; photoUrl: string | null; email: string | null; permissions: string[]; guardTabVisible: boolean | null; lateTabVisible: boolean | null; dutyTabVisible: boolean | null };
 
 export default function GuardsPage() {
   const { user: currentUser } = useAuth();
@@ -628,6 +628,24 @@ function GuardCard({
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const lateTabMutation = useMutation({
+    mutationFn: (visible: boolean | null) =>
+      apiRequest("PUT", `/api/guards/${guard.id}/late-tab`, { lateTabVisible: visible }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const dutyTabMutation = useMutation({
+    mutationFn: (visible: boolean | null) =>
+      apiRequest("PUT", `/api/guards/${guard.id}/duty-tab`, { dutyTabVisible: visible }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/guards"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({ title: "Error", description: "Solo se permiten imágenes", variant: "destructive" });
@@ -833,6 +851,114 @@ function GuardCard({
                   data-testid={`button-guard-tab-global-${guard.id}`}
                   onClick={() => guardTabMutation.mutate(null)}
                   disabled={guardTabMutation.isPending}
+                  title="Usar ajuste global"
+                >
+                  <span className="text-[9px] font-bold">G</span>
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded border px-2 py-1.5">
+              <div className="flex items-center gap-1.5">
+                {guard.lateTabVisible === true ? (
+                  <Eye className="w-3.5 h-3.5 text-emerald-500" />
+                ) : guard.lateTabVisible === false ? (
+                  <EyeOff className="w-3.5 h-3.5 text-red-500" />
+                ) : (
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                <span className="text-xs">Tardías</span>
+                {guard.lateTabVisible === null || guard.lateTabVisible === undefined ? (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">Global</Badge>
+                ) : guard.lateTabVisible ? (
+                  <Badge variant="default" className="text-[10px] px-1 py-0 bg-emerald-500">Sí</Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-[10px] px-1 py-0">No</Badge>
+                )}
+              </div>
+              <div className="flex gap-0.5">
+                <Button
+                  size="icon"
+                  variant={guard.lateTabVisible === true ? "default" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-late-tab-yes-${guard.id}`}
+                  onClick={() => lateTabMutation.mutate(true)}
+                  disabled={lateTabMutation.isPending}
+                  title="Siempre visible"
+                >
+                  <Eye className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.lateTabVisible === false ? "destructive" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-late-tab-no-${guard.id}`}
+                  onClick={() => lateTabMutation.mutate(false)}
+                  disabled={lateTabMutation.isPending}
+                  title="Siempre oculta"
+                >
+                  <EyeOff className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.lateTabVisible === null || guard.lateTabVisible === undefined ? "secondary" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-late-tab-global-${guard.id}`}
+                  onClick={() => lateTabMutation.mutate(null)}
+                  disabled={lateTabMutation.isPending}
+                  title="Usar ajuste global"
+                >
+                  <span className="text-[9px] font-bold">G</span>
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded border px-2 py-1.5">
+              <div className="flex items-center gap-1.5">
+                {guard.dutyTabVisible === true ? (
+                  <Eye className="w-3.5 h-3.5 text-emerald-500" />
+                ) : guard.dutyTabVisible === false ? (
+                  <EyeOff className="w-3.5 h-3.5 text-red-500" />
+                ) : (
+                  <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                <span className="text-xs">Fichar</span>
+                {guard.dutyTabVisible === null || guard.dutyTabVisible === undefined ? (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">Global</Badge>
+                ) : guard.dutyTabVisible ? (
+                  <Badge variant="default" className="text-[10px] px-1 py-0 bg-emerald-500">Sí</Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-[10px] px-1 py-0">No</Badge>
+                )}
+              </div>
+              <div className="flex gap-0.5">
+                <Button
+                  size="icon"
+                  variant={guard.dutyTabVisible === true ? "default" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-duty-tab-yes-${guard.id}`}
+                  onClick={() => dutyTabMutation.mutate(true)}
+                  disabled={dutyTabMutation.isPending}
+                  title="Siempre visible"
+                >
+                  <Eye className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.dutyTabVisible === false ? "destructive" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-duty-tab-no-${guard.id}`}
+                  onClick={() => dutyTabMutation.mutate(false)}
+                  disabled={dutyTabMutation.isPending}
+                  title="Siempre oculta"
+                >
+                  <EyeOff className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={guard.dutyTabVisible === null || guard.dutyTabVisible === undefined ? "secondary" : "ghost"}
+                  className="h-6 w-6"
+                  data-testid={`button-duty-tab-global-${guard.id}`}
+                  onClick={() => dutyTabMutation.mutate(null)}
+                  disabled={dutyTabMutation.isPending}
                   title="Usar ajuste global"
                 >
                   <span className="text-[9px] font-bold">G</span>

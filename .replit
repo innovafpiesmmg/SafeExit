@@ -37,3 +37,10 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BAapNENC8EzIroRubpzSeVdM5iE58_2IoR6LJMPYVXrF9784LyqeiIiaBe9QW96zT4oLgPTf-J-W4D33oej0r9w"
+VAPID_PRIVATE_KEY = "mcpagnonOvM8B8P-13m1zu9sWVDBWvfMrDd2lwwblxs"
+VAPID_SUBJECT = "mailto:safeexit@example.com"

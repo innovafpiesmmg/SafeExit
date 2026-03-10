@@ -9,6 +9,7 @@ import { TIME_SLOTS, getDefaultTimeSlotsConfig, getTimeSlotsForDay, type TimeSlo
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { sendLateArrivalEmail, sendEarlyExitEmail, testSmtpConnection, sendPasswordResetEmail } from "./email";
+import { getVapidPublicKey, savePushSubscription, removePushSubscription, sendPushToUser, sendPushToUsers, sendPushToAllNonAdmin } from "./push";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -141,7 +142,7 @@ export async function registerRoutes(
 
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -159,7 +160,7 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null });
   });
 
   app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {
@@ -243,7 +244,7 @@ export async function registerRoutes(
 
   app.get("/api/guards", requireAuth, requirePermission("teachers", "schedules", "absences", "guard_duty", "guard_registry"), async (_req, res) => {
     const guards = await storage.getGuards();
-    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email, permissions: g.permissions || [], guardTabVisible: g.guardTabVisible ?? null })));
+    res.json(guards.map(g => ({ id: g.id, username: g.username, fullName: g.fullName, role: g.role, groupId: g.groupId, photoUrl: g.photoUrl, email: g.email, permissions: g.permissions || [], guardTabVisible: g.guardTabVisible ?? null, lateTabVisible: g.lateTabVisible ?? null, dutyTabVisible: g.dutyTabVisible ?? null })));
   });
 
   app.get("/api/staff-list", requireAuth, async (_req, res) => {
@@ -433,6 +434,40 @@ export async function registerRoutes(
       if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
       if (user.role === "admin") return res.status(400).json({ message: "No se puede modificar para el administrador" });
       await storage.updateUser(id, { guardTabVisible });
+      res.json({ message: "Configuración actualizada" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/guards/:id/late-tab", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { lateTabVisible } = req.body;
+      if (typeof lateTabVisible !== "boolean" && lateTabVisible !== null) {
+        return res.status(400).json({ message: "Valor inválido" });
+      }
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.role === "admin") return res.status(400).json({ message: "No se puede modificar para el administrador" });
+      await storage.updateUser(id, { lateTabVisible });
+      res.json({ message: "Configuración actualizada" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/guards/:id/duty-tab", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { dutyTabVisible } = req.body;
+      if (typeof dutyTabVisible !== "boolean" && dutyTabVisible !== null) {
+        return res.status(400).json({ message: "Valor inválido" });
+      }
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "Profesor no encontrado" });
+      if (user.role === "admin") return res.status(400).json({ message: "No se puede modificar para el administrador" });
+      await storage.updateUser(id, { dutyTabVisible });
       res.json({ message: "Configuración actualizada" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2338,13 +2373,16 @@ export async function registerRoutes(
           const dayNames = ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
           const dateStr = `${dayNames[dayOfWeek] || ""} ${date.split("-").reverse().join("/")}`;
 
+          const guardNotifTitle = `Guardia asignada — ${groupName}`;
+          const guardNotifMsg = `Se te ha asignado cubrir la guardia del grupo ${groupName} en el tramo ${slotLabel} (${dateStr}), sustituyendo a ${absentName}.`;
           await storage.createNotification({
             senderId: user.id,
-            title: `Guardia asignada — ${groupName}`,
-            message: `Se te ha asignado cubrir la guardia del grupo ${groupName} en el tramo ${slotLabel} (${dateStr}), sustituyendo a ${absentName}.`,
+            title: guardNotifTitle,
+            message: guardNotifMsg,
             targetType: "user",
             targetId: guardUserId,
           });
+          await sendPushToUser(guardUserId, { title: guardNotifTitle, body: guardNotifMsg, tag: `guard-${date}-${period.timeSlotId}` });
         }
       } catch (notifErr) {
         console.error("Error sending guard coverage notification:", notifErr);
@@ -2435,13 +2473,16 @@ export async function registerRoutes(
         const dayNames = ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
         const dateStr = `${dayNames[dow] || ""} ${date.split("-").reverse().join("/")}`;
 
+        const advTitle = `Adelanto de clase — ${groupName}`;
+        const advMsg = `Tu clase con el grupo ${groupName} ha sido adelantada del tramo ${destLabel} al tramo ${origLabel} (${dateStr}).`;
         await storage.createNotification({
           senderId: user.id,
-          title: `Adelanto de clase — ${groupName}`,
-          message: `Tu clase con el grupo ${groupName} ha sido adelantada del tramo ${destLabel} al tramo ${origLabel} (${dateStr}).`,
+          title: advTitle,
+          message: advMsg,
           targetType: "user",
           targetId: teacherUserId,
         });
+        await sendPushToUser(teacherUserId, { title: advTitle, body: advMsg, tag: `adv-${date}-${originalSlotId}` });
       } catch (notifErr) {
         console.error("Error sending advancement notification:", notifErr);
       }
@@ -2739,6 +2780,28 @@ export async function registerRoutes(
         fileUrl,
         fileName,
       });
+
+      try {
+        const pushPayload = { title, body: message, tag: `notif-${notif.id}` };
+        if (targetType === "all") {
+          await sendPushToAllNonAdmin(pushPayload);
+        } else if (targetType === "user" && targetId) {
+          await sendPushToUser(parseInt(targetId), pushPayload);
+        } else if (targetType === "group" && targetId) {
+          const gId = parseInt(targetId);
+          const allUsers = await storage.getAllUsers();
+          const schedules = await storage.getAllTeacherSchedules();
+          const groupTeacherIds = new Set<number>();
+          allUsers.filter(u => u.role === "guard" && u.groupId === gId).forEach(u => groupTeacherIds.add(u.id));
+          schedules.filter(s => s.groupId === gId).forEach(s => groupTeacherIds.add(s.userId));
+          if (groupTeacherIds.size > 0) {
+            await sendPushToUsers(Array.from(groupTeacherIds), pushPayload);
+          }
+        }
+      } catch (pushErr) {
+        console.error("Error sending push for notification:", pushErr);
+      }
+
       res.json(notif);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2859,6 +2922,31 @@ export async function registerRoutes(
         fileUrl,
         fileName,
       });
+
+      try {
+        const group = await storage.getGroup(groupId);
+        const groupName = group?.name || "Grupo";
+        const senderName = user.fullName || user.username;
+        const allUsers = await storage.getAllUsers();
+        const schedules = await storage.getAllTeacherSchedules();
+        const chatUserIds = new Set<number>();
+        allUsers.filter(u => u.role === "admin").forEach(u => chatUserIds.add(u.id));
+        allUsers.filter(u => u.role === "guard" && u.groupId === groupId).forEach(u => chatUserIds.add(u.id));
+        schedules.filter(s => s.groupId === groupId).forEach(s => chatUserIds.add(s.userId));
+        chatUserIds.delete(user.id);
+        if (chatUserIds.size > 0) {
+          const bodyText = message ? (message.length > 100 ? message.substring(0, 100) + "…" : message) : "📎 Archivo adjunto";
+          await sendPushToUsers(Array.from(chatUserIds), {
+            title: `💬 ${groupName} — ${senderName}`,
+            body: bodyText,
+            tag: `chat-${groupId}`,
+            data: { type: "chat", groupId },
+          });
+        }
+      } catch (pushErr) {
+        console.error("Error sending push for chat:", pushErr);
+      }
+
       res.json(chatMsg);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2899,6 +2987,37 @@ export async function registerRoutes(
       const updated = await storage.updateGroup(id, { chatBidirectional });
       if (!updated) return res.status(404).json({ message: "Grupo no encontrado" });
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== PUSH SUBSCRIPTIONS ====================
+
+  app.get("/api/push/vapid-public-key", (_req: Request, res: Response) => {
+    res.json({ publicKey: getVapidPublicKey() });
+  });
+
+  app.post("/api/push/subscribe", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user!;
+      const { endpoint, keys } = req.body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) {
+        return res.status(400).json({ message: "Datos de suscripción inválidos" });
+      }
+      await savePushSubscription(user.id, endpoint, keys.p256dh, keys.auth);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/push/unsubscribe", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ message: "Endpoint requerido" });
+      await removePushSubscription(endpoint);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

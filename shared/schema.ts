@@ -14,6 +14,8 @@ export const users = pgTable("users", {
   email: text("email"),
   permissions: text("permissions").array(),
   guardTabVisible: boolean("guard_tab_visible"),
+  lateTabVisible: boolean("late_tab_visible"),
+  dutyTabVisible: boolean("duty_tab_visible"),
 });
 
 export const ADMIN_PERMISSIONS = {
@@ -396,3 +398,16 @@ export const chatReads = pgTable("chat_reads", {
 export const insertChatReadSchema = createInsertSchema(chatReads).omit({ id: true });
 export type InsertChatRead = z.infer<typeof insertChatReadSchema>;
 export type ChatRead = typeof chatReads.$inferSelect;
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

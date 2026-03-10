@@ -213,7 +213,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 ### Pestañas de staff configurables
 - El administrador puede ocultar o mostrar cada pestaña de la vista de staff desde Ajustes: Guardia, Tardías, Fichar, Ausencias, Registros y Mensajes
 - Botones "Mostrar todas" y "Ocultar todas" para activar/desactivar en bloque
-- **Override individual para Guardia**: desde la ficha de cada profesor, se puede forzar que vea (o no) la pestaña Guardia independientemente del ajuste global. Tres opciones: Sí (siempre visible), No (siempre oculta), Global (usar ajuste global)
+- **Override individual por profesor**: desde la ficha de cada profesor, se puede forzar la visibilidad de las pestañas Guardia, Tardías y Fichar independientemente del ajuste global. Tres opciones por pestaña: Sí (siempre visible), No (siempre oculta), Global (usar ajuste global)
 - Patrón fail-closed: mientras cargan los ajustes, todas las pestañas permanecen ocultas
 - Si todas las pestañas están ocultas para un usuario, se muestra un mensaje indicando que contacte con el administrador
 
@@ -227,7 +227,15 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - **Notificaciones automáticas del Motor de Guardias**:
   - Cuando se asigna un profesor para cubrir un hueco: recibe notificación con grupo, tramo, fecha y nombre del profesor ausente
   - Cuando se adelanta una clase: el profesor afectado recibe notificación con grupo, tramo original, nuevo tramo y fecha
-- Las notificaciones se consultan por polling (cada 15 segundos); no incluyen sonido ni push nativo
+- **Notificaciones push (Web Push API)**:
+  - Los profesores reciben notificaciones push nativas en el dispositivo, incluso con la app cerrada
+  - Se envían push para: avisos del admin, guardias asignadas, adelantos de clase y mensajes de chat
+  - Vibración y sonido del sistema operativo al recibir la notificación
+  - Al pulsar la notificación se abre/enfoca la app
+  - Suscripción automática al iniciar sesión (solicita permiso de notificaciones del navegador)
+  - Claves VAPID generadas y almacenadas en variables de entorno
+  - Las suscripciones caducadas o inválidas (410/404) se eliminan automáticamente del servidor
+- Polling complementario cada 15 segundos para mantener la interfaz actualizada
 
 ### Mensajería de grupos (Chat)
 - Chat por grupo: el equipo educativo de cada grupo puede comunicarse
@@ -235,6 +243,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Los profesores ven los grupos donde son tutores o donde imparten clase (según su horario)
 - **Chat bidireccional/unidireccional**: el admin puede configurar si los profesores pueden escribir en el chat de cada grupo (toggle "Bidireccional" por grupo)
 - Soporte para archivos adjuntos en mensajes
+- **Push para mensajes de chat**: cada mensaje nuevo envía push a todos los miembros del grupo (excepto al remitente), con nombre del grupo y del remitente
 - Indicador de mensajes no leídos por grupo (badges en la lista de grupos y en la pestaña)
 - Encuesta automática cada 5-15 segundos para nuevos mensajes
 - Panel admin en /chat con lista de grupos a la izquierda y chat a la derecha

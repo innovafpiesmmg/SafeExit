@@ -13,7 +13,7 @@ SafeExit is built as a Progressive Web Application (PWA) using a modern web stac
 -   **Database**: PostgreSQL is used for data storage, with Drizzle ORM facilitating database interactions.
 -   **UI/UX Decisions**: The application features distinct views optimized for different user roles and devices:
     -   **Admin View**: A full sidebar layout provides access to all administrative functionalities, designed for PC use.
-    -   **Staff View (Guard/Tutor)**: A unified, mobile/tablet-optimized view with bottom tab navigation, designed for on-the-go use by guards and tutors. It features large buttons, live stats, and a clock. Tab visibility is configurable by the admin (settings keys: `staffGuardTabVisible`, `staffLateTabVisible`, `staffDutyTabVisible`, `staffAbsencesTabVisible`, `staffRecordsTabVisible`, `staffMessagesTabVisible`). All default to visible. Fail-closed: tabs hidden while settings load.
+    -   **Staff View (Guard/Tutor)**: A unified, mobile/tablet-optimized view with bottom tab navigation, designed for on-the-go use by guards and tutors. It features large buttons, live stats, and a clock. Tab visibility is configurable by the admin (settings keys: `staffGuardTabVisible`, `staffLateTabVisible`, `staffDutyTabVisible`, `staffAbsencesTabVisible`, `staffRecordsTabVisible`, `staffMessagesTabVisible`). All default to visible. Fail-closed: tabs hidden while settings load. Per-teacher overrides for Guardia, Tardías and Fichar via `guardTabVisible`, `lateTabVisible`, `dutyTabVisible` columns on users table (null = follow global, true = always visible, false = always hidden). API: PUT /api/guards/:id/guard-tab, /api/guards/:id/late-tab, /api/guards/:id/duty-tab.
     -   **Carnet Design**: Digital and printable carnets include a student photo, group badge, and a 22mm QR code, adhering to a 2x5 grid layout (85x55mm cards) with a distinct blue header.
     -   **Sound Feedback**: Configurable audio cues (beep/alert) are provided for QR scan results, with options for custom audio uploads.
 -   **Technical Implementations & Feature Specifications**:
@@ -30,6 +30,7 @@ SafeExit is built as a Progressive Web Application (PWA) using a modern web stac
     -   **Communication Systems**:
         -   **Notifications**: Admins can send targeted notifications (all staff, specific groups, or individual teachers) with file attachments and track read receipts.
         -   **Group Chat**: A group-based chat system allows communication between admins and teachers, with file attachments. Admins can control chat bidirectional settings per group.
+        -   **Web Push Notifications**: Native push notifications via Web Push API (VAPID). Push sent for: admin notifications, guard coverage assignments, hour advancements, and chat messages. Service worker handles push events with vibration and click-to-focus. Auto-subscribes on login. VAPID keys stored in env vars (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT). Push subscriptions stored in `push_subscriptions` table. Expired subscriptions auto-cleaned.
 
 ### External Dependencies
 -   **Database**: PostgreSQL
@@ -41,4 +42,5 @@ SafeExit is built as a Progressive Web Application (PWA) using a modern web stac
 -   **Password Hashing**: `bcrypt`
 -   **Excel Processing**: `xlsx` (for import/export)
 -   **Email Service**: `nodemailer` (for SMTP email functionality)
+-   **Web Push**: `web-push` (for native push notifications via VAPID)
 -   **Cloudflare**: Optional Cloudflare Tunnel support for deployment.

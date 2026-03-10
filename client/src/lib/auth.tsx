@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { apiRequest } from "./queryClient";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 interface AuthUser {
   id: number;
@@ -10,6 +11,8 @@ interface AuthUser {
   email: string | null;
   permissions: string[];
   guardTabVisible: boolean | null;
+  lateTabVisible: boolean | null;
+  dutyTabVisible: boolean | null;
 }
 
 interface AuthContextType {
@@ -60,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
   };
+
+  usePushNotifications(!!user, user?.id ?? null);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
