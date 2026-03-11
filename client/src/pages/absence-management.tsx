@@ -56,6 +56,11 @@ export default function AbsenceManagementPage() {
     return jsDay === 0 ? 7 : jsDay;
   })();
 
+  const { data: groupScheduledSlots = {} } = useQuery<Record<number, number[]>>({
+    queryKey: ["/api/group-scheduled-slots", `?day=${selectedDayOfWeek}`],
+    enabled: selectedDayOfWeek >= 1 && selectedDayOfWeek <= 5,
+  });
+
   const { data: dutyAssignments = [] } = useQuery<any[]>({
     queryKey: ["/api/guard-duty-assignments", `?day=${selectedDayOfWeek}`],
   });
@@ -216,6 +221,11 @@ export default function AbsenceManagementPage() {
     }
   }
 
+  function getGroupSlots(groupId: number): number[] {
+    const scheduled = groupScheduledSlots[groupId];
+    return scheduled && scheduled.length > 0 ? scheduled : allClassSlotIds;
+  }
+
   function canAuthorizeEarlyExit(groupId: number): { canAuthorize: boolean; fromSlot: number | null } {
     const group = affectedGroups.get(groupId);
     if (!group) return { canAuthorize: false, fromSlot: null };
@@ -223,12 +233,14 @@ export default function AbsenceManagementPage() {
     const freeSlots = group.freeSlots.sort((a, b) => a - b);
     if (freeSlots.length === 0) return { canAuthorize: false, fromSlot: null };
 
-    for (let i = allClassSlotIds.length - 1; i >= 0; i--) {
-      const slotId = allClassSlotIds[i];
+    const groupSlots = getGroupSlots(groupId);
+
+    for (let i = groupSlots.length - 1; i >= 0; i--) {
+      const slotId = groupSlots[i];
       if (!freeSlots.includes(slotId)) {
-        const fromSlot = allClassSlotIds[i + 1];
+        const fromSlot = groupSlots[i + 1];
         if (fromSlot && freeSlots.includes(fromSlot)) {
-          const tail = allClassSlotIds.slice(i + 1);
+          const tail = groupSlots.slice(i + 1);
           const allTailFree = tail.every(s => freeSlots.includes(s));
           if (allTailFree && tail.length > 0) {
             return { canAuthorize: true, fromSlot };
@@ -238,7 +250,7 @@ export default function AbsenceManagementPage() {
       }
     }
 
-    return { canAuthorize: true, fromSlot: allClassSlotIds[0] };
+    return { canAuthorize: true, fromSlot: groupSlots[0] };
   }
 
   function handleCreateAbsence() {
@@ -447,7 +459,8 @@ export default function AbsenceManagementPage() {
                   if (!canAuthorize || !fromSlot) return null;
 
                   const fromSlotInfo = classSlots.find(s => s.id === fromSlot);
-                  const freeCount = allClassSlotIds.filter(s => s >= fromSlot).length;
+                  const gSlots = getGroupSlots(groupId);
+                  const freeCount = gSlots.filter(s => s >= fromSlot).length;
 
                   return (
                     <div
@@ -459,7 +472,7 @@ export default function AbsenceManagementPage() {
                         <div>
                           <p className="font-medium text-sm">{groupData.groupName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {freeCount} hora{freeCount !== 1 ? "s" : ""} libre{freeCount !== 1 ? "s" : ""} al final — desde {fromSlotInfo?.label || `Tramo ${fromSlot}`}
+                            {freeCount} hora{freeCount !== 1 ? "s" : ""} libre{freeCount !== 1 ? "s" : ""} al final del horario — desde {fromSlotInfo?.label || `Tramo ${fromSlot}`}
                           </p>
                         </div>
                         <Button
@@ -482,7 +495,7 @@ export default function AbsenceManagementPage() {
                 })}
                 {Array.from(affectedGroups.entries()).every(([gId]) => !canAuthorizeEarlyExit(gId).canAuthorize) && (
                   <p className="text-sm text-muted-foreground text-center py-2">
-                    No hay grupos con horas libres consecutivas al final del día para autorizar salida anticipada.
+                    No hay grupos con horas libres consecutivas al final del horario para autorizar salida anticipada.
                     Use la pestaña "Adelantos" para reorganizar las horas.
                   </p>
                 )}
@@ -503,7 +516,7 @@ export default function AbsenceManagementPage() {
               <p>
                 Cuando un profesor falta en una hora intermedia, puede <strong>adelantar</strong> la clase
                 de otro profesor que tenga clase con el mismo grupo más tarde. Así la hora libre se desplaza
-                al final del día y el grupo puede salir antes.
+                al final del horario y el grupo puede salir antes.
               </p>
               <p>
                 1. En el "Motor de Guardias", pulse <strong>"Adelantar"</strong> en un hueco sin cubrir.<br />

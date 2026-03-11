@@ -2572,29 +2572,36 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Datos incompletos" });
       }
 
-      const freeSlots = await storage.getGroupFreeSlots(date, groupId);
-      const allClassSlots = (await import("@shared/schema")).DEFAULT_TIME_SLOTS
-        .filter((s: any) => !s.isBreak)
-        .map((s: any) => s.id)
-        .sort((a: number, b: number) => a - b);
+      const d = new Date(date + "T12:00:00");
+      const jsDay = d.getDay();
+      const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
-      const fromIndex = allClassSlots.indexOf(fromSlot);
+      const groupScheduledSlots = await storage.getGroupScheduledSlots(groupId, dayOfWeek);
+
+      const slotsToCheck = groupScheduledSlots.length > 0
+        ? groupScheduledSlots
+        : (await import("@shared/schema")).DEFAULT_TIME_SLOTS
+            .filter((s: any) => !s.isBreak)
+            .map((s: any) => s.id)
+            .sort((a: number, b: number) => a - b);
+
+      const fromIndex = slotsToCheck.indexOf(fromSlot);
       if (fromIndex === -1) {
         return res.status(400).json({ message: "Tramo no válido" });
       }
 
-      const slotsToAuthorize = allClassSlots.slice(fromIndex);
+      const slotsToAuthorize = slotsToCheck.slice(fromIndex);
+      const freeSlots = await storage.getGroupFreeSlots(date, groupId);
       const allFree = slotsToAuthorize.every((s: number) => freeSlots.includes(s));
       if (!allFree) {
         return res.status(400).json({ message: "No todas las horas desde ese tramo están libres" });
       }
 
-      const todayStr = date;
       const group = await storage.getGroup(groupId);
       if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
 
       for (const slotId of slotsToAuthorize) {
-        await storage.setGroupSchedule(groupId, todayStr, slotId, true);
+        await storage.setGroupSchedule(groupId, date, slotId, true);
       }
 
       res.json({
@@ -2608,6 +2615,30 @@ export async function registerRoutes(
   });
 
   // ==================== TEACHER SCHEDULES ====================
+
+  app.get("/api/group-scheduled-slots", requireAuth, requirePermission("absences"), async (req: Request, res: Response) => {
+    try {
+      const dayOfWeek = Number(req.query.day);
+      if (!dayOfWeek || dayOfWeek < 1 || dayOfWeek > 7) {
+        return res.status(400).json({ message: "Día no válido" });
+      }
+      const schedules = await storage.getTeacherSchedulesByDay(dayOfWeek);
+      const classEntries = schedules.filter(s => (s.slotType || "class") === "class" && s.groupId);
+      const groupSlots: Record<number, number[]> = {};
+      for (const entry of classEntries) {
+        if (!groupSlots[entry.groupId!]) groupSlots[entry.groupId!] = [];
+        if (!groupSlots[entry.groupId!].includes(entry.timeSlotId)) {
+          groupSlots[entry.groupId!].push(entry.timeSlotId);
+        }
+      }
+      for (const gid of Object.keys(groupSlots)) {
+        groupSlots[Number(gid)].sort((a, b) => a - b);
+      }
+      res.json(groupSlots);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   app.get("/api/teacher-schedules", requireAuth, async (req: Request, res: Response) => {
     try {

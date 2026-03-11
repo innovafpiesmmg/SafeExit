@@ -128,6 +128,7 @@ export interface IStorage {
   getHourAdvancements(date: string): Promise<any[]>;
   deleteHourAdvancement(id: number): Promise<void>;
   getGroupFreeSlots(date: string, groupId: number): Promise<number[]>;
+  getGroupScheduledSlots(groupId: number, dayOfWeek: number): Promise<number[]>;
 
   getAllTeacherSchedules(): Promise<TeacherSchedule[]>;
   getTeacherSchedulesByUser(userId: number): Promise<TeacherSchedule[]>;
@@ -880,6 +881,16 @@ export class DatabaseStorage implements IStorage {
     }
 
     return Array.from(freeSlots).sort((a, b) => a - b);
+  }
+
+  async getGroupScheduledSlots(groupId: number, dayOfWeek: number): Promise<number[]> {
+    const entries = await db.select().from(teacherSchedules)
+      .where(and(
+        eq(teacherSchedules.groupId, groupId),
+        eq(teacherSchedules.dayOfWeek, dayOfWeek),
+        eq(teacherSchedules.slotType, "class")
+      ));
+    return entries.map(e => e.timeSlotId).sort((a, b) => a - b);
   }
 
   async getAllTeacherSchedules(): Promise<TeacherSchedule[]> {
