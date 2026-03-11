@@ -2572,18 +2572,30 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Datos incompletos" });
       }
 
+      const group = await storage.getGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
+
+      const { DEFAULT_TIME_SLOTS } = await import("@shared/schema");
+      const allClassSlots = DEFAULT_TIME_SLOTS
+        .filter((s: any) => !s.isBreak)
+        .map((s: any) => s.id)
+        .sort((a: number, b: number) => a - b);
+
+      const morningSlots = allClassSlots.filter((id: number) => id <= 6);
+      const afternoonSlots = allClassSlots.filter((id: number) => id > 6);
+      const groupSlots = group.schedule === "afternoon" ? afternoonSlots : morningSlots;
+
       const d = new Date(date + "T12:00:00");
       const jsDay = d.getDay();
       const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+      const teacherSlots = await storage.getGroupScheduledSlots(groupId, dayOfWeek);
+      const slotsToCheck = teacherSlots.length > 0
+        ? teacherSlots.filter((s: number) => groupSlots.includes(s))
+        : groupSlots;
 
-      const groupScheduledSlots = await storage.getGroupScheduledSlots(groupId, dayOfWeek);
-
-      const slotsToCheck = groupScheduledSlots.length > 0
-        ? groupScheduledSlots
-        : (await import("@shared/schema")).DEFAULT_TIME_SLOTS
-            .filter((s: any) => !s.isBreak)
-            .map((s: any) => s.id)
-            .sort((a: number, b: number) => a - b);
+      if (slotsToCheck.length === 0) {
+        return res.status(400).json({ message: "No hay tramos configurados para este grupo" });
+      }
 
       const fromIndex = slotsToCheck.indexOf(fromSlot);
       if (fromIndex === -1) {
@@ -2596,9 +2608,6 @@ export async function registerRoutes(
       if (!allFree) {
         return res.status(400).json({ message: "No todas las horas desde ese tramo están libres" });
       }
-
-      const group = await storage.getGroup(groupId);
-      if (!group) return res.status(404).json({ message: "Grupo no encontrado" });
 
       for (const slotId of slotsToAuthorize) {
         await storage.setGroupSchedule(groupId, date, slotId, true);
@@ -2622,19 +2631,28 @@ export async function registerRoutes(
       if (!dayOfWeek || dayOfWeek < 1 || dayOfWeek > 7) {
         return res.status(400).json({ message: "Día no válido" });
       }
+      const allGroups = await storage.getAllGroups();
       const schedules = await storage.getTeacherSchedulesByDay(dayOfWeek);
       const classEntries = schedules.filter(s => (s.slotType || "class") === "class" && s.groupId);
-      const groupSlots: Record<number, number[]> = {};
-      for (const entry of classEntries) {
-        if (!groupSlots[entry.groupId!]) groupSlots[entry.groupId!] = [];
-        if (!groupSlots[entry.groupId!].includes(entry.timeSlotId)) {
-          groupSlots[entry.groupId!].push(entry.timeSlotId);
-        }
+
+      const { DEFAULT_TIME_SLOTS } = await import("@shared/schema");
+      const allClassSlots = DEFAULT_TIME_SLOTS.filter((s: any) => !s.isBreak).map((s: any) => s.id).sort((a: number, b: number) => a - b);
+      const morningSlots = allClassSlots.filter((id: number) => id <= 6);
+      const afternoonSlots = allClassSlots.filter((id: number) => id > 6);
+
+      const result: Record<number, number[]> = {};
+      for (const group of allGroups) {
+        const baseSlots = group.schedule === "afternoon" ? afternoonSlots : morningSlots;
+        const teacherSlots = classEntries
+          .filter(e => e.groupId === group.id)
+          .map(e => e.timeSlotId)
+          .filter((id, i, arr) => arr.indexOf(id) === i)
+          .sort((a, b) => a - b);
+        result[group.id] = teacherSlots.length > 0
+          ? teacherSlots.filter(s => baseSlots.includes(s))
+          : baseSlots;
       }
-      for (const gid of Object.keys(groupSlots)) {
-        groupSlots[Number(gid)].sort((a, b) => a - b);
-      }
-      res.json(groupSlots);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
