@@ -13,12 +13,14 @@ interface AuthUser {
   guardTabVisible: boolean | null;
   lateTabVisible: boolean | null;
   dutyTabVisible: boolean | null;
+  totpEnabled: boolean;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<{ requireTotp?: boolean }>;
+  verifyTotp: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -42,8 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setLoading(false));
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<{ requireTotp?: boolean }> => {
     const res = await apiRequest("POST", "/api/auth/login", { username, password });
+    const data = await res.json();
+    if (data.requireTotp) {
+      return { requireTotp: true };
+    }
+    setUser(data);
+    return {};
+  };
+
+  const verifyTotp = async (code: string) => {
+    const res = await apiRequest("POST", "/api/auth/totp/verify-login", { code });
     const data = await res.json();
     setUser(data);
   };
@@ -67,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   usePushNotifications(!!user, user?.id ?? null);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyTotp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

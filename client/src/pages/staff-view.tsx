@@ -11,6 +11,7 @@ import {
   ShieldCheck, GraduationCap, Clock, LogOut, ArrowLeft, Wifi, WifiOff, FileText, Shield, UserX, Settings, Eye, EyeOff, MessageSquare,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { TotpManagement } from "@/components/totp-management";
 import GuardView from "./guard-view";
 import TutorView from "./tutor-view";
 import LateArrivalsPage from "./late-arrivals";
@@ -189,6 +190,10 @@ function AccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               {passwordLoading ? "Cambiando..." : "Cambiar contraseña"}
             </Button>
           </form>
+
+          <div className="border-t" />
+
+          <TotpManagement />
         </div>
       </DialogContent>
     </Dialog>

@@ -16,6 +16,8 @@ export const users = pgTable("users", {
   guardTabVisible: boolean("guard_tab_visible"),
   lateTabVisible: boolean("late_tab_visible"),
   dutyTabVisible: boolean("duty_tab_visible"),
+  totpSecret: text("totp_secret"),
+  totpEnabled: boolean("totp_enabled").notNull().default(false),
 });
 
 export const ADMIN_PERMISSIONS = {

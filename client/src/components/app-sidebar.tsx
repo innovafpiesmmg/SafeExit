@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
+import { TotpManagement } from "@/components/totp-management";
 
 const adminItems = [
   { title: "Panel de Control", url: "/", icon: LayoutDashboard, permission: null },
@@ -92,64 +93,71 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="w-5 h-5" />
-            Cambiar contraseña
+            Mi cuenta
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="adminCurrentPw">Contraseña actual</Label>
-            <div className="relative">
-              <Input
-                id="adminCurrentPw"
-                data-testid="input-admin-current-password"
-                type={showPasswords ? "text" : "password"}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                onClick={() => setShowPasswords(!showPasswords)}
-                data-testid="button-toggle-admin-passwords"
-              >
-                {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+        <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <h3 className="text-sm font-semibold">Cambiar contraseña</h3>
+            <div className="space-y-2">
+              <Label htmlFor="adminCurrentPw">Contraseña actual</Label>
+              <div className="relative">
+                <Input
+                  id="adminCurrentPw"
+                  data-testid="input-admin-current-password"
+                  type={showPasswords ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowPasswords(!showPasswords)}
+                  data-testid="button-toggle-admin-passwords"
+                >
+                  {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="adminNewPw">Nueva contraseña</Label>
-            <Input
-              id="adminNewPw"
-              data-testid="input-admin-new-password"
-              type={showPasswords ? "text" : "password"}
-              placeholder="Mínimo 6 caracteres"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="adminConfirmPw">Confirmar nueva contraseña</Label>
-            <Input
-              id="adminConfirmPw"
-              data-testid="input-admin-confirm-password"
-              type={showPasswords ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading} data-testid="button-admin-change-password">
-            {loading ? "Cambiando..." : "Cambiar contraseña"}
-          </Button>
-        </form>
+            <div className="space-y-2">
+              <Label htmlFor="adminNewPw">Nueva contraseña</Label>
+              <Input
+                id="adminNewPw"
+                data-testid="input-admin-new-password"
+                type={showPasswords ? "text" : "password"}
+                placeholder="Mínimo 6 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adminConfirmPw">Confirmar nueva contraseña</Label>
+              <Input
+                id="adminConfirmPw"
+                data-testid="input-admin-confirm-password"
+                type={showPasswords ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading} data-testid="button-admin-change-password">
+              {loading ? "Cambiando..." : "Cambiar contraseña"}
+            </Button>
+          </form>
+
+          <div className="border-t" />
+
+          <TotpManagement />
+        </div>
       </DialogContent>
     </Dialog>
   );

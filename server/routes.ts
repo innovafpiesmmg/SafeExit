@@ -14,6 +14,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import * as XLSX from "xlsx";
+import { generateSecret, generate as totpGenerate, verify as totpVerify } from "otplib";
+import QRCode from "qrcode";
 
 async function audit(req: Request, action: string, entity: string, entityId?: number, details?: string) {
   try {
@@ -159,11 +161,95 @@ export async function registerRoutes(
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(401).json({ message: "Credenciales inválidas" });
 
+      if (user.totpEnabled && user.totpSecret) {
+        (req.session as any).pendingTotpUserId = user.id;
+        return res.json({ requireTotp: true });
+      }
+
       (req.session as any).userId = user.id;
       (req.session as any).role = user.role;
       (req as any).user = user;
       await audit(req, "login", "auth", user.id, `Usuario ${user.username} (${user.role})`);
-      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null });
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null, totpEnabled: user.totpEnabled });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/totp/verify-login", async (req, res) => {
+    try {
+      const pendingId = (req.session as any).pendingTotpUserId;
+      if (!pendingId) return res.status(401).json({ message: "No hay sesión de verificación pendiente" });
+
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ message: "Código requerido" });
+
+      const user = await storage.getUser(pendingId);
+      if (!user || !user.totpSecret) return res.status(401).json({ message: "Usuario no encontrado" });
+
+      const result = await totpVerify({ token: code.replace(/\s/g, ""), secret: user.totpSecret });
+      if (!result?.valid) return res.status(401).json({ message: "Código incorrecto" });
+
+      delete (req.session as any).pendingTotpUserId;
+      (req.session as any).userId = user.id;
+      (req.session as any).role = user.role;
+      (req as any).user = user;
+      await audit(req, "login_2fa", "auth", user.id, `Usuario ${user.username} (${user.role}) con 2FA TOTP`);
+      res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null, totpEnabled: user.totpEnabled });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/totp/setup", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user as User;
+      const secret = generateSecret();
+      const schoolName = (await storage.getSetting("schoolName")) || "SafeExit";
+      const issuer = encodeURIComponent(schoolName);
+      const account = encodeURIComponent(user.username);
+      const otpAuthUrl = `otpauth://totp/${issuer}:${account}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+      const qrDataUrl = await QRCode.toDataURL(otpAuthUrl);
+      res.json({ secret, qrDataUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/totp/confirm", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user as User;
+      const { secret, code } = req.body;
+      if (!secret || !code) return res.status(400).json({ message: "Secreto y código requeridos" });
+
+      const token = code.replace(/\s/g, "");
+      const result = await totpVerify({ token, secret });
+      if (!result?.valid) return res.status(400).json({ message: "Código incorrecto. Asegúrate de que la app está sincronizada." });
+
+      await storage.updateUser(user.id, { totpSecret: secret, totpEnabled: true });
+      await audit(req, "totp_enabled", "auth", user.id, `Usuario ${user.username} activó 2FA TOTP`);
+      res.json({ message: "Autenticación en dos pasos activada correctamente" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/totp/disable", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user as User;
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ message: "Código requerido" });
+
+      const fullUser = await storage.getUser(user.id);
+      if (!fullUser?.totpSecret) return res.status(400).json({ message: "El 2FA no está activado" });
+
+      const token = code.replace(/\s/g, "");
+      const result = await totpVerify({ token, secret: fullUser.totpSecret });
+      if (!result?.valid) return res.status(401).json({ message: "Código incorrecto" });
+
+      await storage.updateUser(user.id, { totpSecret: null, totpEnabled: false });
+      await audit(req, "totp_disabled", "auth", user.id, `Usuario ${user.username} desactivó 2FA TOTP`);
+      res.json({ message: "Autenticación en dos pasos desactivada" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -187,7 +273,7 @@ export async function registerRoutes(
     }
     const user = await storage.getUser((req.session as any).userId);
     if (!user) return res.status(401).json({ message: "No autenticado" });
-    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null });
+    res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, groupId: user.groupId, email: user.email, permissions: user.permissions || [], guardTabVisible: user.guardTabVisible ?? null, lateTabVisible: user.lateTabVisible ?? null, dutyTabVisible: user.dutyTabVisible ?? null, totpEnabled: user.totpEnabled });
   });
 
   app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {

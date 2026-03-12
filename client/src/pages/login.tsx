@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LogIn, Eye, EyeOff, Tablet, GraduationCap, Mail, ArrowLeft, CheckCircle } from "lucide-react";
+import { LogIn, Eye, EyeOff, Tablet, GraduationCap, Mail, ArrowLeft, CheckCircle, ShieldCheck, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/footer";
 import { useLocation } from "wouter";
@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/escudo_1772663810749.png";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, verifyTotp } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
@@ -23,6 +23,10 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  const [step, setStep] = useState<"credentials" | "totp">("credentials");
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
 
   const searchParams = new URLSearchParams(window.location.search);
   const mode = searchParams.get("mode");
@@ -44,7 +48,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(username, password);
+      const result = await login(username, password);
+      if (result.requireTotp) {
+        setStep("totp");
+        return;
+      }
       if (mode === "guard") {
         sessionStorage.setItem("safeexit_view_mode", "guard");
         setLocation("/guard");
@@ -56,6 +64,26 @@ export default function LoginPage() {
       toast({ title: "Error", description: "Credenciales inválidas", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      await verifyTotp(totpCode);
+      if (mode === "guard") {
+        sessionStorage.setItem("safeexit_view_mode", "guard");
+        setLocation("/guard");
+      } else if (mode === "tutor") {
+        sessionStorage.setItem("safeexit_view_mode", "tutor");
+        setLocation("/");
+      }
+    } catch {
+      toast({ title: "Código incorrecto", description: "Comprueba el código en tu app autenticadora", variant: "destructive" });
+      setTotpCode("");
+    } finally {
+      setTotpLoading(false);
     }
   };
 
@@ -83,78 +111,143 @@ export default function LoginPage() {
           </div>
         )}
 
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg text-center">Iniciar Sesión</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Usuario</Label>
-                <Input
-                  id="username"
-                  data-testid="input-username"
-                  placeholder="Nombre de usuario"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <div className="relative">
+        {step === "credentials" ? (
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg text-center">Iniciar Sesión</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Usuario</Label>
                   <Input
-                    id="password"
-                    data-testid="input-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Contraseña"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="username"
+                    data-testid="input-username"
+                    placeholder="Nombre de usuario"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      data-testid="input-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Contraseña"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      data-testid="button-toggle-password"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  data-testid="button-login"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      Entrando...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <LogIn className="w-4 h-4" />
+                      Entrar
+                    </span>
+                  )}
+                </Button>
+                <div className="text-center pt-2">
                   <button
                     type="button"
-                    data-testid="button-toggle-password"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => { setShowForgotPassword(true); setForgotSent(false); setForgotEmail(""); }}
+                    className="text-sm text-primary hover:underline"
+                    data-testid="link-forgot-password"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    ¿Olvidaste tu contraseña?
                   </button>
                 </div>
-              </div>
-              <Button
-                type="submit"
-                data-testid="button-login"
-                className="w-full"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Entrando...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Entrar
-                  </span>
-                )}
-              </Button>
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowForgotPassword(true); setForgotSent(false); setForgotEmail(""); }}
-                  className="text-sm text-primary hover:underline"
-                  data-testid="link-forgot-password"
+              </form>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg text-center flex items-center justify-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                Verificación en dos pasos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleTotpSubmit} className="space-y-4">
+                <div className="text-center space-y-1 pb-2">
+                  <p className="text-sm text-muted-foreground">
+                    Abre tu app autenticadora e introduce el código de 6 dígitos.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="totp-code">Código de verificación</Label>
+                  <Input
+                    id="totp-code"
+                    data-testid="input-totp-code"
+                    placeholder="000 000"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    className="text-center text-2xl tracking-[0.5em] font-mono"
+                    maxLength={6}
+                    autoFocus
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  data-testid="button-verify-totp"
+                  className="w-full"
+                  disabled={totpLoading || totpCode.length !== 6}
                 >
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                  {totpLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      Verificando...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4" />
+                      Verificar
+                    </span>
+                  )}
+                </Button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setStep("credentials"); setTotpCode(""); }}
+                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+                    data-testid="button-back-to-credentials"
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Volver al inicio de sesión
+                  </button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
-        {showForgotPassword && (
+        {step === "credentials" && showForgotPassword && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
