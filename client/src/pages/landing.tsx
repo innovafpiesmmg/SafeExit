@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Footer } from "@/components/footer";
 import { QrCode, Users, CalendarDays, ClipboardList, Smartphone, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
-import logoPath from "@assets/escudo_1772663810749.png";
 import heroImg from "@assets/stock_images/school_hero.jpg";
 import securityImg from "@assets/stock_images/school_security.jpg";
 import qrImg from "@assets/stock_images/qr_tablet.jpg";
@@ -47,15 +46,15 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      <header className="border-b border-primary/30 bg-primary sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg overflow-hidden">
-              <img src={logoPath} alt="SafeExit" className="w-full h-full object-cover" />
+              <img src="/logo-white.png" alt="SafeExit" className="w-full h-full object-contain" />
             </div>
-            <span className="font-bold text-lg">SafeExit</span>
+            <span className="font-bold text-lg text-primary-foreground">SafeExit</span>
           </div>
-          <Button onClick={() => navigate("/login")} data-testid="button-goto-login">
+          <Button variant="secondary" onClick={() => navigate("/login")} data-testid="button-goto-login">
             Acceder
             <ArrowRight className="w-4 h-4 ml-1.5" />
           </Button>
