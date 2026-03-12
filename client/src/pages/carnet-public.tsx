@@ -134,7 +134,7 @@ export default function CarnetPublicPage() {
               <p className="text-sm font-semibold mb-1 opacity-95" data-testid="text-carnet-school">{data.schoolName}</p>
             )}
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Shield className="w-5 h-5" />
+              <img src="/logo-white.png" alt="SafeExit" className="w-6 h-6" />
               <span className="font-bold text-lg tracking-wide">SafeExit</span>
             </div>
             <p className="text-xs opacity-80">

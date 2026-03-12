@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
+import path from "path";
+import { fileURLToPath } from "url";
 import { storage } from "./storage";
 import type { Student, User } from "@shared/schema";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const logoWhitePath = path.resolve(__dirname, "../client/public/logo-white.png");
 
 interface SmtpConfig {
   host: string;
@@ -81,9 +87,11 @@ export async function sendEarlyExitEmail(student: Student, reason: string, times
       from: config.from,
       to: student.email,
       subject: `Salida autorizada - ${student.firstName} ${student.lastName}`,
+      attachments: [{ filename: "logo.png", path: logoWhitePath, cid: "safeexit-logo" }],
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <img src="cid:safeexit-logo" alt="SafeExit" style="width: 40px; height: 40px; margin-bottom: 8px;" />
             <h2 style="margin: 0;">Notificación de Salida Autorizada</h2>
             <p style="margin: 5px 0 0; opacity: 0.9;">${schoolName}</p>
           </div>
@@ -150,9 +158,11 @@ export async function sendLateArrivalEmail(student: Student, timestamp: Date): P
       from: config.from,
       to: student.email,
       subject: `Entrada tardía - ${student.firstName} ${student.lastName}`,
+      attachments: [{ filename: "logo.png", path: logoWhitePath, cid: "safeexit-logo" }],
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: #1e40af; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <img src="cid:safeexit-logo" alt="SafeExit" style="width: 40px; height: 40px; margin-bottom: 8px;" />
             <h2 style="margin: 0;">Notificación de Entrada Tardía</h2>
             <p style="margin: 5px 0 0; opacity: 0.9;">${schoolName}</p>
           </div>
@@ -205,9 +215,11 @@ export async function sendPasswordResetEmail(user: { fullName: string; email: st
       from: config.from,
       to: user.email,
       subject: `Restablecer contraseña - SafeExit`,
+      attachments: [{ filename: "logo.png", path: logoWhitePath, cid: "safeexit-logo" }],
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <img src="cid:safeexit-logo" alt="SafeExit" style="width: 40px; height: 40px; margin-bottom: 8px;" />
             <h2 style="margin: 0;">Restablecer Contraseña</h2>
             <p style="margin: 5px 0 0; opacity: 0.9;">${schoolName} — SafeExit</p>
           </div>

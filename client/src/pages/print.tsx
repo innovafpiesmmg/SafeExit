@@ -46,7 +46,7 @@ function StudentCard({ student, group, qrDataUrl, barcodeDataUrl, schoolName, ac
           )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <img src="/favicon.png" alt="SafeExit" className="w-3.5 h-3.5 rounded-sm" />
+              <img src="/logo-white.png" alt="SafeExit" className="w-3.5 h-3.5 rounded-sm" />
               <span className="text-[8px] font-bold tracking-wide">SafeExit</span>
             </div>
             <span className="text-[6px] opacity-80">
@@ -175,7 +175,7 @@ export default function PrintPage() {
 
     let logoDataUrl = "";
     try {
-      const resp = await fetch("/favicon.png");
+      const resp = await fetch("/logo-white.png");
       const blob = await resp.blob();
       logoDataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
