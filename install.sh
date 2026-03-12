@@ -231,11 +231,23 @@ if grep -q "^VAPID_PUBLIC_KEY=$" "$CONFIG_DIR/env" 2>/dev/null || ! grep -q "^VA
 fi
 
 print_status "Compilando frontend y backend..."
-sudo -u "$APP_USER" bash -c "export $(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npm run build 2>&1" | tail -5
+BUILD_LOG=$(sudo -u "$APP_USER" bash -c "export \$(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npm run build 2>&1")
+BUILD_EXIT=$?
+echo "$BUILD_LOG" | tail -10
+if [ $BUILD_EXIT -ne 0 ]; then
+    print_error "La compilación falló. Últimas líneas del error:"
+    echo "$BUILD_LOG" | tail -20
+    exit 1
+fi
+if [ ! -f "$APP_DIR/dist/index.cjs" ]; then
+    print_error "El archivo dist/index.cjs no se generó. Comprueba el log de compilación."
+    exit 1
+fi
+print_success "Compilación completada: dist/index.cjs generado"
 
 print_status "Ejecutando migraciones de base de datos..."
-sudo -u "$APP_USER" bash -c "export $(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npx drizzle-kit push --force 2>&1" | tail -3
-print_success "Aplicación compilada"
+sudo -u "$APP_USER" bash -c "export \$(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npx drizzle-kit push --force 2>&1" | tail -5
+print_success "Migraciones aplicadas"
 
 print_header "8/9 - Configurando DNS local (safeexit.local)"
 print_status "Instalando dnsmasq para resolución de nombre local..."
@@ -266,6 +278,8 @@ print_status "o configurar su router para apuntar DNS a $SERVER_IP"
 
 print_header "9/9 - Configurando servicios"
 
+NODE_BIN=$(which node 2>/dev/null || echo "/usr/bin/node")
+
 cat > "/etc/systemd/system/$APP_NAME.service" << SVCEOF
 [Unit]
 Description=SafeExit - Control de Salida Escolar
@@ -277,7 +291,8 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$CONFIG_DIR/env
-ExecStart=/usr/bin/npm start
+Environment=NODE_ENV=production
+ExecStart=$NODE_BIN $APP_DIR/dist/index.cjs
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -309,6 +324,9 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
         proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 120s;
     }
 }
 NGXEOF
@@ -336,12 +354,28 @@ if [ -n "$CF_TOKEN" ]; then
     print_success "Cloudflare Tunnel configurado (cookies seguras activadas)"
 fi
 
-sleep 3
+print_status "Esperando que el servicio arranque..."
+sleep 5
+
+# Verificar que el servicio está activo
+if systemctl is-active --quiet "$APP_NAME"; then
+    print_success "Servicio $APP_NAME activo y funcionando"
+else
+    print_error "El servicio $APP_NAME NO está en ejecución. Últimos logs:"
+    journalctl -u "$APP_NAME" -n 30 --no-pager
+    echo ""
+    print_warning "Intenta arrancar manualmente: systemctl start $APP_NAME"
+    print_warning "Ver logs completos:          journalctl -u $APP_NAME -f"
+fi
 
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo ""
 print_header "INSTALACIÓN COMPLETADA"
-echo -e "  ${GREEN}SafeExit está funcionando correctamente${NC}"
+if systemctl is-active --quiet "$APP_NAME"; then
+    echo -e "  ${GREEN}SafeExit está funcionando correctamente${NC}"
+else
+    echo -e "  ${RED}SafeExit NO está funcionando. Consulta los logs arriba.${NC}"
+fi
 echo ""
 echo -e "  ${CYAN}URL de acceso:${NC}  http://safeexit.local"
 echo -e "  ${CYAN}URL alternativa:${NC}  http://$SERVER_IP"
