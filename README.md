@@ -189,7 +189,7 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Mensajes: avisos del administrador (Avisos) + chat con el equipo educativo del grupo (Equipo)
 - Búsqueda de alumnos dentro del grupo
 
-### Gestión de contraseñas
+### Gestión de contraseñas y seguridad de cuenta
 - Todos los usuarios pueden cambiar su contraseña desde un diálogo en la aplicación
   - **Admin**: icono de llave en el pie del menú lateral
   - **Profesores**: icono de engranaje en la cabecera → "Mi cuenta"
@@ -199,6 +199,15 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
   - Página de restablecimiento en `/reset-password?token=xxx`
   - Requiere configuración SMTP y variable `APP_BASE_URL`
   - Email normalizado (minúsculas + trim)
+
+### Doble factor de autenticación (2FA TOTP)
+- Autenticación en dos pasos opcional para cualquier usuario (admin, guardia, tutor)
+- Compatible con cualquier app autenticadora estándar: **Google Authenticator**, **Authy**, **Microsoft Authenticator**, etc.
+- **Activación**: desde el diálogo de cuenta → "Autenticación en dos pasos" → escanear QR con la app → introducir código de 6 dígitos para confirmar
+- **Flujo de login con 2FA activo**: credenciales → pantalla de código TOTP → acceso
+- **Desactivación**: desde el diálogo de cuenta → introducir código de la app para confirmar
+- El código se rota cada 30 segundos (estándar TOTP/RFC 6238)
+- Incrementa significativamente la seguridad frente al robo de contraseñas
 
 ### Sistema de permisos granulares
 - El administrador puede asignar permisos específicos a cada profesor desde la página de Profesores
@@ -248,6 +257,16 @@ SafeExit es una aplicación web progresiva (PWA) para gestionar y controlar las 
 - Encuesta automática cada 5-15 segundos para nuevos mensajes
 - Panel admin en /chat con lista de grupos a la izquierda y chat a la derecha
 - Pestaña "Mensajes" → "Equipo" en la vista de staff para profesores
+
+### Mensajes directos (DM)
+- Mensajería privada 1 a 1 entre cualquier par de usuarios del staff (admin, profesores, guardias)
+- Accesible desde la pestaña "Mensajes" → sub-pestaña **"Directo"** en la vista de staff
+- En el panel admin: pestaña "Mensajes Directos" dentro de la sección de chat
+- Soporte para archivos adjuntos en mensajes directos
+- Indicadores de lectura (marca de visto) por mensaje
+- Eliminar mensajes propios (el admin puede eliminar cualquiera)
+- **Notificación push** al destinatario al recibir un nuevo mensaje directo
+- Lista de conversaciones recientes con nombre del interlocutor
 
 ### Autorizaciones en el carnet
 - El carnet digital muestra una sección de **Autorizaciones** con:
@@ -447,7 +466,7 @@ Archivo: `/etc/safeexit/env`
 - **Frontend**: React + Tailwind CSS + shadcn/ui
 - **Backend**: Express.js (Node.js)
 - **Base de datos**: PostgreSQL + Drizzle ORM
-- **Autenticación**: Sesiones con express-session
+- **Autenticación**: Sesiones con express-session + TOTP 2FA con otplib
 - **QR**: qrcode (generación) + html5-qrcode (escaneo con soporte PDF417 para DNI)
 - **PDF**: jsPDF (impresión de carnets) + PDFKit (documentos de salida y fichaje)
 - **Excel**: xlsx (importación y exportación .xlsx de alumnos, profesores y horarios)
