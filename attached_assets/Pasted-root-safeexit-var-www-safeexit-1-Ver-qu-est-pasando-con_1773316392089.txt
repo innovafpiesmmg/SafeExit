@@ -1,0 +1,60 @@
+root@safeexit:/var/www/safeexit# # 1. Ver qué está pasando con el servicio
+groot@safeexit:/var/www/safeexit# sudo journalctl -u safeexit -n 50 --no-pager
+
+# 2. Si ves errores, prueba a recompilar manualmente
+sudo -u safeexit bash -c "source /etc/safeexit/env; cd /var/www/safeexit && npm run build"
+
+# 3. Verificar que el dist existe
+ls -la /var/www/safeexit/dist/index.cjs
+
+# 4. Reiniciar el servicio y ver logs en tiempo real
+sudo systemctl restart safeexit && sudo journalctl -u safeexit -fMar 12 11:52:41 safeexit npm[78903]:     at Module._load (node:internal/modules/cjs/loader:1091:12)
+Mar 12 11:52:41 safeexit npm[78903]:     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Mar 12 11:52:41 safeexit npm[78903]:     at node:internal/main/run_main_module:28:49 {
+Mar 12 11:52:41 safeexit npm[78903]:   code: 'ERR_INVALID_ARG_TYPE'
+Mar 12 11:52:41 safeexit npm[78903]: }
+Mar 12 11:52:41 safeexit npm[78903]: Node.js v20.20.1
+Mar 12 11:52:41 safeexit systemd[1]: safeexit.service: Main process exited, code=exited, status=1/FAILURE
+Mar 12 11:52:41 safeexit systemd[1]: safeexit.service: Failed with result 'exit-code'.
+Mar 12 11:52:51 safeexit systemd[1]: safeexit.service: Scheduled restart job, restart counter is at 44.
+Mar 12 11:52:51 safeexit systemd[1]: Started safeexit.service - SafeExit - Control de Salida Escolar.
+Mar 12 11:52:51 safeexit npm[78912]: > rest-express@1.0.0 start
+Mar 12 11:52:51 safeexit npm[78912]: > NODE_ENV=production node dist/index.cjs
+Mar 12 11:52:51 safeexit npm[78924]: node:internal/url:1487
+Mar 12 11:52:51 safeexit npm[78924]:     throw new ERR_INVALID_ARG_TYPE('path', ['string', 'URL'], path);
+Mar 12 11:52:51 safeexit npm[78924]:     ^
+Mar 12 11:52:51 safeexit npm[78924]: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string or an instance of URL. Received undefined
+Mar 12 11:52:51 safeexit npm[78924]:     at fileURLToPath (node:internal/url:1487:11)
+Mar 12 11:52:51 safeexit npm[78924]:     at Object.<anonymous> (/var/www/safeexit/dist/index.cjs:286:3886)
+Mar 12 11:52:51 safeexit npm[78924]:     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+Mar 12 11:52:51 safeexit npm[78924]:     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+Mar 12 11:52:51 safeexit npm[78924]:     at Module.load (node:internal/modules/cjs/loader:1266:32)
+Mar 12 11:52:51 safeexit npm[78924]:     at Module._load (node:internal/modules/cjs/loader:1091:12)
+Mar 12 11:52:51 safeexit npm[78924]:     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Mar 12 11:52:51 safeexit npm[78924]:     at node:internal/main/run_main_module:28:49 {
+Mar 12 11:52:51 safeexit npm[78924]:   code: 'ERR_INVALID_ARG_TYPE'
+Mar 12 11:52:51 safeexit npm[78924]: }
+Mar 12 11:52:51 safeexit npm[78924]: Node.js v20.20.1
+Mar 12 11:52:51 safeexit systemd[1]: safeexit.service: Main process exited, code=exited, status=1/FAILURE
+Mar 12 11:52:51 safeexit systemd[1]: safeexit.service: Failed with result 'exit-code'.
+Mar 12 11:53:02 safeexit systemd[1]: safeexit.service: Scheduled restart job, restart counter is at 45.
+Mar 12 11:53:02 safeexit systemd[1]: Started safeexit.service - SafeExit - Control de Salida Escolar.
+Mar 12 11:53:02 safeexit npm[78933]: > rest-express@1.0.0 start
+Mar 12 11:53:02 safeexit npm[78933]: > NODE_ENV=production node dist/index.cjs
+Mar 12 11:53:02 safeexit npm[78945]: node:internal/url:1487
+Mar 12 11:53:02 safeexit npm[78945]:     throw new ERR_INVALID_ARG_TYPE('path', ['string', 'URL'], path);
+Mar 12 11:53:02 safeexit npm[78945]:     ^
+Mar 12 11:53:02 safeexit npm[78945]: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string or an instance of URL. Received undefined
+Mar 12 11:53:02 safeexit npm[78945]:     at fileURLToPath (node:internal/url:1487:11)
+Mar 12 11:53:02 safeexit npm[78945]:     at Object.<anonymous> (/var/www/safeexit/dist/index.cjs:286:3886)
+Mar 12 11:53:02 safeexit npm[78945]:     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+Mar 12 11:53:02 safeexit npm[78945]:     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+Mar 12 11:53:02 safeexit npm[78945]:     at Module.load (node:internal/modules/cjs/loader:1266:32)
+Mar 12 11:53:02 safeexit npm[78945]:     at Module._load (node:internal/modules/cjs/loader:1091:12)
+Mar 12 11:53:02 safeexit npm[78945]:     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Mar 12 11:53:02 safeexit npm[78945]:     at node:internal/main/run_main_module:28:49 {
+Mar 12 11:53:02 safeexit npm[78945]:   code: 'ERR_INVALID_ARG_TYPE'
+Mar 12 11:53:02 safeexit npm[78945]: }
+Mar 12 11:53:02 safeexit npm[78945]: Node.js v20.20.1
+Mar 12 11:53:02 safeexit systemd[1]: safeexit.service: Main process exited, code=exited, status=1/FAILURE
+Mar 12 11:53:02 safeexit systemd[1]: safeexit.service: Failed with result 'exit-code'.

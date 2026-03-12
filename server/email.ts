@@ -1,12 +1,9 @@
 import nodemailer from "nodemailer";
 import path from "path";
-import { fileURLToPath } from "url";
 import { storage } from "./storage";
 import type { Student, User } from "@shared/schema";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const logoWhitePath = path.resolve(__dirname, "../client/public/logo-white.png");
+const logoWhitePath = path.resolve(process.cwd(), "client/public/logo-white.png");
 
 interface SmtpConfig {
   host: string;
