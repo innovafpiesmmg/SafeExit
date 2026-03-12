@@ -231,7 +231,8 @@ if grep -q "^VAPID_PUBLIC_KEY=$" "$CONFIG_DIR/env" 2>/dev/null || ! grep -q "^VA
 fi
 
 print_status "Compilando frontend y backend..."
-BUILD_LOG=$(sudo -u "$APP_USER" bash -c "export \$(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npm run build 2>&1")
+ENV_VARS=$(grep -v '^#' "$CONFIG_DIR/env" | xargs)
+BUILD_LOG=$(sudo -u "$APP_USER" bash -c "export $ENV_VARS; cd $APP_DIR && npm run build 2>&1")
 BUILD_EXIT=$?
 echo "$BUILD_LOG" | tail -10
 if [ $BUILD_EXIT -ne 0 ]; then
@@ -246,7 +247,7 @@ fi
 print_success "Compilación completada: dist/index.cjs generado"
 
 print_status "Ejecutando migraciones de base de datos..."
-sudo -u "$APP_USER" bash -c "export \$(grep -v '^#' $CONFIG_DIR/env | xargs); cd $APP_DIR && npx drizzle-kit push --force 2>&1" | tail -5
+sudo -u "$APP_USER" bash -c "export $ENV_VARS; cd $APP_DIR && npx drizzle-kit push --force 2>&1" | tail -5
 print_success "Migraciones aplicadas"
 
 print_header "8/9 - Configurando DNS local (safeexit.local)"
