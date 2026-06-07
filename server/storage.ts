@@ -226,7 +226,10 @@ export class DatabaseStorage implements IStorage {
       return this.getStudentByCarnetToken(carnetMatch[1]);
     }
 
-    const [student] = await db.select().from(students).where(eq(students.qrCode, trimmed));
+    // Normalizar: lectores QR con teclado US en sistema ES convierten '-' en "'"
+    const normalized = trimmed.replace(/'/g, "-");
+
+    const [student] = await db.select().from(students).where(eq(students.qrCode, normalized));
     return student;
   }
 
