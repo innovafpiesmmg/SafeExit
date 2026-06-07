@@ -1392,8 +1392,14 @@ export async function registerRoutes(
 
   app.post("/api/students/generate-tokens", requireAuth, requirePermission("students"), async (_req, res) => {
     try {
-      const count = await storage.generateCarnetTokens();
-      res.json({ message: `Tokens generados para ${count} alumno(s)`, count });
+      const result = await storage.generateCarnetTokens();
+      const parts = [];
+      if (result.qrCodes > 0) parts.push(`${result.qrCodes} código(s) QR`);
+      if (result.tokens > 0) parts.push(`${result.tokens} enlace(s) de carnet digital`);
+      const message = parts.length > 0
+        ? `Generados: ${parts.join(" y ")}`
+        : "Todos los alumnos ya tenían QR y token de carnet";
+      res.json({ message, ...result });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,7 +7,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, FileDown, GraduationCap, Smartphone } from "lucide-react";
+import { Printer, FileDown, GraduationCap, Smartphone, RefreshCw } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { differenceInYears } from "date-fns";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
@@ -116,10 +118,21 @@ export default function PrintPage() {
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
   const [qrUrls, setQrUrls] = useState<Record<number, string>>({});
   const [barcodeUrls, setBarcodeUrls] = useState<Record<number, string>>({});
+  const { toast } = useToast();
 
   const { data: students, isLoading } = useQuery<Student[]>({ queryKey: ["/api/students"] });
   const { data: groups } = useQuery<Group[]>({ queryKey: ["/api/groups"] });
   const { data: settings } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+
+  const generateTokensMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/students/generate-tokens"),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      toast({ title: "Códigos QR generados", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudieron generar los códigos QR", variant: "destructive" }),
+  });
 
   const schoolName = settings?.schoolName || "";
   const academicYear = settings?.academicYear || "";
@@ -433,7 +446,7 @@ export default function PrintPage() {
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-print-title">Impresión de Carnets</h1>
           <p className="text-muted-foreground text-sm mt-1">Genera carnets con QR en formato A4 (2x5)</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={selectedGroup} onValueChange={v => { setSelectedGroup(v); setSelectedStudents(new Set()); }}>
             <SelectTrigger className="w-48" data-testid="select-print-group">
               <SelectValue placeholder="Todos" />
@@ -443,6 +456,16 @@ export default function PrintPage() {
               {groups?.map(g => <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            onClick={() => generateTokensMutation.mutate()}
+            disabled={generateTokensMutation.isPending}
+            data-testid="button-generate-qr-codes"
+            title="Genera códigos QR y tokens de carnet digital para alumnos que no los tengan"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${generateTokensMutation.isPending ? "animate-spin" : ""}`} />
+            Generar QR faltantes
+          </Button>
           <Button onClick={handlePrint} disabled={selectedStudents.size === 0} data-testid="button-generate-pdf">
             <FileDown className="w-4 h-4 mr-2" />
             Carnets PDF ({selectedStudents.size})

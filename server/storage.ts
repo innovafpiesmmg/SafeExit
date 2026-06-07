@@ -247,17 +247,25 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(students).where(eq(students.groupId, groupId));
   }
 
-  async generateCarnetTokens(): Promise<number> {
+  async generateCarnetTokens(): Promise<{ tokens: number; qrCodes: number }> {
     const all = await db.select().from(students);
-    let count = 0;
+    let tokens = 0;
+    let qrCodes = 0;
     for (const s of all) {
+      const updates: Partial<typeof s> = {};
       if (!s.carnetToken) {
-        const token = randomUUID().replace(/-/g, "").slice(0, 16);
-        await db.update(students).set({ carnetToken: token }).where(eq(students.id, s.id));
-        count++;
+        updates.carnetToken = randomUUID().replace(/-/g, "").slice(0, 16);
+        tokens++;
+      }
+      if (!s.qrCode) {
+        updates.qrCode = `SAFEEXIT-${randomUUID()}`;
+        qrCodes++;
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.update(students).set(updates).where(eq(students.id, s.id));
       }
     }
-    return count;
+    return { tokens, qrCodes };
   }
 
   async getGroupSchedules(groupId: number): Promise<GroupSchedule[]> {
