@@ -209,7 +209,8 @@ export default function ScannerPage() {
 
   const handleAccompQrLookup = () => {
     if (!accompQrInput.trim() || !allStudents) return;
-    const found = allStudents.find(s => s.qrCode === accompQrInput.trim());
+    const normalizedInput = accompQrInput.trim().replace(/'/g, "-");
+    const found = allStudents.find(s => s.qrCode === normalizedInput);
     if (found) {
       setAccompSelectedStudent(found);
       setAccompQrInput("");
