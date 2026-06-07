@@ -218,6 +218,14 @@ export class DatabaseStorage implements IStorage {
 
   async getStudentByQr(qrCode: string): Promise<Student | undefined> {
     const trimmed = (qrCode || "").trim();
+    if (!trimmed) return undefined;
+
+    // Si es una URL del carnet digital (/carnet/:token), buscar por token
+    const carnetMatch = trimmed.match(/\/carnet\/([a-zA-Z0-9]+)/);
+    if (carnetMatch) {
+      return this.getStudentByCarnetToken(carnetMatch[1]);
+    }
+
     const [student] = await db.select().from(students).where(eq(students.qrCode, trimmed));
     return student;
   }
