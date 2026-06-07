@@ -38,7 +38,11 @@ if [ -f "$CONFIG_DIR/env" ]; then
     IS_UPDATE=true
     print_warning "Instalación existente detectada. Se realizará una ACTUALIZACIÓN."
     print_status "Las credenciales y la base de datos se conservarán."
-    source "$CONFIG_DIR/env"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        export "$line" 2>/dev/null || true
+    done < "$CONFIG_DIR/env"
     echo ""
 fi
 
